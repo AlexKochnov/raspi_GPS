@@ -1,0 +1,119 @@
+from UBXUnpacker import *
+from pyubx2 import UBXMessage, SET
+
+functions = {
+    (b'\x01', b'\x35'): NAV_SAT,
+    (b'\x01', b'\x34'): NAV_ORB,
+    (b'\x01', b'\x20'): NAV_TIMEGPS,
+    (b'\x01', b'\x01'): NAV_POSECEF,
+    (b'\x01', b'\x11'): NAV_VELECEF,
+
+    (b'\x02', b'\x20'): RXM_SVSI,
+
+    (b'\x0b', b'\x31'): AID_EPH,
+    (b'\x0b', b'\x30'): AID_ALM,
+    (b'\x02', b'\x13'): RXM_SFRBX
+}
+
+
+def calc_checksum(cmd: bytes) -> bytes:
+    ck_a = 0
+    ck_b = 0
+    for c in cmd:
+        ck_a = ck_a + c
+        ck_b = ck_b + ck_a
+    return struct.pack('B', ck_a & 0xff) + struct.pack('B', ck_b & 0xff)
+
+
+class POOLMessages:
+    EPH = b'\x0B\x31' + b'\x00\x00'  # AID-EPH
+    ALM = b'\x0B\x30' + b'\x00\x00'  # AID-ALM
+    RST = b'\x06\x04\x04\x00\xFF\xFF\x00\x00'  # CFG-RST
+    GLO = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00' # Glonas
+    ON_ALL = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + \
+             b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00' + \
+             b'\x01\x20\x20\x00' + b'\x00\x01\x00\x00' + \
+             b'\x00\x20\x20\x00' + b'\x00\x10\x00\x01'  # GPS
+
+MSG2pool = [
+    # b'\x06\x04\x04\x00\xFF\xFF\x00\x00' # CFG-RST
+    # b'\x0B\x30' + b'\x00\x00',  # aid-alm
+    b'\x0B\x31' + b'\x00\x00',  # aid-eph
+    # b'\x0B\x33' + b'\x00\x00',  # aid-aop
+
+    # b'\x02\x14' + b'\x00\x00' # rxm-measx
+    # b'\x02\x15' + b'\x00\x00'  # rxm-rawx pooling
+    # b'\x02\x13' + b'\x00\x00' # rxm-sfrbx
+
+    # b'\x06\x04\x04\x00\x00\x00\x00\x00' # CFG-RST - reset with Cold start and Hardware reset immediately
+    # b'\xb5b\x06\x04\x04\x00\x00\x00\x00\x00\x0ed'
+
+    # b'\x09\x14\x08\x00\x01\x00\x00\x00' ##sos for reset - not work
+
+    # b'\x0A\x32' + b'\x00\x00', # MON-BATCH
+    # b'\x0A\x28' + b'\x00\x00', # MON-GNSS
+    # b'\x0A\x2E' + b'\x00\x00' # MON-SMGR
+
+    # b'\x0D\x04' + b'\x00\x00' # TIM-SVIN
+
+    # b'\x10\x14' + b'\x00\x00' # ESF-ALG
+    # b'\x10\x10' + b'\x00\x00' # ESF-STATUS
+
+    # b'\x13\x06' + b'\x00\x00' #+ b'\x02\x00' # MGA-GLO-ALM
+
+    # b'\x06\x3E' +b'\x0C\x00' + b'\x00\x20\x20\x01' + b'\x06\x20\x20\x00' + b'\x00\x01\x00\x01' # GLONAS-1
+    # b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' +
+    #     b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00' +  # Glonas
+    #     b'\x01\x20\x20\x00' + b'\x00\x01\x00\x00' + # SBAS
+    #     b'\x00\x20\x20\x00' + b'\x00\x10\x00\x01'  # GPS
+    #
+]
+
+
+# TODO: Изменить на собственную реализацию
+def set_rate(msgClass: hex, msgID: hex, rateUART1: int) -> bytes:
+    cmd = b'\x06\x01' + b'\x03\x00' + msgClass.to_bytes() + msgID.to_bytes() + rateUART1.to_bytes()
+    return b'\xb5b' + cmd + calc_checksum(cmd)
+    # return UBXMessage('CFG', 'CFG-MSG', SET, msgClass=msgClass, msgID=msgID, rateUART1=rateUART1).serialize()
+
+
+MSG2set = [
+    set_rate(msgClass=0x02, msgID=0x13, rateUART1=1),  # RXM-SFRBX
+]
+a= [
+    set_rate(msgClass=0xF0, msgID=0x00, rateUART1=0),  # GGA
+    set_rate(msgClass=0xF0, msgID=0x01, rateUART1=0),  # GLL
+    set_rate(msgClass=0xF0, msgID=0x02, rateUART1=0),  # GSA
+    set_rate(msgClass=0xF0, msgID=0x03, rateUART1=0),  # GSV
+    set_rate(msgClass=0xF0, msgID=0x04, rateUART1=0),  # RMC
+    set_rate(msgClass=0xF0, msgID=0x05, rateUART1=0),  # VTG
+
+    # set_rate(msgClass=0xF0, msgID=0x00, rateUART1=1),  # GGA
+    # set_rate(msgClass=0xF0, msgID=0x02, rateUART1=1),  # GSA
+    set_rate(msgClass=0xF0, msgID=0x03, rateUART1=1),  # GSV
+    # set_rate(msgClass=0xF0, msgID=0x04, rateUART1=1),  # RMC
+    # set_rate(msgClass=0xF0, msgID=0x05, rateUART1=1),  # VTG
+
+    # set_rate(msgClass=0x01, msgID=0x01, rateUART1=1),  # NAV-POSECEF
+    # set_rate(msgClass=0x01, msgID=0x11, rateUART1=1),  # NAV-VELECEF
+    set_rate(msgClass=0x01, msgID=0x20, rateUART1=1),  # NAV-TIMEGPS
+    set_rate(msgClass=0x01, msgID=0x34, rateUART1=1),  # NAV-ORB
+    set_rate(msgClass=0x01, msgID=0x35, rateUART1=1),  # NAV-SAT
+
+    set_rate(msgClass=0x01, msgID=0x01, rateUART1=0),  # NAV-POSECEF
+    set_rate(msgClass=0x01, msgID=0x11, rateUART1=0),  # NAV-VELECEF
+    # set_rate(msgClass=0x01, msgID=0x20, rateUART1=0),  # NAV-TIMEGPS
+    # set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
+    # set_rate(msgClass=0x01, msgID=0x35, rateUART1=0),  # NAV-SAT
+
+    # # #
+    # # # # set_rate(msgClass=0x02, msgID=0x15, rateUART1=1),  # RXM-RAWX
+    set_rate(msgClass=0x02, msgID=0x13, rateUART1=1),  # RXM-SFRBX
+
+    # set_rate(msgClass=0x10, msgID=0x14, rateUART1=1),  # ESF-ALG
+    # set_rate(msgClass=0x10, msgID=0x10, rateUART1=1),  # ESF-STATUS
+
+    # set_rate(msgClass=0x02, msgID=0x13, rateUART1=1),
+    # set_rate(msgClass=0x13, msgID=0x06, rateUART1=1), # MGA-GLO-ALM
+
+]
