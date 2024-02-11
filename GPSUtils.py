@@ -1,4 +1,17 @@
+from enum import Enum
 from math import *
+
+
+class GNSS(Enum):
+    GPS = 0
+    SBAS = 1
+    Galileo = 2
+    BeiDou = 3
+    IMEA = 4
+    QZSS = 5
+    GLONASS = 6
+
+
 def ecef2lla(x, y, z):
     # x, y and z are scalars or vectors in meters
 

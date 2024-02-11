@@ -3,6 +3,7 @@ from math import sin, cos, tan
 from datetime import datetime, timedelta
 from serial import Serial
 
+import UBXUnpacker
 from GPSStorage import GPSStorage
 from UBXUtils import *
 
@@ -14,20 +15,13 @@ from pyubx2 import UBXReader
 
 
 class GPSReader:
-    print_all_nmea = True
-    print_all_ubx = True
-    print_raw_nmea = False
-    print_raw_ubx = False
     print_noises = False
+    print_parsed = True
+    print_raw = False
 
-    nmea_raw_file = 'nmea_raw.txt'
-    nmea_parsed_file = 'nmea_parsed.txt'
-    ubx_raw_file = 'ubx_raw.txt'
-    ubx_parsed_file = 'ubx_parsed.txt'
+    raw_logger = 'raw.log'
+    parsed_logger = 'parsed.log'
 
-
-    raw_messages = []
-    parsed_messages = []
 
     PoolQ = [
         # POOLMessages.RST,
@@ -39,20 +33,22 @@ class GPSReader:
         # POOLMessages.RST,
         # b'\x06\x04\x04\x00\xFF\xFF\x00\x00' # CFG-RST
     ]
+
     Pool_step = 60
+    counter = 0
 
     def __init__(self, port="/dev/ttyS0", baudrate=9600, timeout=1):  # timeout влияет на буфер, 0.1 мало
         self.stream = Serial(port, baudrate, timeout=timeout)
         self.tune()
-        self.counter = 0
+
+    def next(self):
+        self.counter += 1
+        if self.counter % self.Pool_step == 0:
+            self.pool_next()
+        else:
+            return self.read_next_message()
 
     def read_next_message(self):
-        self.counter += 1
-        if self.counter % self.Pool_step == 1 and self.PoolQ:
-            self.pool_next()
-        if self.counter % 5000 == 0:
-            self.PoolQ += [POOLMessages.ALM, POOLMessages.EPH]
-
         hdr1 = self.stream.read(1)
         if hdr1 == b'\xb5':
             return self.parse_ubx()
@@ -71,9 +67,10 @@ class GPSReader:
         self.stream.write(message)
 
     def pool_next(self):
-        cmd = self.PoolQ.pop()
-        print(f'\tPool: {cmd}')
-        self.send(b'\xb5b' + cmd + calc_checksum(cmd))
+        if self.PoolQ:
+            cmd = self.PoolQ.pop()
+            print(f'\tPool: {cmd}')
+            self.send(b'\xb5b' + cmd + calc_checksum(cmd))
 
     def read_UBX(self) -> [None] * 6 or [bytes] * 6:
         hdr = b'\xb5' + self.stream.read(1)
@@ -91,51 +88,38 @@ class GPSReader:
         cks = self.stream.read(2)
         return hdr, clsid, msgid, lenb, plb, cks
 
-    def parse_ubx(self, print_all=False, print_raw=False):
+    def parse_ubx(self):
         hdr, clsid, msgid, lenb, plb, cks = self.read_UBX()
-        current_time = datetime.now()
         raw_message = hdr + clsid + msgid + lenb + plb + cks
-        if plb is None:
+        self.__save_raw__(raw_message)
+        if plb is None or not check_cks(raw_message):
             return
-        self.__save_raw__(raw_message, 'u')
-
-        if self.print_raw_ubx:
-            print(f'{current_time}: {raw_message}')
-        if (clsid, msgid) in functions.keys():
-            parsed_message = functions[(clsid, msgid)](plb, current_time)
-            self.__save_parsed__(parsed_message, 'u')
-            return parsed_message
+        msg_class = UBXUnpacker.Message.byte_find(clsid, msgid)
+        if msg_class != UBXUnpacker.Message:
+            parsed = msg_class(plb, datetime.now())
         else:
             parsed = UBXReader.parse(raw_message)
-            if self.print_all_ubx:
-                print(parsed) #f'{current_time}: {parsed}')
+            # parsed = msg_class(datetime.now())
+        self.__save_raw__(parsed)
+        return parsed
 
-    def parse_nmea(self, print_all=False, print_raw=False):
+    def parse_nmea(self):
         raw_message = b'$' + self.stream.readline()
+        self.__save_raw__(raw_message)
         parsed = NMEAReader.parse(raw_message)
-        self.__save_parsed__(parsed, 'n')
-        self.__save_raw__(raw_message, 'n')
-        if self.print_all_nmea:
-            print(f'{datetime.now()}: {raw_message}')
-        if self.print_raw_nmea:
-            print(f'{datetime.now()}: {parsed}')
+        self.__save_parsed__(parsed)
+        return parsed
 
-    def __save_raw__(self, raw_message, type):
-        self.raw_messages.append(raw_message)
-        if type == 'u':
-            file = self.ubx_raw_file
-        else:
-            file = self.nmea_raw_file
-        with open(file, 'a') as file:
+    def __save_raw__(self, raw_message):
+        if self.print_raw:
+            print(f'{datetime.now()}: {raw_message}')
+        with open(self.raw_logger, 'a') as file:
             file.write(str(raw_message) + '\n')
 
-    def __save_parsed__(self, parsed_message, type):
-        self.parsed_messages.append(parsed_message)
-        if type == 'u':
-            file = self.ubx_parsed_file
-        else:
-            file = self.nmea_parsed_file
-        with open(file, 'a') as file:
+    def __save_parsed__(self, parsed_message):
+        if self.print_parsed:
+            print(f'{datetime.now()}: {parsed_message}')
+        with open(self.parsed_logger, 'a') as file:
             file.write(str(parsed_message) + '\n')
 
 
@@ -146,7 +130,6 @@ class GPSDataPrinter:
             print(type)
         else:
             print(type, data)
-
 
 
 if __name__ == "__main__":
@@ -161,37 +144,7 @@ if __name__ == "__main__":
     while True:
         counter += 1
 
-        t = 503278
-        # print(Storage)
-        # if counter == -1:
-        #     eph_pd = pd.DataFrame([line for line in Storage.EPH[1:] if line], columns=Storage.EPH[0])
-        #     alm_pd = pd.DataFrame([line for line in Storage.ALM[1:] if line], columns=Storage.ALM[0])
-        #     print(eph_pd)
-        #     print(alm_pd)
-        #     with open('eph1.csv', 'w') as feph:
-        #         feph.write(eph_pd.to_csv())
-        #     with open('alm1.csv', 'w') as feph:
-        #         feph.write(alm_pd.to_csv())
-        #     # eph_pd.to_csv('eph.csv')
-        #     # alm_pd.to_csv('alm.csv')
-        #     print(Storage)
-            # print('\n EPH coord\n')
-            # for eph in Storage.EPH[1:]:
-            #     if eph:
-            #         sat = calc_sat_eph(eph, t)
-            #         print(f'{eph[0]}, {np.array(sat[:4]) * 180/pi % 360 }', {sat[4:]}, )
-            #
-            # print('\n ALM coord\n')
-            # for alm in Storage.ALM[1:]:
-            #     if alm:
-            #         sat = calc_sat_alm(alm, t)
-            #         print(f'{alm[0]}, {np.array(sat[:4]) * 180 / pi % 360}', {sat[4:]}, )
-
-            # a=0
-
-
-
-        parsed = Reader.read_next_message()
+        parsed = Reader.next()
         if not parsed:
             continue
         print(parsed)

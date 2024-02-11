@@ -1,20 +1,11 @@
 import struct
 from datetime import datetime
-from enum import Enum
 from abc import ABCMeta
+
+from Satellites import *
 
 # для отладки
 from tabulate import tabulate
-
-
-class GNSS(Enum):
-    GPS = 0
-    SBAS = 1
-    Galileo = 2
-    BeiDou = 3
-    IMEA = 4
-    QZSS = 5
-    GLONASS = 6
 
 
 class Message(metaclass=ABCMeta):
@@ -37,14 +28,8 @@ class Message(metaclass=ABCMeta):
         return Message
 
     @staticmethod
-    def byte_find(header: (bytes, bytes)) -> type:
-        return Message.find((int.from_bytes(header[0]), int.from_bytes(header[1])))
-
-
-class Satellite:
-    def __init__(self, gnssId, svId):
-        self.gnssId = GNSS(gnssId)
-        self.svId = svId
+    def byte_find(clsid: bytes, msgid: bytes) -> type:
+        return Message.find((int.from_bytes(clsid), int.from_bytes(msgid)))
 
 
 def flag_to_int(flags: bytes) -> int:
@@ -81,20 +66,7 @@ def twosComp2dec(binaryStr: str) -> int:
 class NAV_SAT(Message):
     format = '<LBBBB'
     header = (0x01, 0x35)
-    SAT = dict()
-
-    class SV_SAT:
-        def __init__(self, cno, elev, azim, prRes, flags):
-            self.cno = cno
-            self.elev = elev
-            self.azim = azim
-            self.prRes = prRes
-            flags = flag_to_int(flags)
-            self.qualityInd = get_bytes_from_flag(flags, 0, 1, 2)
-            self.svUsed = get_bytes_from_flag(flags, 3)
-            self.health = get_bytes_from_flag(flags, 4, 5)
-            self.ephAvail = get_bytes_from_flag(flags, 11)
-            self.almAvail = get_bytes_from_flag(flags, 12)
+    sat = dict()
 
     def __init__(self, msg: bytes, receiving_time: datetime = None):
         super().__init__(receiving_time)
@@ -102,28 +74,13 @@ class NAV_SAT(Message):
         msg = msg[struct.calcsize(self.format):]
         for i in range(numsSvs):
             gnssId, svId, cno, elev, azim, prRes, flags = struct.unpack('<BBBbhh4s', msg[12 * i: 12 * (i + 1)])
-            self.SAT[(gnssId, svId)] = self.SV_SAT(cno, elev, azim, prRes, flags)
+            self.sat[(gnssId, svId)] = self.SAT(cno, elev, azim, prRes, flags)
 
 
 class NAV_ORB(Message):
     format = '<LBBBB'
     header = (0x01, 0x34)
-    ORB = dict()
-
-    class SV_ORB:
-        def __init__(self, svFlag, eph, alm, otherOrb):
-            svFlag = flag_to_int(svFlag)
-            eph = flag_to_int(eph)
-            alm = flag_to_int(alm)
-            otherOrb = flag_to_int(otherOrb)
-            self.health = svFlag % 4
-            self.visibility = (svFlag // 4) % 4,
-            self.ephUsability = eph % 32
-            self.ephSource = eph // 32,
-            self.almUsability = alm % 32
-            self.almSource = alm // 32,
-            self.anoAopUsability = otherOrb % 32
-            self.type = otherOrb // 32
+    orb = dict()
 
     def __init__(self, msg: bytes, receiving_time: datetime = None):
         super().__init__(receiving_time)
@@ -131,7 +88,7 @@ class NAV_ORB(Message):
         msg = msg[struct.calcsize(self.format):]
         for i in range(numsSvs):
             gnssId, svId, svFlag, eph, alm, otherOrb = struct.unpack('<BBssss', msg[6 * i: 6 * (i + 1)])
-            self.ORB[(gnssId, svId)] = self.SV_ORB(svFlag, eph, alm, otherOrb)
+            self.orb[(gnssId, svId)] = self.ORB(svFlag, eph, alm, otherOrb)
 
 
 class NAV_TIMEGPS(Message):
@@ -174,21 +131,6 @@ class RXM_SVSI(Message):
     header = (0x02, 0x20)
     svsi = dict()
 
-    class SVSI:
-        def __init__(self, sv_flag, azim, elev, age_flag):
-            self.azim = azim
-            self.elev = elev
-            sv_flag = flag_to_int(sv_flag)
-            age_flag = flag_to_int(age_flag)
-            self.ura = get_bytes_from_flag(sv_flag, 0, 1, 2, 3)
-            self.healthy = get_bytes_from_flag(sv_flag, 4)
-            self.ephVal = get_bytes_from_flag(sv_flag, 5)
-            self.almVal = get_bytes_from_flag(sv_flag, 6)
-            self.notAvail = get_bytes_from_flag(sv_flag, 7)
-            self.almAge = (age_flag & 0x0f) - 4
-            self.ephAge = ((age_flag & 0xf0) >> 4) - 4
-            pass
-
     def __init__(self, msg: bytes, receiving_time: datetime = None):
         super().__init__(receiving_time)
         self.iTOW, self.week, self.numVis, numSV = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
@@ -207,12 +149,12 @@ class AID_EPH(Message):
         self.svId, self.HOW = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
         if self.HOW == 0:
-            self.EPH = None
+            self.eph = None
             return
         [week, accuracy, health, IODC, Tgd, Toc, af2, af1, af0] = GPSParser.parse(sf2bin(msg[:32]), 1)
         [IODE1, Crs, dn, M0, Cuc, e, Cus, sqrtA, Toe] = GPSParser.parse(sf2bin(msg[32:64]), 2)
         [Cic, W0, Cis, i0, Crc, w, Wdot, IODE2, IDOT] = GPSParser.parse(sf2bin(msg[64:]), 3)
-        self.EPH = [self.svId, week, Toe, Toc, IODE1, IODE2, IODC, IDOT, Wdot, Crs, Crc, Cus, Cuc, Cis, Cic, dn, i0, e,
+        self.eph = [self.svId, week, Toe, Toc, IODE1, IODE2, IODC, IDOT, Wdot, Crs, Crc, Cus, Cuc, Cis, Cic, dn, i0, e,
                     sqrtA, M0, W0, w, Tgd, af2, af1, af0, health, accuracy, self.receiving_time]
 
 
@@ -224,11 +166,11 @@ class AID_ALM(Message):
         super().__init__(receiving_time)
         self.svId, self.week = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         if self.week == 0:
-            self.ALM = None
+            self.alm = None
             return
-        [SV_ID, Data_ID, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health] =\
+        [SV_ID, Data_ID, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health] = \
             GPSParser.parse(sf2bin(msg), 5)
-        self.ALM = [SV_ID, self.week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID,
+        self.alm = [SV_ID, self.week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID,
                     self.receiving_time]
 
 
@@ -247,7 +189,8 @@ class RXM_SFRBX(Message):
 
     def __init__(self, msg: bytes, receiving_time: datetime = None):
         super().__init__(receiving_time)
-        self.gnssID, self.svId, _, self.freqId, numWords, self.chn, version, _ = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
+        self.gnssID, self.svId, _, self.freqId, numWords, self.chn, version, _ = \
+            struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         if version == 0x02:
             self.chn = None
         msg = msg[struct.calcsize(self.format):]
@@ -301,7 +244,6 @@ class GPSParser:
             3: GPSParser.ParseSf3,
             5: GPSParser.ParseSf5,
         }[subframe_number](subframe)
-
 
     @staticmethod
     def ParseSf1(subframe):
@@ -358,4 +300,3 @@ class GPSParser:
         af1 = twosComp2dec(subframe[278:289]) * 2 ** (-38)
         af0 = twosComp2dec(subframe[270:278] + subframe[289:292]) * 2 ** (-20)
         return [SV_ID, Data_ID, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health]
-

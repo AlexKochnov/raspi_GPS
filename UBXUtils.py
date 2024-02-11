@@ -25,15 +25,20 @@ def calc_checksum(cmd: bytes) -> bytes:
     return struct.pack('B', ck_a & 0xff) + struct.pack('B', ck_b & 0xff)
 
 
+def check_cks(cmd: bytes) -> bool:
+    return calc_checksum(cmd[:-2]) == cmd[-2:]
+
+
 class POOLMessages:
     EPH = b'\x0B\x31' + b'\x00\x00'  # AID-EPH
     ALM = b'\x0B\x30' + b'\x00\x00'  # AID-ALM
     RST = b'\x06\x04\x04\x00\xFF\xFF\x00\x00'  # CFG-RST
-    GLO = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00' # Glonas
+    GLO = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00'  # Glonas
     ON_ALL = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + \
              b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00' + \
              b'\x01\x20\x20\x00' + b'\x00\x01\x00\x00' + \
              b'\x00\x20\x20\x00' + b'\x00\x10\x00\x01'  # GPS
+
 
 MSG2pool = [
     # b'\x06\x04\x04\x00\xFF\xFF\x00\x00' # CFG-RST
@@ -80,7 +85,7 @@ def set_rate(msgClass: hex, msgID: hex, rateUART1: int) -> bytes:
 MSG2set = [
     set_rate(msgClass=0x02, msgID=0x13, rateUART1=1),  # RXM-SFRBX
 ]
-a= [
+a = [
     set_rate(msgClass=0xF0, msgID=0x00, rateUART1=0),  # GGA
     set_rate(msgClass=0xF0, msgID=0x01, rateUART1=0),  # GLL
     set_rate(msgClass=0xF0, msgID=0x02, rateUART1=0),  # GSA

@@ -4,78 +4,81 @@ from math import pi, sqrt, sin, atan, atan2, cos, tan
 import numpy as np
 # from tabulate import tabulate
 
-from UBXUnpacker import MessageTypes
+import UBXUnpacker
 
 from GPSUtils import *
+from Satellites import *
+from UBXUnpacker import *
 
 
 class GPSStorage:
-    EPH: list = [None]*33
-    EPH_headers = ['SV_ID', 'week', 'Toe', 'Toc', 'IODE1', 'IODE2', 'IODC', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc',
-                   'Cis', 'Cic', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0', 'w', 'Tgd', 'af2', 'af1', 'af0',
-                   'health', 'accuracy', 'receiving_time']
-    ALM: list = [None]*33
-    ALM_headers = ['SV_ID', 'week', 'Toa', 'e', 'delta_i', 'Wdot', 'sqrtA', 'W0', 'w', 'M0', 'af0', 'af1',
-                   'health', 'Data_ID', 'receiving_time']
-    NAV: list = []
-    NAV_headers = []
+    # EPH_headers = ['SV_ID', 'week', 'Toe', 'Toc', 'IODE1', 'IODE2', 'IODC', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc',
+    #                'Cis', 'Cic', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0', 'w', 'Tgd', 'af2', 'af1', 'af0',
+    #                'health', 'accuracy', 'receiving_time']
+    # ALM_headers = ['SV_ID', 'week', 'Toa', 'e', 'delta_i', 'Wdot', 'sqrtA', 'W0', 'w', 'M0', 'af0', 'af1',
+    #                'health', 'Data_ID', 'receiving_time']
+
+    satellites: dict[(GNSS, int): Satellite]
 
     start_age = datetime(1980, 1, 6)
     start_week: datetime
     week = 0
     TOW = 0
+    iTOW = 0
+    fTOW = 0
     time: datetime
 
+    ecefX, ecefY, ecefZ, pAcc = 0, 0, 0, 0
+    ecefVX, ecefVY, ecefVZ, sAcc = 0, 0, 0, 0
+    leapS = 0
+    Valid = {'TOW': 0, 'week': 0, 'leapS': 0}
+
     def __init__(self):
-        self.EPH[0] = self.EPH_headers
-        self.ALM[0] = self.ALM_headers
-        # TODO: добавить общую навигацию NAV
         pass
 
-    def update(self, type, data):
+    def update(self, data):
         if data is None:
             return
-        match type:
-            case MessageTypes.EPH:
-                self.update_EPH(data)
-            case MessageTypes.ALM:
-                self.update_ALM(data)
-            case MessageTypes.NAV:
-                if data.type == 'NAV_TIMEGPS':
-                    self.update_NAV_TIMEGPS(data)
-
-        pass
-
-    def update_NAV_TIMEGPS(self, data):
-        self.TOW = data.TOW
-        self.week = data.week
-        self.start_week = self.start_age + timedelta(self.week * 7)
-        self.time = self.start_week + timedelta(seconds=self.TOW / 1000)
-
-    def update_EPH(self, data):
-        SV_ID = data[0]
-        if self.EPH[SV_ID] != data:
-            with open('eph_long.txt', 'a') as eph:
-                eph.write(str(data) + '\n')
-            self.EPH[SV_ID] = data
-        # sat = calc_sat_eph(data, t)
-        # print(f'{data[0]}, {np.array(sat[:4]) * 180 / pi % 360}', {sat[4:]}, )
-
-    def update_ALM(self, data):
-        SV_ID = data[0]
-        if self.ALM[SV_ID] != data:
-            with open('alm_long.txt', 'a') as eph:
-                eph.write(str(data) + '\n')
-            self.ALM[SV_ID] = data
-        # sat = calc_sat_alm(data, t)
-        # print(f'{data[0]}, {np.array(sat[:4]) * 180 / pi % 360}', {sat[4:]}, )
+        if isinstance(data, Message):
+            if hasattr(data, 'iTOW'):
+                self.iTOW = data.iTOW
+            if isinstance(data, AID_ALM):
+                self.satellites[(GNSS.GPS, data.svId)].alm = data.alm
+            if isinstance(data, AID_EPH):
+                self.satellites[(GNSS.GPS, data.svId)].eph = data.eph
+            if isinstance(data, NAV_POSECEF):
+                self.ecefX = data.ecefX
+                self.ecefY = data.ecefY
+                self.ecefZ = data.ecefZ
+                self.pAcc = data.pAcc
+            if isinstance(data, NAV_VELECEF):
+                self.ecefVX = data.ecefVX
+                self.ecefVY = data.ecefVY
+                self.ecefVZ = data.ecefVZ
+                self.sAcc = data.sAcc
+            if isinstance(data, NAV_TIMEGPS):
+                self.week = data.week
+                self.fTOW = data.fTOW
+                self.TOW = data.TOW
+                self.leapS = data.leapS
+                self.Valid = data.Valid
+                self.start_week = self.start_age + timedelta(self.week * 7)
+                self.time = self.start_week + timedelta(seconds=self.TOW / 1000)
+            if isinstance(data, NAV_SAT):
+                for (gnssId, svId), sat in data.sat.items():
+                    self.satellites[(gnssId, svId)] = sat
+            if isinstance(data, NAV_ORB):
+                for (gnssId, svId), orb in data.orb.items():
+                    self.satellites[(gnssId, svId)] = orb
+            if isinstance(data, RXM_SVSI):
+                for (gnssId, svId), svsi in data.svsi.items():
+                    self.satellites[(gnssId, svId)] = svsi
+            if isinstance(data, RXM_SFRBX):
+                pass
 
     def __str__(self):
-        EPH = [sat for sat in self.EPH[1:] if sat]
-        ALM = [sat for sat in self.ALM[1:] if sat]
-        return str(EPH) + '\n\n' + str(ALM)
-        # return f'\n\tEphemeris data for {len(EPH)} satellites\n' + tabulate(EPH, headers=self.EPH[0]) + '\n\n' + \
-        #     f'\tAlmanac data for {len(ALM)} satellites\n' + tabulate(ALM, headers=self.ALM[0])
+        return str(self.__dict__)
+
 
 def calc_sat_alm(ALM: list, t):
     # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
