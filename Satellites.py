@@ -1,6 +1,6 @@
 from GPSUtils import *
 from GPSUtils import GNSS
-from UBXUnpacker import flag_to_int, get_bytes_from_flag
+from UBXUtils import flag_to_int, get_bytes_from_flag
 
 
 class SAT:

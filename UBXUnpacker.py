@@ -7,6 +7,8 @@ from Satellites import *
 # для отладки
 from tabulate import tabulate
 
+from UBXUtils import flag_to_int, get_bytes_from_flag
+
 
 class Message(metaclass=ABCMeta):
     receiving_time: datetime = None
@@ -30,16 +32,6 @@ class Message(metaclass=ABCMeta):
     @staticmethod
     def byte_find(clsid: bytes, msgid: bytes) -> type:
         return Message.find((int.from_bytes(clsid), int.from_bytes(msgid)))
-
-
-def flag_to_int(flags: bytes) -> int:
-    # return sum([(flags[i] & 0xff) << 8 * (len(flags) - 1 - i) for i in range(len(flags))])
-    return sum(flags[i] << 8 * i for i in range(len(flags)))
-    pass
-
-
-def get_bytes_from_flag(flags: int, *pattern) -> int:
-    return (flags >> min(pattern)) & sum(1 << (x - min(pattern)) for x in pattern)
 
 
 def sf2bin(msg: bytes) -> str:

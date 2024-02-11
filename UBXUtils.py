@@ -1,20 +1,6 @@
 from UBXUnpacker import *
 from pyubx2 import UBXMessage, SET
 
-functions = {
-    (b'\x01', b'\x35'): NAV_SAT,
-    (b'\x01', b'\x34'): NAV_ORB,
-    (b'\x01', b'\x20'): NAV_TIMEGPS,
-    (b'\x01', b'\x01'): NAV_POSECEF,
-    (b'\x01', b'\x11'): NAV_VELECEF,
-
-    (b'\x02', b'\x20'): RXM_SVSI,
-
-    (b'\x0b', b'\x31'): AID_EPH,
-    (b'\x0b', b'\x30'): AID_ALM,
-    (b'\x02', b'\x13'): RXM_SFRBX
-}
-
 
 def calc_checksum(cmd: bytes) -> bytes:
     ck_a = 0
@@ -122,3 +108,13 @@ a = [
     # set_rate(msgClass=0x13, msgID=0x06, rateUART1=1), # MGA-GLO-ALM
 
 ]
+
+
+def flag_to_int(flags: bytes) -> int:
+    # return sum([(flags[i] & 0xff) << 8 * (len(flags) - 1 - i) for i in range(len(flags))])
+    return sum(flags[i] << 8 * i for i in range(len(flags)))
+    pass
+
+
+def get_bytes_from_flag(flags: int, *pattern) -> int:
+    return (flags >> min(pattern)) & sum(1 << (x - min(pattern)) for x in pattern)
