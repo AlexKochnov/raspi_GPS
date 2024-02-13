@@ -12,7 +12,7 @@ def calc_checksum(cmd: bytes) -> bytes:
 
 
 def check_cks(cmd: bytes) -> bool:
-    return calc_checksum(cmd[:-2]) == cmd[-2:]
+    return calc_checksum(cmd[2:-2]) == cmd[-2:]
 
 
 class POOLMessages:
@@ -28,7 +28,7 @@ class POOLMessages:
 
 MSG2pool = [
     # b'\x06\x04\x04\x00\xFF\xFF\x00\x00' # CFG-RST
-    # b'\x0B\x30' + b'\x00\x00',  # aid-alm
+    b'\x0B\x30' + b'\x00\x00',  # aid-alm
     b'\x0B\x31' + b'\x00\x00',  # aid-eph
     # b'\x0B\x33' + b'\x00\x00',  # aid-aop
 
@@ -70,8 +70,7 @@ def set_rate(msgClass: hex, msgID: hex, rateUART1: int) -> bytes:
 
 MSG2set = [
     set_rate(msgClass=0x02, msgID=0x13, rateUART1=1),  # RXM-SFRBX
-]
-a = [
+
     set_rate(msgClass=0xF0, msgID=0x00, rateUART1=0),  # GGA
     set_rate(msgClass=0xF0, msgID=0x01, rateUART1=0),  # GLL
     set_rate(msgClass=0xF0, msgID=0x02, rateUART1=0),  # GSA
@@ -91,8 +90,8 @@ a = [
     set_rate(msgClass=0x01, msgID=0x34, rateUART1=1),  # NAV-ORB
     set_rate(msgClass=0x01, msgID=0x35, rateUART1=1),  # NAV-SAT
 
-    set_rate(msgClass=0x01, msgID=0x01, rateUART1=0),  # NAV-POSECEF
-    set_rate(msgClass=0x01, msgID=0x11, rateUART1=0),  # NAV-VELECEF
+    set_rate(msgClass=0x01, msgID=0x01, rateUART1=1),  # NAV-POSECEF
+    set_rate(msgClass=0x01, msgID=0x11, rateUART1=1),  # NAV-VELECEF
     # set_rate(msgClass=0x01, msgID=0x20, rateUART1=0),  # NAV-TIMEGPS
     # set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
     # set_rate(msgClass=0x01, msgID=0x35, rateUART1=0),  # NAV-SAT

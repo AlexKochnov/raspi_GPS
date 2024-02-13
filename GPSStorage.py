@@ -18,7 +18,7 @@ class GPSStorage:
     # ALM_headers = ['SV_ID', 'week', 'Toa', 'e', 'delta_i', 'Wdot', 'sqrtA', 'W0', 'w', 'M0', 'af0', 'af1',
     #                'health', 'Data_ID', 'receiving_time']
 
-    satellites: dict[(GNSS, int): Satellite]
+    satellites: dict[(int, int): Satellite] = dict()
 
     start_age = datetime(1980, 1, 6)
     start_week: datetime
@@ -36,6 +36,11 @@ class GPSStorage:
     def __init__(self):
         pass
 
+    def check_satellite(self, gnssId, svId):
+        sat = (gnssId, svId)
+        if sat not in self.satellites:
+            self.satellites[sat] = Satellite(gnssId, svId)
+
     def update(self, data):
         if data is None:
             return
@@ -43,9 +48,11 @@ class GPSStorage:
             if hasattr(data, 'iTOW'):
                 self.iTOW = data.iTOW
             if isinstance(data, AID_ALM):
-                self.satellites[(GNSS.GPS, data.svId)].alm = data.alm
+                self.check_satellite(GNSS.GPS.value, data.svId)
+                self.satellites[(GNSS.GPS.value, data.svId)].alm = data.alm
             if isinstance(data, AID_EPH):
-                self.satellites[(GNSS.GPS, data.svId)].eph = data.eph
+                self.check_satellite(GNSS.GPS.value, data.svId)
+                self.satellites[(GNSS.GPS.value, data.svId)].eph = data.eph
             if isinstance(data, NAV_POSECEF):
                 self.ecefX = data.ecefX
                 self.ecefY = data.ecefY
@@ -66,13 +73,16 @@ class GPSStorage:
                 self.time = self.start_week + timedelta(seconds=self.TOW / 1000)
             if isinstance(data, NAV_SAT):
                 for (gnssId, svId), sat in data.sat.items():
-                    self.satellites[(gnssId, svId)] = sat
+                    self.check_satellite(gnssId, svId)
+                    self.satellites[(gnssId, svId)].sat = sat
             if isinstance(data, NAV_ORB):
                 for (gnssId, svId), orb in data.orb.items():
-                    self.satellites[(gnssId, svId)] = orb
+                    self.check_satellite(gnssId, svId)
+                    self.satellites[(gnssId, svId)].orb = orb
             if isinstance(data, RXM_SVSI):
                 for (gnssId, svId), svsi in data.svsi.items():
-                    self.satellites[(gnssId, svId)] = svsi
+                    self.check_satellite(gnssId, svId)
+                    self.satellites[(gnssId, svId)].svsi = svsi
             if isinstance(data, RXM_SFRBX):
                 pass
 
@@ -82,25 +92,25 @@ class GPSStorage:
 
 def calc_sat_alm(ALM: list, t):
     # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
-    SV_ID = ALM[0] # ID спутника
-    week = ALM[1] # номер недели передаваемых данных
-    Toa = ALM[2] # опорное время внутри недели N, на которую передаются данные альманах
-    e = ALM[3] # эксцентриситет
-    di = ALM[4] * pi # rad, поправка к наклонению
-    Wdot = ALM[5] * pi # rad/s, скорость прецессии орбиты
-    sqrtA = ALM[6] # корень из большей полуоси
-    W0 = ALM[7] * pi # rad Угол восходящего узла на момент начала недели N
-    w = ALM[8] * pi # rad аргумент перигея
-    M0 = ALM[9] * pi # rad средняя аномалия на эпоху Toa
-    af0 = ALM[10] #
-    af1 = ALM[11] #
-    health = ALM[12] #
-    Data_ID = ALM[13] #
-    receiving_time: datetime = ALM[14] # время принятия сигнала
+    SV_ID = ALM[0]  # ID спутника
+    week = ALM[1]  # номер недели передаваемых данных
+    Toa = ALM[2]  # опорное время внутри недели N, на которую передаются данные альманах
+    e = ALM[3]  # эксцентриситет
+    di = ALM[4] * pi  # rad, поправка к наклонению
+    Wdot = ALM[5] * pi  # rad/s, скорость прецессии орбиты
+    sqrtA = ALM[6]  # корень из большей полуоси
+    W0 = ALM[7] * pi  # rad Угол восходящего узла на момент начала недели N
+    w = ALM[8] * pi  # rad аргумент перигея
+    M0 = ALM[9] * pi  # rad средняя аномалия на эпоху Toa
+    af0 = ALM[10]  #
+    af1 = ALM[11]  #
+    health = ALM[12]  #
+    Data_ID = ALM[13]  #
+    receiving_time: datetime = ALM[14]  # время принятия сигнала
 
-    mu = 3.986005 * 1e14 # m^3/s^2 гравитационная постоянная для земли WGS-84
-    Wedot = 7.2921151467 * 10e-5 # rad/s скорость вращения земли WGS-84
-    i0 = 0.30 * pi # rad
+    mu = 3.986005 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
+    Wedot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
+    i0 = 0.30 * pi  # rad
 
     A = sqrtA ** 2  # большая полуось
     n0 = sqrt(mu / A ** 3)  # rad/s вычисленное среднее перемещение
@@ -110,9 +120,9 @@ def calc_sat_alm(ALM: list, t):
     # elif tk < 302400:
     #     tk += 604800
 
-    tk=0
+    tk = 0
 
-    n = n0   # скорректированное средне движение
+    n = n0  # скорректированное средне движение
     Mk = M0 + n * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
     E0 = Mk  # rad
@@ -122,7 +132,7 @@ def calc_sat_alm(ALM: list, t):
     E = E1  # rad
     v = 2 * atan(sqrt((1 + e) / (1 - e)) * tan(E / 2))  # истиная аномалия
     u = v + w  # аргумент lat
-    r = A * (1 - e * cos(E))   # скорректированный радиус
+    r = A * (1 - e * cos(E))  # скорректированный радиус
     i = i0 + di  # скорректированный наклон
     x1 = r * cos(u)  # позиция в плоскости орбиты
     y1 = r * sin(u)  # позиция в плоскости орбиты
@@ -165,44 +175,44 @@ def calc_sat_eph(EPH: list, t):
     accuracy = EPH[27]
     receiving_time = EPH[28]
 
-    mu = 3.986005 * 1e14 # m^3/s^2 гравитационная постоянная для земли WGS-84
-    Wedot = 7.2921151467 * 10e-5 # rad/s скорость вращения земли WGS-84
+    mu = 3.986005 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
+    Wedot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
 
     # dTsv = af0 + af
     # t = Toe
 
-    A = sqrtA**2 # большая полуось
-    n0 = sqrt( mu / A**3 ) # rad/s вычисленное среднее перемещение
-    tk = t - Toe # время от эпохи отсчета эфимерид
+    A = sqrtA ** 2  # большая полуось
+    n0 = sqrt(mu / A ** 3)  # rad/s вычисленное среднее перемещение
+    tk = t - Toe  # время от эпохи отсчета эфимерид
     if tk > 302400:
         tk -= 604800
     elif tk < 302400:
         tk += 604800
-    n = n0 + dn # скорректированное средне движение
-    Mk = M0 + n*tk # средняя аномалия
+    n = n0 + dn  # скорректированное средне движение
+    Mk = M0 + n * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
-    E0 = Mk # rad
+    E0 = Mk  # rad
     for i in range(10):
-        E1 = E0 + (Mk-E0 + e*sin(E0)) / (1 - e*cos(E0))
+        E1 = E0 + (Mk - E0 + e * sin(E0)) / (1 - e * cos(E0))
         E0 = E1
-    E = E1 # rad
+    E = E1  # rad
     # v = 2 * math.atan(sqrt((1+e)/(1-e)) * tan(E/2)) # истиная аномалия
     v = atan2(
         sqrt(1 - e * e) * sin(E),
         cos(E) - e)
-    Phi = v + w # аргумент lat
-    du = Cus*sin(2*Phi) + Cuc*cos(2*Phi) # коррекция lat
-    dr = Crs*sin(2*Phi) + Crc*cos(2*Phi) # коррекция радиуса
-    di = Cis*sin(2*Phi) + Cic*cos(2*Phi) # коррекция наклона
-    u = Phi + du # скорректированный агрумент lat
-    r = A*(1-e*cos(E)) + dr # скорректированный радиус
-    i = i0 + di + IDOT*tk # скорректированный наклон
-    x1 = r*cos(u) # позиция в плоскости орбиты
-    y1 = r*sin(u) # позиция в плоскости орбиты
-    W = W0 + (Wdot-Wedot)*tk - Wedot*Toe # исправленная долгота lon восходящего узла
-    x = x1*cos(W) - y1*cos(i)*sin(W)
-    y = x1*sin(W) + y1*cos(i)*cos(W)
-    z = y1*sin(i)
+    Phi = v + w  # аргумент lat
+    du = Cus * sin(2 * Phi) + Cuc * cos(2 * Phi)  # коррекция lat
+    dr = Crs * sin(2 * Phi) + Crc * cos(2 * Phi)  # коррекция радиуса
+    di = Cis * sin(2 * Phi) + Cic * cos(2 * Phi)  # коррекция наклона
+    u = Phi + du  # скорректированный агрумент lat
+    r = A * (1 - e * cos(E)) + dr  # скорректированный радиус
+    i = i0 + di + IDOT * tk  # скорректированный наклон
+    x1 = r * cos(u)  # позиция в плоскости орбиты
+    y1 = r * sin(u)  # позиция в плоскости орбиты
+    W = W0 + (Wdot - Wedot) * tk - Wedot * Toe  # исправленная долгота lon восходящего узла
+    x = x1 * cos(W) - y1 * cos(i) * sin(W)
+    y = x1 * sin(W) + y1 * cos(i) * cos(W)
+    z = y1 * sin(i)
 
     return u, W, i, Mk, r, x, y, z
     # u - скорректированный агрумент lat

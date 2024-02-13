@@ -147,6 +147,7 @@ if __name__ == "__main__":
         parsed = Reader.next()
         if not parsed:
             continue
+        Storage.update(parsed)
         print(parsed)
         # if not isinstance(parsed, list) or not isinstance(parsed, tuple):
         #     GPSDataPrinter.print(parsed)

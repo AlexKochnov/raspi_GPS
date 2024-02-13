@@ -16,6 +16,9 @@ class SAT:
         self.ephAvail = get_bytes_from_flag(flags, 11)
         self.almAvail = get_bytes_from_flag(flags, 12)
 
+    def __str__(self):
+        return str(self.__dict__)
+
 
 class ORB:
     def __init__(self, svFlag, eph, alm, otherOrb):
@@ -32,6 +35,9 @@ class ORB:
         self.anoAopUsability = otherOrb % 32
         self.type = otherOrb // 32
 
+    def __str__(self):
+        return str(self.__dict__)
+
 
 class SVSI:
     def __init__(self, sv_flag, azim, elev, age_flag):
@@ -46,6 +52,35 @@ class SVSI:
         self.notAvail = get_bytes_from_flag(sv_flag, 7)
         self.almAge = (age_flag & 0x0f) - 4
         self.ephAge = ((age_flag & 0xf0) >> 4) - 4
+
+    def __str__(self):
+        return str(self.__dict__)
+
+
+class ALM:
+    def __init__(self):
+        pass
+
+    def to_list(self):
+        pass
+
+
+class EPH:
+    class sf1:
+        pass
+
+
+    class sf2:
+        pass
+
+    class sf3:
+        pass
+
+    def __init__(self):
+        pass
+
+    def to_list(self):
+        pass
 
 
 class Satellite:
