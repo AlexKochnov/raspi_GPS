@@ -19,7 +19,10 @@ class POOLMessages:
     EPH = b'\x0B\x31' + b'\x00\x00'  # AID-EPH
     ALM = b'\x0B\x30' + b'\x00\x00'  # AID-ALM
     RST = b'\x06\x04\x04\x00\xFF\xFF\x00\x00'  # CFG-RST
-    GLO = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00'  # Glonas
+    RAWX = b'\x02\x15' + b'\x00\x00'
+    MON_GNSS = b'\x0A\x28' + b'\x00\x00'
+    GNSS_check = b'\x06\x3E' + b'\x00\x00' # cfg gnss get
+    GLO = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + b'\x06\x20\x20\x00' + b'\x00\x01\x00\x00'  # Glonas
     ON_ALL = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + \
              b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00' + \
              b'\x01\x20\x20\x00' + b'\x00\x01\x00\x00' + \
@@ -33,7 +36,7 @@ MSG2pool = [
     # b'\x0B\x33' + b'\x00\x00',  # aid-aop
 
     # b'\x02\x14' + b'\x00\x00' # rxm-measx
-    # b'\x02\x15' + b'\x00\x00'  # rxm-rawx pooling
+    b'\x02\x15' + b'\x00\x00'  # rxm-rawx pooling
     # b'\x02\x13' + b'\x00\x00' # rxm-sfrbx
 
     # b'\x06\x04\x04\x00\x00\x00\x00\x00' # CFG-RST - reset with Cold start and Hardware reset immediately
@@ -61,7 +64,6 @@ MSG2pool = [
 ]
 
 
-# TODO: Изменить на собственную реализацию
 def set_rate(msgClass: hex, msgID: hex, rateUART1: int) -> bytes:
     cmd = b'\x06\x01' + b'\x03\x00' + msgClass.to_bytes() + msgID.to_bytes() + rateUART1.to_bytes()
     return b'\xb5b' + cmd + calc_checksum(cmd)
@@ -77,6 +79,9 @@ MSG2set = [
     set_rate(msgClass=0xF0, msgID=0x03, rateUART1=0),  # GSV
     set_rate(msgClass=0xF0, msgID=0x04, rateUART1=0),  # RMC
     set_rate(msgClass=0xF0, msgID=0x05, rateUART1=0),  # VTG
+    set_rate(msgClass=0xF0, msgID=0x08, rateUART1=0),  # ZDA
+    set_rate(msgClass=0xF0, msgID=0x41, rateUART1=0),  # TXT
+    set_rate(msgClass=0xF0, msgID=0x0D, rateUART1=1),  # GNS
 
     # set_rate(msgClass=0xF0, msgID=0x00, rateUART1=1),  # GGA
     # set_rate(msgClass=0xF0, msgID=0x02, rateUART1=1),  # GSA
@@ -97,8 +102,9 @@ MSG2set = [
     # set_rate(msgClass=0x01, msgID=0x35, rateUART1=0),  # NAV-SAT
 
     # # #
-    # # # # set_rate(msgClass=0x02, msgID=0x15, rateUART1=1),  # RXM-RAWX
+    set_rate(msgClass=0x02, msgID=0x15, rateUART1=1),  # RXM-RAWX
     set_rate(msgClass=0x02, msgID=0x13, rateUART1=1),  # RXM-SFRBX
+    set_rate(msgClass=0x02, msgID=0x20, rateUART1=1),  # RXM-SVSI
 
     # set_rate(msgClass=0x10, msgID=0x14, rateUART1=1),  # ESF-ALG
     # set_rate(msgClass=0x10, msgID=0x10, rateUART1=1),  # ESF-STATUS

@@ -61,6 +61,28 @@ def twosComp2dec(binaryStr: str) -> int:
     return intNumber
 
 
+# TODO: add RXM-RAWX and RAWX (sat)
+class RXM_RAWX(Message):
+    format = '<dHbBs3B'
+    header = (0x02, 0x15)
+
+    def __init__(self, msg: bytes, receiving_time: datetime = None):
+        super().__init__(receiving_time)
+        self.rcvTow, self.week, self.leapS, numMeas, recStat, *_ =\
+            struct.unpack(self.format, msg[:struct.calcsize(self.format)])
+        recStat = flag_to_int(recStat)
+        self.leapSec = get_bytes_from_flag(recStat, 0)
+        self.clkReset = get_bytes_from_flag(recStat, 1)
+        msg = msg[struct.calcsize(self.format):]
+        self.rawx = dict()
+        for i in range(numMeas):
+            prMes, cpMes, doMes, gnssId, svId, _, freqId, locktime, cno, prStedv, cpStedv, doStedv, trkStat, _ =\
+            struct.unpack('<ddfBBBBHBssssB', msg[32 * i: 32 * (i + 1)])
+            self.rawx[(gnssId, svId)] =\
+                RAWX(prMes, cpMes, doMes, freqId, locktime, cno, prStedv, cpStedv, doStedv, trkStat)
+        a = 0
+
+
 class NAV_SAT(Message):
     format = '<LBBBB'
     header = (0x01, 0x35)

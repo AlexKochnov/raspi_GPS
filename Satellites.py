@@ -27,11 +27,11 @@ class ORB:
         alm = flag_to_int(alm)
         otherOrb = flag_to_int(otherOrb)
         self.health = svFlag % 4
-        self.visibility = (svFlag // 4) % 4,
+        self.visibility = (svFlag // 4) % 4
         self.ephUsability = eph % 32
-        self.ephSource = eph // 32,
+        self.ephSource = eph // 32
         self.almUsability = alm % 32
-        self.almSource = alm // 32,
+        self.almSource = alm // 32
         self.anoAopUsability = otherOrb % 32
         self.type = otherOrb // 32
 
@@ -52,6 +52,30 @@ class SVSI:
         self.notAvail = get_bytes_from_flag(sv_flag, 7)
         self.almAge = (age_flag & 0x0f) - 4
         self.ephAge = ((age_flag & 0xf0) >> 4) - 4
+
+    def __str__(self):
+        return str(self.__dict__)
+
+
+class RAWX:
+    def __init__(self, prMes, cpMes, doMes, freqId, locktime, cno, prStedv, cpStedv, doStedv, trkStat):
+        self.prMes = prMes
+        self.cpMes = cpMes
+        self.doMes = doMes
+        self.freqId = freqId
+        self.locktime = locktime
+        self.cno = cno
+        self.prStedv = 0.01 * 2 ** (flag_to_int(prStedv) & 0x0F)
+        self.cpStedv = 0.004 * (flag_to_int(cpStedv) & 0x0F)
+        self.doStedv = 0.002 * 2 ** (flag_to_int(doStedv) & 0x0F)
+        trkStat = flag_to_int(trkStat)
+        self.prValid = get_bytes_from_flag(trkStat, 0)
+        self.cpValid = get_bytes_from_flag(trkStat, 1)
+        self.halfCyc = get_bytes_from_flag(trkStat, 2)
+        self.subHalfCyc = get_bytes_from_flag(trkStat, 3)  # TODO: полупериод вычитается из фазы
+        if self.subHalfCyc:
+            # self.cpMes -= 1
+            pass
 
     def __str__(self):
         return str(self.__dict__)
@@ -89,9 +113,13 @@ class Satellite:
     sat: SAT = None
     orb: ORB = None
     svsi: SVSI = None
-    alm: list
-    eph: list
+    rawx: RAWX = None
+    alm: list = None
+    eph: list = None
 
     def __init__(self, gnssId, svId):
         self.gnssId = GNSS(gnssId)
         self.svId = svId
+
+    def __str__(self):
+        return str(self.__dict__)

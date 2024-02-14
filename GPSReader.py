@@ -22,19 +22,22 @@ class GPSReader:
     raw_logger = 'raw.log'
     parsed_logger = 'parsed.log'
 
-
+    # TODO: modify to command class
     PoolQ = [
         # POOLMessages.RST,
-        POOLMessages.GLO,
+        # POOLMessages.GLO,
         POOLMessages.ALM,
+        # POOLMessages.RAWX,
         POOLMessages.EPH,
+        POOLMessages.GNSS_check,
+        POOLMessages.MON_GNSS,
         # POOLMessages.GLO,
         # POOLMessages.ON_ALL,
         # POOLMessages.RST,
         # b'\x06\x04\x04\x00\xFF\xFF\x00\x00' # CFG-RST
     ]
 
-    Pool_step = 60
+    Pool_step = 80
     counter = 0
 
     def __init__(self, port="/dev/ttyS0", baudrate=9600, timeout=1):  # timeout влияет на буфер, 0.1 мало
@@ -90,17 +93,24 @@ class GPSReader:
 
     def parse_ubx(self):
         hdr, clsid, msgid, lenb, plb, cks = self.read_UBX()
+        if plb is None or clsid is None:
+            return
         raw_message = hdr + clsid + msgid + lenb + plb + cks
         self.__save_raw__(raw_message)
-        if plb is None or not check_cks(raw_message):
+        if not check_cks(raw_message):
             return
+
+        # TODO: delete
+        if (clsid, msgid) == (b'\x02', b'\x15'):
+            print(UBXReader.parse(raw_message))
+
         msg_class = UBXUnpacker.Message.byte_find(clsid, msgid)
         if msg_class != UBXUnpacker.Message:
             parsed = msg_class(plb, datetime.now())
         else:
             parsed = UBXReader.parse(raw_message)
             # parsed = msg_class(datetime.now())
-        self.__save_raw__(parsed)
+        self.__save_parsed__(parsed)
         return parsed
 
     def parse_nmea(self):
@@ -117,8 +127,8 @@ class GPSReader:
             file.write(str(raw_message) + '\n')
 
     def __save_parsed__(self, parsed_message):
-        if self.print_parsed:
-            print(f'{datetime.now()}: {parsed_message}')
+        # if self.print_parsed:
+        #     print(f'{datetime.now()}: {parsed_message}')
         with open(self.parsed_logger, 'a') as file:
             file.write(str(parsed_message) + '\n')
 
@@ -126,7 +136,7 @@ class GPSReader:
 class GPSDataPrinter:
     @staticmethod
     def print(type, data=None):
-        if data==None:
+        if data is None:
             print(type)
         else:
             print(type, data)

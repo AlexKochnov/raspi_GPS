@@ -18,7 +18,7 @@ class GPSStorage:
     # ALM_headers = ['SV_ID', 'week', 'Toa', 'e', 'delta_i', 'Wdot', 'sqrtA', 'W0', 'w', 'M0', 'af0', 'af1',
     #                'health', 'Data_ID', 'receiving_time']
 
-    satellites: dict[(int, int): Satellite] = dict()
+    satellites: dict[(GNSS, int): Satellite] = dict()
 
     start_age = datetime(1980, 1, 6)
     start_week: datetime
@@ -48,11 +48,11 @@ class GPSStorage:
             if hasattr(data, 'iTOW'):
                 self.iTOW = data.iTOW
             if isinstance(data, AID_ALM):
-                self.check_satellite(GNSS.GPS.value, data.svId)
-                self.satellites[(GNSS.GPS.value, data.svId)].alm = data.alm
+                self.check_satellite(GNSS.GPS, data.svId)
+                self.satellites[(GNSS.GPS, data.svId)].alm = data.alm
             if isinstance(data, AID_EPH):
-                self.check_satellite(GNSS.GPS.value, data.svId)
-                self.satellites[(GNSS.GPS.value, data.svId)].eph = data.eph
+                self.check_satellite(GNSS.GPS, data.svId)
+                self.satellites[(GNSS.GPS, data.svId)].eph = data.eph
             if isinstance(data, NAV_POSECEF):
                 self.ecefX = data.ecefX
                 self.ecefY = data.ecefY
@@ -73,16 +73,20 @@ class GPSStorage:
                 self.time = self.start_week + timedelta(seconds=self.TOW / 1000)
             if isinstance(data, NAV_SAT):
                 for (gnssId, svId), sat in data.sat.items():
-                    self.check_satellite(gnssId, svId)
-                    self.satellites[(gnssId, svId)].sat = sat
+                    self.check_satellite(GNSS(gnssId), svId)
+                    self.satellites[(GNSS(gnssId), svId)].sat = sat
             if isinstance(data, NAV_ORB):
                 for (gnssId, svId), orb in data.orb.items():
-                    self.check_satellite(gnssId, svId)
-                    self.satellites[(gnssId, svId)].orb = orb
+                    self.check_satellite(GNSS(gnssId), svId)
+                    self.satellites[(GNSS(gnssId), svId)].orb = orb
             if isinstance(data, RXM_SVSI):
                 for (gnssId, svId), svsi in data.svsi.items():
-                    self.check_satellite(gnssId, svId)
-                    self.satellites[(gnssId, svId)].svsi = svsi
+                    self.check_satellite(GNSS(gnssId), svId)
+                    self.satellites[(GNSS(gnssId), svId)].svsi = svsi
+            if isinstance(data, RXM_RAWX):
+                for (gnssId, svId), rawx in data.rawx.items():
+                    self.check_satellite(GNSS(gnssId), svId)
+                    self.satellites[(GNSS(gnssId), svId)].rawx = rawx
             if isinstance(data, RXM_SFRBX):
                 pass
 
