@@ -99,11 +99,6 @@ class GPSReader:
         self.__save_raw__(raw_message)
         if not check_cks(raw_message):
             return
-
-        # TODO: delete
-        if (clsid, msgid) == (b'\x02', b'\x15'):
-            print(UBXReader.parse(raw_message))
-
         msg_class = UBXUnpacker.Message.byte_find(clsid, msgid)
         if msg_class != UBXUnpacker.Message:
             parsed = msg_class(plb, datetime.now())
@@ -127,8 +122,8 @@ class GPSReader:
             file.write(str(raw_message) + '\n')
 
     def __save_parsed__(self, parsed_message):
-        # if self.print_parsed:
-        #     print(f'{datetime.now()}: {parsed_message}')
+        if self.print_parsed:
+            print(f'{datetime.now()}: {parsed_message}')
         with open(self.parsed_logger, 'a') as file:
             file.write(str(parsed_message) + '\n')
 
@@ -158,7 +153,7 @@ if __name__ == "__main__":
         if not parsed:
             continue
         Storage.update(parsed)
-        print(parsed)
+        # print(parsed)
         # if not isinstance(parsed, list) or not isinstance(parsed, tuple):
         #     GPSDataPrinter.print(parsed)
         # else:

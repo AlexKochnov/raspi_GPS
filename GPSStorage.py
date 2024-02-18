@@ -71,22 +71,10 @@ class GPSStorage:
                 self.Valid = data.Valid
                 self.start_week = self.start_age + timedelta(self.week * 7)
                 self.time = self.start_week + timedelta(seconds=self.TOW / 1000)
-            if isinstance(data, NAV_SAT):
-                for (gnssId, svId), sat in data.sat.items():
+            if isinstance(data, NAV_SAT | NAV_ORB | RXM_SVSI | RXM_RAWX):
+                for (gnssId, svId), param in getattr(data, data.attr).items():
                     self.check_satellite(GNSS(gnssId), svId)
-                    self.satellites[(GNSS(gnssId), svId)].sat = sat
-            if isinstance(data, NAV_ORB):
-                for (gnssId, svId), orb in data.orb.items():
-                    self.check_satellite(GNSS(gnssId), svId)
-                    self.satellites[(GNSS(gnssId), svId)].orb = orb
-            if isinstance(data, RXM_SVSI):
-                for (gnssId, svId), svsi in data.svsi.items():
-                    self.check_satellite(GNSS(gnssId), svId)
-                    self.satellites[(GNSS(gnssId), svId)].svsi = svsi
-            if isinstance(data, RXM_RAWX):
-                for (gnssId, svId), rawx in data.rawx.items():
-                    self.check_satellite(GNSS(gnssId), svId)
-                    self.satellites[(GNSS(gnssId), svId)].rawx = rawx
+                    setattr(self.satellites[(GNSS(gnssId), svId)], data.attr, param)
             if isinstance(data, RXM_SFRBX):
                 pass
 

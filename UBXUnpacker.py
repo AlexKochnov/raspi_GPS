@@ -61,10 +61,10 @@ def twosComp2dec(binaryStr: str) -> int:
     return intNumber
 
 
-# TODO: add RXM-RAWX and RAWX (sat)
 class RXM_RAWX(Message):
     format = '<dHbBs3B'
     header = (0x02, 0x15)
+    attr = 'rawx'
 
     def __init__(self, msg: bytes, receiving_time: datetime = None):
         super().__init__(receiving_time)
@@ -86,6 +86,7 @@ class RXM_RAWX(Message):
 class NAV_SAT(Message):
     format = '<LBBBB'
     header = (0x01, 0x35)
+    attr = 'sat'
 
     def __init__(self, msg: bytes, receiving_time: datetime = None):
         super().__init__(receiving_time)
@@ -100,6 +101,7 @@ class NAV_SAT(Message):
 class NAV_ORB(Message):
     format = '<LBBBB'
     header = (0x01, 0x34)
+    attr = 'orb'
 
     def __init__(self, msg: bytes, receiving_time: datetime = None):
         super().__init__(receiving_time)
@@ -149,6 +151,7 @@ class NAV_VELECEF(Message):
 class RXM_SVSI(Message):
     format = '<LhBB'
     header = (0x02, 0x20)
+    attr = 'svsi'
 
     def __init__(self, msg: bytes, receiving_time: datetime = None):
         super().__init__(receiving_time)
