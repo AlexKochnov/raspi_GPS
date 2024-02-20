@@ -82,17 +82,18 @@ class GPSStorage:
         return str(self.__dict__)
 
 
-def calc_sat_alm(ALM: list, t):
+# TODO: change param: time, week
+def calc_sat_alm(ALM: list, time, N):
     # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
     SV_ID = ALM[0]  # ID спутника
-    week = ALM[1]  # номер недели передаваемых данных
+    N0a = ALM[1]  # номер недели передаваемых данных
     Toa = ALM[2]  # опорное время внутри недели N, на которую передаются данные альманах
     e = ALM[3]  # эксцентриситет
     di = ALM[4] * pi  # rad, поправка к наклонению
-    Wdot = ALM[5] * pi  # rad/s, скорость прецессии орбиты
+    OmegaDot = ALM[5] * pi  # rad/s, скорость прецессии орбиты
     sqrtA = ALM[6]  # корень из большей полуоси
-    W0 = ALM[7] * pi  # rad Угол восходящего узла на момент начала недели N
-    w = ALM[8] * pi  # rad аргумент перигея
+    Omega0 = ALM[7] * pi  # rad Угол восходящего узла на момент начала недели N
+    omega = ALM[8] * pi  # rad аргумент перигея
     M0 = ALM[9] * pi  # rad средняя аномалия на эпоху Toa
     af0 = ALM[10]  #
     af1 = ALM[11]  #
@@ -100,52 +101,61 @@ def calc_sat_alm(ALM: list, t):
     Data_ID = ALM[13]  #
     receiving_time: datetime = ALM[14]  # время принятия сигнала
 
-    mu = 3.986005 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
-    Wedot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
+    mu = 3.9860044 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
+    OmegaEathDot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
     i0 = 0.30 * pi  # rad
 
-    A = sqrtA ** 2  # большая полуось
-    n0 = sqrt(mu / A ** 3)  # rad/s вычисленное среднее перемещение
-    # tk = t - Toa  # время от эпохи отсчета эфимерид
-    # if tk > 302400:
-    #     tk -= 604800
-    # elif tk < 302400:
-    #     tk += 604800
+    a = sqrtA ** 2  # большая полуось
+    n0 = sqrt(mu / a ** 3)  # rad/s вычисленное среднее перемещение
 
-    tk = 0
+    t = time
+    # TODO: добавить поправки генераторов
+    tk = (N - N0a) * 604800 + time - Toa
 
-    n = n0  # скорректированное средне движение
-    Mk = M0 + n * tk  # средняя аномалия
+    Mk = M0 + n0 * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
-    E0 = Mk  # rad
-    for i in range(10):
-        E1 = E0 + (Mk - E0 + e * sin(E0)) / (1 - e * cos(E0))
-        E0 = E1
-    E = E1  # rad
-    v = 2 * atan(sqrt((1 + e) / (1 - e)) * tan(E / 2))  # истиная аномалия
-    u = v + w  # аргумент lat
-    r = A * (1 - e * cos(E))  # скорректированный радиус
-    i = i0 + di  # скорректированный наклон
-    x1 = r * cos(u)  # позиция в плоскости орбиты
-    y1 = r * sin(u)  # позиция в плоскости орбиты
-    W = W0 + (Wdot - Wedot) * tk - Wedot * Toa  # исправленная долгота lon восходящего узла
-    x = x1 * cos(W) - y1 * cos(i) * sin(W)
-    y = x1 * sin(W) + y1 * cos(i) * cos(W)
-    z = y1 * sin(i)
+    Ek = Mk  # rad
+    for i in range(20):
+        Ek = Ek + (Mk - Ek + e * sin(Ek)) / (1 - e * cos(Ek))
+    nu_k = atan2(
+        sqrt(1 - e * e) * sin(Ek) / (1 - e * cos(Ek)),
+        (cos(Ek) - e) / (1 - e * cos(Ek))
+    )
+    r_k = a * (1 - e * cos(Ek))
+    ik = i0 + di
+    Omega_k = Omega0 + (OmegaDot - OmegaDot) * tk - OmegaEathDot * Toa
+    p = a * (1 - e * e)
+    Vr = sqrt(mu / p) * e * sin(nu_k)
+    Vn = sqrt(mu / p) * (1 + e * cos(nu_k))
+    u_k = omega + nu_k
 
-    return u, W, i, Mk, r, x, y, z
+    X = r_k * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik))
+    Y = r_k * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik))
+    Z = r_k * sin(u_k) * sin(ik)
+
+    V0x = Vr * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik)) \
+          - Vn * (sin(u_k) * cos(Omega_k) + cos(u_k) * sin(Omega_k) * cos(ik))
+    V0y = Vr * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik)) \
+          - Vn * (sin(u_k) * sin(Omega_k) - cos(u_k) * cos(Omega_k) * cos(ik))
+    V0z = Vr * sin(u_k) * sin(ik) \
+          + Vn * cos(u_k) * sin(ik)
+
+    Vx = V0x + OmegaEathDot * Y
+    Vy = V0y - OmegaEathDot * X
+    Vz = V0z
+    return (X, Y, Z, Vx, Vy, Vz)
 
 
-def calc_sat_eph(EPH: list, t):
+def calc_sat_eph(EPH: list, time, N, flag=True):
     SV_ID = EPH[0]
-    week = EPH[1]
+    Noe = EPH[1]
     Toe = EPH[2]
     Toc = EPH[3]
     IODE1 = EPH[4]
     IODE2 = EPH[5]
     IODC = EPH[6]
     IDOT = EPH[7] * pi
-    Wdot = EPH[8] * pi
+    OmegaDot = EPH[8] * pi
     Crs = EPH[9]
     Crc = EPH[10]
     Cus = EPH[11]
@@ -157,8 +167,8 @@ def calc_sat_eph(EPH: list, t):
     e = EPH[17]
     sqrtA = EPH[18]
     M0 = EPH[19] * pi
-    W0 = EPH[20] * pi
-    w = EPH[21] * pi
+    Omega0 = EPH[20] * pi
+    omega = EPH[21] * pi
     Tgd = EPH[22]
     af2 = EPH[23]
     af1 = EPH[24]
@@ -167,46 +177,50 @@ def calc_sat_eph(EPH: list, t):
     accuracy = EPH[27]
     receiving_time = EPH[28]
 
-    mu = 3.986005 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
-    Wedot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
+    mu = 3.9860044 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
+    OmegaEathDot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
 
-    # dTsv = af0 + af
-    # t = Toe
-
-    A = sqrtA ** 2  # большая полуось
-    n0 = sqrt(mu / A ** 3)  # rad/s вычисленное среднее перемещение
-    tk = t - Toe  # время от эпохи отсчета эфимерид
-    if tk > 302400:
-        tk -= 604800
-    elif tk < 302400:
-        tk += 604800
+    a = sqrtA ** 2  # большая полуось
+    n0 = sqrt(mu / a ** 3)  # rad/s вычисленное среднее перемещение
     n = n0 + dn  # скорректированное средне движение
+    t = time
+    # TODO: добавить поправки генераторов
+    tk = 0 * 604800 + time - Toe
+
     Mk = M0 + n * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
-    E0 = Mk  # rad
-    for i in range(10):
-        E1 = E0 + (Mk - E0 + e * sin(E0)) / (1 - e * cos(E0))
-        E0 = E1
-    E = E1  # rad
-    # v = 2 * math.atan(sqrt((1+e)/(1-e)) * tan(E/2)) # истиная аномалия
-    v = atan2(
-        sqrt(1 - e * e) * sin(E),
-        cos(E) - e)
-    Phi = v + w  # аргумент lat
-    du = Cus * sin(2 * Phi) + Cuc * cos(2 * Phi)  # коррекция lat
-    dr = Crs * sin(2 * Phi) + Crc * cos(2 * Phi)  # коррекция радиуса
-    di = Cis * sin(2 * Phi) + Cic * cos(2 * Phi)  # коррекция наклона
-    u = Phi + du  # скорректированный агрумент lat
-    r = A * (1 - e * cos(E)) + dr  # скорректированный радиус
-    i = i0 + di + IDOT * tk  # скорректированный наклон
-    x1 = r * cos(u)  # позиция в плоскости орбиты
-    y1 = r * sin(u)  # позиция в плоскости орбиты
-    W = W0 + (Wdot - Wedot) * tk - Wedot * Toe  # исправленная долгота lon восходящего узла
-    x = x1 * cos(W) - y1 * cos(i) * sin(W)
-    y = x1 * sin(W) + y1 * cos(i) * cos(W)
-    z = y1 * sin(i)
+    Ek = Mk  # rad
+    for i in range(20):
+        Ek = Ek + (Mk - Ek + e * sin(Ek)) / (1 - e * cos(Ek))
 
-    return u, W, i, Mk, r, x, y, z
-    # u - скорректированный агрумент lat
-    # i - скорректированный наклон
-    # W - исправленная долгота lon восходящего узла
+    nu_k = atan2(
+        sqrt(1 - e * e) * sin(Ek) / (1 - e * cos(Ek)),
+        (cos(Ek) - e) / (1 - e * cos(Ek))
+    )
+    Phi_k = nu_k + omega  # аргумент lat
+    r_k = a * (1 - e * cos(Ek))
+    ik = i0 + IDOT * tk
+    Omega_k = Omega0 + (OmegaDot - OmegaDot) * tk - OmegaEathDot * Toe
+    du_k = Cuc * cos(2 * Phi_k) + Cus * sin(2 * Phi_k)
+    dr_k = Crc * cos(2 * Phi_k) + Crs * sin(2 * Phi_k)
+    di_k = Cic * cos(2 * Phi_k) + Cis * sin(2 * Phi_k)
+
+    u_k = Phi_k + du_k
+    r_k = r_k + dr_k
+    ik = ik + di_k
+
+    X = r_k * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik))
+    Y = r_k * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik))
+    Z = r_k * sin(u_k) * sin(ik)
+
+    if flag:
+        X1, Y1, Z1, Vx1, Vy1, Vz1 = calc_sat_eph(EPH, time + 1, N, False)
+        X0, Y0, Z0, Vx0, Vy0, Vz0 = calc_sat_eph(EPH, time - 1, N, False)
+
+        Vx = (Vx1 - Vx0) / 2
+        Vy = (Vy1 - Vy0) / 2
+        Vz = (Vz1 - Vz0) / 2
+    else:
+        Vx, Vy, Vz = 0, 0, 0
+
+    return X, Y, Z, Vx, Vy, Vz

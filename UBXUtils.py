@@ -85,7 +85,7 @@ MSG2set = [
 
     # set_rate(msgClass=0xF0, msgID=0x00, rateUART1=1),  # GGA
     # set_rate(msgClass=0xF0, msgID=0x02, rateUART1=1),  # GSA
-    set_rate(msgClass=0xF0, msgID=0x03, rateUART1=1),  # GSV
+    # set_rate(msgClass=0xF0, msgID=0x03, rateUART1=1),  # GSV
     # set_rate(msgClass=0xF0, msgID=0x04, rateUART1=1),  # RMC
     # set_rate(msgClass=0xF0, msgID=0x05, rateUART1=1),  # VTG
 
@@ -95,8 +95,8 @@ MSG2set = [
     set_rate(msgClass=0x01, msgID=0x34, rateUART1=1),  # NAV-ORB
     set_rate(msgClass=0x01, msgID=0x35, rateUART1=1),  # NAV-SAT
 
-    set_rate(msgClass=0x01, msgID=0x01, rateUART1=1),  # NAV-POSECEF
-    set_rate(msgClass=0x01, msgID=0x11, rateUART1=1),  # NAV-VELECEF
+    set_rate(msgClass=0x01, msgID=0x01, rateUART1=0),  # NAV-POSECEF
+    set_rate(msgClass=0x01, msgID=0x11, rateUART1=0),  # NAV-VELECEF
     # set_rate(msgClass=0x01, msgID=0x20, rateUART1=0),  # NAV-TIMEGPS
     # set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
     # set_rate(msgClass=0x01, msgID=0x35, rateUART1=0),  # NAV-SAT

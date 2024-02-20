@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from serial import Serial
 
 import UBXUnpacker
-from GPSStorage import GPSStorage
+from GPSStorage import GPSStorage, calc_sat_alm, calc_sat_eph
 from UBXUtils import *
 
 import numpy as np, pandas as pd
@@ -29,16 +29,17 @@ class GPSReader:
         POOLMessages.ALM,
         # POOLMessages.RAWX,
         POOLMessages.EPH,
-        POOLMessages.GNSS_check,
-        POOLMessages.MON_GNSS,
+        # POOLMessages.GNSS_check,
+        # POOLMessages.MON_GNSS,
         # POOLMessages.GLO,
         # POOLMessages.ON_ALL,
         # POOLMessages.RST,
         # b'\x06\x04\x04\x00\xFF\xFF\x00\x00' # CFG-RST
     ]
 
-    Pool_step = 80
+    Pool_step = 100
     counter = 0
+    counetr2 = 0
 
     def __init__(self, port="/dev/ttyS0", baudrate=9600, timeout=1):  # timeout влияет на буфер, 0.1 мало
         self.stream = Serial(port, baudrate, timeout=timeout)
@@ -71,7 +72,9 @@ class GPSReader:
 
     def pool_next(self):
         if self.PoolQ:
-            cmd = self.PoolQ.pop()
+            # cmd = self.PoolQ.pop()
+            cmd = self.PoolQ[self.counetr2 % len(self.PoolQ)]
+            self.counetr2 += 1
             print(f'\tPool: {cmd}')
             self.send(b'\xb5b' + cmd + calc_checksum(cmd))
 
@@ -153,6 +156,35 @@ if __name__ == "__main__":
         if not parsed:
             continue
         Storage.update(parsed)
+        for (gnssId, svId), sat in Storage.satellites.items():
+            if sat.eph and sat.alm:
+                time_stamp = Storage.iTOW / 1000
+                time = np.arange(time_stamp, time_stamp + 36000)
+                alm = []
+                eph = []
+                for t in time:
+                    alm.append(calc_sat_alm(sat.alm, t, Storage.week))
+                    eph.append(calc_sat_eph(sat.eph, t, Storage.week))
+                pass
+                print(*alm)
+                print('\n\n\n\n')
+                print(*eph)
+                a = 0
+                # with open('alm.txt', 'w') as alm_file:
+                #     alm_file.write(json.dumps(alm))
+                #
+                # with open('eph.txt', 'w') as eph_file:
+                #     eph_file.write(json.dumps(eph))
+
+                # time_stamp = Storage.iTOW / 1000
+                # import numpy as np
+                # time = np.array(time)
+                # time = time - time_stamp
+                # time = time / 3600
+                # plt.plot(time, alm)
+                # plt.savefig('alm.png')
+                # plt.clf()
+
         # print(parsed)
         # if not isinstance(parsed, list) or not isinstance(parsed, tuple):
         #     GPSDataPrinter.print(parsed)
