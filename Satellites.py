@@ -1,4 +1,3 @@
-from GPSUtils import *
 from GPSUtils import GNSS
 from UBXUtils import flag_to_int, get_bytes_from_flag
 

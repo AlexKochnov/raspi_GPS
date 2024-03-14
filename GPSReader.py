@@ -150,7 +150,6 @@ if __name__ == "__main__":
     Storage = GPSStorage()
 
     start_year = datetime(2023, 1, 1)
-    time13 = start_year - timedelta(days=1) + timedelta(days=345.09278128)
 
     counter = 0
 
@@ -182,7 +181,8 @@ if __name__ == "__main__":
         #         # with open('eph.txt', 'w') as eph_file:
         #         #     eph_file.write(json.dumps(eph))
         #
-        #         fig, axs = plt.subplots(4, 1, figsize=(8, 8))
+        ##         fig, axs = plt.subplots(4, 1, figsize=(8, 8))
+        #         fig, axs = plt.subplots(3, 1, figsize=(8, 8))
         #
         #
         #         def plot_axs(i, y1, y2, ylabel):
@@ -203,7 +203,7 @@ if __name__ == "__main__":
         #         plot_axs(0, alm[:, 0], eph[:, 0], 'X, км')
         #         plot_axs(1, alm[:, 1], eph[:, 1], 'Y, км')
         #         plot_axs(2, alm[:, 2], eph[:, 2], 'Z, км')
-        #         plot_axs(3, alm[:, 3] *1e6, eph[:, 3]*1e6, 'Z, км')
+        ##         plot_axs(3, alm[:, 3] *1e6, eph[:, 3]*1e6, 'Z, км')
         #         plt.show()
         #         a = 0
                 # plot_axs(1, sat.alm_y / 1000, sat.eph_y / 1000, 'Y, км')

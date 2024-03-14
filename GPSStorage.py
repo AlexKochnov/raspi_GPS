@@ -120,7 +120,6 @@ class GPSStorage:
         pass
 
 
-# TODO: change param: time, week
 def calc_sat_alm(ALM: list, time, N):
     # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
     SV_ID = ALM[0]  # ID спутника
@@ -182,7 +181,7 @@ def calc_sat_alm(ALM: list, time, N):
     Vx = V0x + 0*OmegaEathDot * Y
     Vy = V0y - 0*OmegaEathDot * X
     Vz = V0z
-    return (X, Y, Z, OmegaDot, Vx, Vy, Vz)
+    return (X, Y, Z, Vx, Vy, Vz)
 
 
 def calc_sat_eph(EPH: list, time, N, flag=True):
@@ -253,8 +252,8 @@ def calc_sat_eph(EPH: list, time, N, flag=True):
     Z = r_k * sin(u_k) * sin(ik)
 
     if flag:
-        X1, Y1, Z1, _, Vx1, Vy1, Vz1 = calc_sat_eph(EPH, time + 1, N, False)
-        X0, Y0, Z0, _, Vx0, Vy0, Vz0 = calc_sat_eph(EPH, time - 1, N, False)
+        X1, Y1, Z1, Vx1, Vy1, Vz1 = calc_sat_eph(EPH, time + 1, N, False)
+        X0, Y0, Z0, Vx0, Vy0, Vz0 = calc_sat_eph(EPH, time - 1, N, False)
 
         Vx = (X1 - X0) / 2
         Vy = (Y1 - Y0) / 2
@@ -262,4 +261,4 @@ def calc_sat_eph(EPH: list, time, N, flag=True):
     else:
         Vx, Vy, Vz = 0, 0, 0
 
-    return X, Y, Z, Omega_k, Vx, Vy, Vz
+    return X, Y, Z, Vx, Vy, Vz
