@@ -105,10 +105,9 @@ if __name__ == "__main__":
         # sat['ubx_ecef'] = sat.apply(lambda row: eci2ecef(row['TOW'], *row['ubx']), axis=1)
 
         fig, axs = plt.subplots(3, 2, figsize=(14, 8))
-
+        htime = sat.TOW / 3600
 
         def plot_axs(i, j, y1, y2, y3, ylabel, base=0):
-            htime = sat.TOW / 3600
             axs[i, j].plot(htime, y3 / 1000 - base/1000, label='ubx', linestyle='-', linewidth=6, color='red', alpha=0.35,
                            zorder=1)  # marker='o', markersize=4, linewidth=0.3)
             axs[i, j].plot(htime, y1 / 1000 - base/1000, label='alm', linestyle='-', linewidth=3, color='tab:blue',
