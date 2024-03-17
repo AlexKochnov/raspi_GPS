@@ -107,12 +107,13 @@ if __name__ == "__main__":
         fig, axs = plt.subplots(3, 2, figsize=(14, 8))
 
 
-        def plot_axs(i, j, y1, y2, y3, ylabel):
-            axs[i, j].plot(sat.TOW / 3600, y3 / 1000, label='ubx', linestyle='-', linewidth=6, color='red', alpha=0.35,
+        def plot_axs(i, j, y1, y2, y3, ylabel, base=0):
+            htime = sat.TOW / 3600
+            axs[i, j].plot(htime, y3 / 1000 - base/1000, label='ubx', linestyle='-', linewidth=6, color='red', alpha=0.35,
                            zorder=1)  # marker='o', markersize=4, linewidth=0.3)
-            axs[i, j].plot(sat.TOW / 3600, y1 / 1000, label='alm', linestyle='-', linewidth=3, color='tab:blue',
+            axs[i, j].plot(htime, y1 / 1000 - base/1000, label='alm', linestyle='-', linewidth=3, color='tab:blue',
                            zorder=2)
-            axs[i, j].plot(sat.TOW / 3600, y2 / 1000, label='eph', linestyle='--', linewidth=2, color='yellow',
+            axs[i, j].plot(htime, y2 / 1000 - base/1000, label='eph', linestyle='--', linewidth=2, color='yellow',
                            zorder=3)
             # axs[i].plot(sat.TOW, y4, label='ubx1', linestyle='-')  # marker='o', markersize=4, linewidth=0.3)
             axs[i, j].set_ylabel(ylabel)
@@ -121,17 +122,17 @@ if __name__ == "__main__":
             axs[i, j].legend(loc='upper right', facecolor='lightgrey')
 
             ymax = axs[i, j].get_ylim()[1]
-            for t in np.arange(min(sat.TOW) / 3600, max(sat.TOW) / 3600, 12.0):
+            for t in np.arange(min(htime), max(htime), 12.0):
                 axs[i, j].axvline(x=t, color='y', linewidth=1)
-                # axs[i].annotate(f'{round(t - min(sat.TOW)): 2} ч', (t, ymax*0.95), color='y')
-                axs[i, j].text(t, ymax * 1.1, f'{round(t - min(sat.TOW) / 3600): 2} ч', color='y', ha='center')
+                # axs[i].annotate(f'{round(t - min(htime)): 2} ч', (t, ymax*0.95), color='y')
+                axs[i, j].text(t, ymax * 1.1, f'{round(t - min(htime)): 2} ч', color='y', ha='center')
 
 
         for i in range(3):
             plot_axs(i, 0, sat.alm.apply(lambda x: x[i]), sat.eph.apply(lambda x: x[i]),
-                     sat.ubx.apply(lambda x: x[i]), 'XYZ'[i] + ' eci, км')
+                     sat.ubx.apply(lambda x: x[i]), 'XYZ'[i] + ' eci, км')#, sat.alm.apply(lambda x: x[i]))
             plot_axs(i, 1, sat.alm_ecef.apply(lambda x: x[i]), sat.eph_ecef.apply(lambda x: x[i]),
-                     sat.ubx_ecef.apply(lambda x: x[i]), 'XYZ'[i] + ' ecef, км')
+                     sat.ubx_ecef.apply(lambda x: x[i]), 'XYZ'[i] + ' ecef, км')#, sat.alm_ecef.apply(lambda x: x[i]))
 
         axs[0, 0].set_title('Координаты в ECI\n')
         axs[0, 1].set_title('Координаты в ECEF\n')
