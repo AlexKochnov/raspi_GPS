@@ -9,7 +9,6 @@ import pymap3d as pm
 
 import os
 
-
 r = 6400
 h = 20200
 OmegaEathDot = 7.2921151467 * 10e-5
@@ -50,6 +49,7 @@ def calc_ubx_ecef(row):
     return pm.aer2ecef(row.azim, row.elev, dist * 1000,
                        lla[0], lla[1] + row.TOW * OmegaEathDot * 180 / np.pi * 0.1, lla[2])
 
+
 def rotateZ(x, y, z, ang):
     return (
         x * np.cos(ang) + y * np.sin(ang),
@@ -60,6 +60,7 @@ def rotateZ(x, y, z, ang):
 
 def ecef2eci(t, x, y, z):
     return rotateZ(x, y, z, t * OmegaEathDot)
+
 
 def eci2ecef(t, x, y, z):
     return rotateZ(x, y, z, - t * OmegaEathDot)
@@ -105,28 +106,33 @@ if __name__ == "__main__":
 
         fig, axs = plt.subplots(3, 2, figsize=(14, 8))
 
+
         def plot_axs(i, j, y1, y2, y3, ylabel):
             axs[i, j].plot(sat.TOW / 3600, y3 / 1000, label='ubx', linestyle='-', linewidth=6, color='red', alpha=0.35,
-                        zorder=1)  # marker='o', markersize=4, linewidth=0.3)
-            axs[i, j].plot(sat.TOW / 3600, y1 / 1000, label='alm', linestyle='-', linewidth=3, color='tab:blue', zorder=2)
-            axs[i, j].plot(sat.TOW / 3600, y2 / 1000, label='eph', linestyle='--', linewidth=2, color='yellow', zorder=3)
+                           zorder=1)  # marker='o', markersize=4, linewidth=0.3)
+            axs[i, j].plot(sat.TOW / 3600, y1 / 1000, label='alm', linestyle='-', linewidth=3, color='tab:blue',
+                           zorder=2)
+            axs[i, j].plot(sat.TOW / 3600, y2 / 1000, label='eph', linestyle='--', linewidth=2, color='yellow',
+                           zorder=3)
             # axs[i].plot(sat.TOW, y4, label='ubx1', linestyle='-')  # marker='o', markersize=4, linewidth=0.3)
             axs[i, j].set_ylabel(ylabel)
             axs[i, j].grid()
             # axs[i].axhline(y=ecef[i], color='r', linewidth=1, label='receiver')
             axs[i, j].legend(loc='upper right', facecolor='lightgrey')
 
-            ymin = axs[i, j].get_ylim()[1]
+            ymax = axs[i, j].get_ylim()[1]
             for t in np.arange(min(sat.TOW) / 3600, max(sat.TOW) / 3600, 12.0):
                 axs[i, j].axvline(x=t, color='y', linewidth=1)
-                # axs[i].annotate(f'{round(t - min(sat.TOW)): 2} ч', (t, ymin*0.95), color='y')
-                axs[i, j].text(t, ymin * 1.1, f'{round(t - min(sat.TOW) / 3600): 2} ч', color='y', ha='center')
+                # axs[i].annotate(f'{round(t - min(sat.TOW)): 2} ч', (t, ymax*0.95), color='y')
+                axs[i, j].text(t, ymax * 1.1, f'{round(t - min(sat.TOW) / 3600): 2} ч', color='y', ha='center')
+
 
         for i in range(3):
             plot_axs(i, 0, sat.alm.apply(lambda x: x[i]), sat.eph.apply(lambda x: x[i]),
                      sat.ubx.apply(lambda x: x[i]), 'XYZ'[i] + ' eci, км')
             plot_axs(i, 1, sat.alm_ecef.apply(lambda x: x[i]), sat.eph_ecef.apply(lambda x: x[i]),
                      sat.ubx_ecef.apply(lambda x: x[i]), 'XYZ'[i] + ' ecef, км')
+
         axs[0, 0].set_title('Координаты в ECI\n')
         axs[0, 1].set_title('Координаты в ECEF\n')
         # plot_axs(1, sat.alm_y / 1000, sat.eph_y / 1000, sat.ubx[:, 1] / 1000, 'Y, км')
