@@ -18,6 +18,50 @@ lla = (55.690555555555555, 37.858333333333334, 140)
 ecef = (2842100.6406425796, 4164888.83911829, 3893127.006272498)  # 2800, 4200, 3900 км
 ecef = np.array(ecef) / 1000
 
+### Спизжено: https://github.com/fogleman/GPS
+# import pg
+from math import radians, degrees, pi, asin, sin, cos, atan2
+
+EARTH_RADIUS = 6371
+ALTITUDE = 20200
+
+ZNEAR = 1
+ZFAR = 1000000
+
+
+def to_xyz(lat, lng, elevation, azimuth, altitude=ALTITUDE):
+    r1 = EARTH_RADIUS
+    r2 = r1 + altitude
+    aa = radians(elevation) + pi / 2
+    ar = asin(r1 * sin(aa) / r2)
+    ad = pi - aa - ar
+    angle = pi / 2 - ad
+    x = cos(angle) * r2
+    z = sin(angle) * r2
+    # matrix = pg.Matrix()
+    # matrix = matrix.rotate((0, 0, -1), pi / 2 - radians(azimuth))
+    # matrix = matrix.rotate((-1, 0, 0), -radians(lat))
+    # matrix = matrix.rotate((0, -1, 0), radians(lng))
+    # return matrix * (x, 0, z)
+    # Создаем матрицы поворота
+    rot_z = np.array([[cos(pi / 2 - radians(azimuth)), -sin(pi / 2 - radians(azimuth)), 0],
+                      [sin(pi / 2 - radians(azimuth)), cos(pi / 2 - radians(azimuth)), 0],
+                      [0, 0, 1]])
+
+    rot_x = np.array([[1, 0, 0],
+                      [0, cos(-radians(lat)), -sin(-radians(lat))],
+                      [0, sin(-radians(lat)), cos(-radians(lat))]])
+
+    rot_y = np.array([[cos(radians(lng)), 0, sin(radians(lng))],
+                      [0, 1, 0],
+                      [-sin(radians(lng)), 0, cos(radians(lng))]])
+
+    # Применяем повороты к вектору (x, 0, z)
+    rotated_vector = np.dot(rot_z, np.dot(rot_x, np.dot(rot_y, np.array([x, 0, z]))))
+    return rotated_vector * 1000
+
+
+###
 
 def calc_ubx_eci(row):
     dist = 0.5 * (
@@ -41,14 +85,53 @@ def calc_ubx_eci(row):
                        lla[0], lla[1] - row.TOW * OmegaEathDot * 180 / np.pi * 0.9, lla[2])
 
 
+
+def R(phi, lam):
+    return np.array([
+        [-sin(phi)*cos(lam), -sin(phi)*sin(lam), 0],
+        [-sin(lam), cos(lam), 0],
+        [-cos(phi) * cos(lam), -cos(phi) * sin(lam), -sin(phi)],
+    ])
 def calc_ubx_ecef(row):
+
+    # return pm.aer2ecef(row.azim, row.elev, dist * 1000, *lla)
+    # if row.TOW % (3600*24) == 46350:
+    #     a=0
+    # if not np.isnan(row.dist):
+    #     aer0 = (row.azim, row.elev, row.dist)
+    #     xyz = pm.aer2ecef(*aer0, lla[0], lla[1] + row.TOW * OmegaEathDot * 180 / np.pi * 0.1, lla[2])
+    #     aer = pm.ecef2aer(*xyz, *lla)
+    #     with open('3.txt', 'a') as file:
+    #         print(row.TOW, aer0[0], aer0[1], aer[0], aer[1], sep=';', file=file)
+        # print(*aer0)
+        # print(*aer)
+        # dist1 = 0.5 * (
+        #         np.sqrt(2) * np.sqrt(2 * h * h + 4 * h * r + r * r - r * r * np.cos(2 * aer[1] * np.pi / 180)) -
+        #         2 * r * np.sin(aer[1] * np.pi / 180))
+        # print(dist1)
+    # return to_xyz(lla[0], lla[1], row.elev, row.azim)
+
+    az = radians(row.azim)
+    el = radians(row.elev)
+    E,N,U = [sin(az) * cos(el) * row.dist, cos(az) * cos(el) * row.dist, sin(el) * row.dist]
+    NED = np.array([N, E, -U])
+
+    XYZ = pm.geodetic2ecef(lla[0], lla[1] - 0 * row.TOW * OmegaEathDot * 180 / np.pi * 0.1, lla[2])
+
+    # xyz = pm.aer2ecef(row.azim, row.elev, row.dist, *lla)
+    Pecef = + XYZ
+    return (Pecef[0,1], Pecef[0,1], Pecef[0,2])
+
+    # if not np.isnan(row.elev)
+    #     print(f'{row.TOW}; {row.azim}; {row.elev}; {row.dist}; {xyz[0]}; {xyz[1]}; {xyz[2]}')
+    return pm.aer2ecef(row.azim, row.elev, row.dist, *lla)
+                       # lla[0], lla[1] + row.TOW * OmegaEathDot * 180 / np.pi * 0.1 * 0, lla[2])
+
+def calc_dist(row):
     dist = 0.5 * (
             np.sqrt(2) * np.sqrt(2 * h * h + 4 * h * r + r * r - r * r * np.cos(2 * row.elev * np.pi / 180)) -
             2 * r * np.sin(row.elev * np.pi / 180))
-    # return pm.aer2ecef(row.azim, row.elev, dist * 1000, *lla)
-    return pm.aer2ecef(row.azim, row.elev, dist * 1000,
-                       lla[0], lla[1] + row.TOW * OmegaEathDot * 180 / np.pi * 0.1, lla[2])
-
+    return dist * 1000
 
 def rotateZ(x, y, z, ang):
     return (
@@ -67,9 +150,10 @@ def eci2ecef(t, x, y, z):
 
 
 if __name__ == "__main__":
-    df = pd.read_csv('sat_raw_calc_data.txt', sep=';', header=None,
-                     names=['svId', 'gnssId', 'TOW', 'alm_x', 'alm_y', 'alm_z', 'eph_x', 'eph_y', 'eph_z',
-                            'elev', 'azim', 'doMes', 'cpMes', 'prMes'])
+    # df = pd.read_csv('sat_raw_calc_data.txt', sep=';', header=None,
+    #                  names=['svId', 'gnssId', 'TOW', 'alm_x', 'alm_y', 'alm_z', 'eph_x', 'eph_y', 'eph_z',
+    #                         'elev', 'azim', 'doMes', 'cpMes', 'prMes'])
+    df = pd.read_csv('sv12.csv', sep=';')
 
     df = df[df.gnssId == 'GNSS.GPS']
     # print(len(df))
@@ -87,7 +171,8 @@ if __name__ == "__main__":
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
-    for svId in range(2, 33):
+    # for svId in range(2, 33):
+    for svId in range(12, 13):
         sat = df[df.svId == svId]
         sat.reset_index(drop=True, inplace=True)
 
@@ -99,20 +184,24 @@ if __name__ == "__main__":
         sat = sat.drop(columns=['eph_x', 'eph_y', 'eph_z'])
         sat['eph_ecef'] = sat.apply(lambda row: eci2ecef(row['TOW'], *row['eph']), axis=1)
 
+        sat['dist'] = sat.apply(calc_dist, axis=1)
         sat['ubx_ecef'] = sat.apply(calc_ubx_ecef, axis=1)
         sat['ubx'] = sat.apply(lambda row: ecef2eci(row['TOW'], *row['ubx_ecef']), axis=1)
         # sat['ubx'] = sat.apply(calc_ubx_eci, axis=1)
         # sat['ubx_ecef'] = sat.apply(lambda row: eci2ecef(row['TOW'], *row['ubx']), axis=1)
+        sat.to_csv('sat12.csv', sep=';')
 
         fig, axs = plt.subplots(3, 2, figsize=(14, 8))
         htime = sat.TOW / 3600
 
+
         def plot_axs(i, j, y1, y2, y3, ylabel, base=0):
-            axs[i, j].plot(htime, y3 / 1000 - base/1000, label='ubx', linestyle='-', linewidth=6, color='red', alpha=0.35,
+            axs[i, j].plot(htime, y3 / 1000 - base / 1000, label='ubx', linestyle='-', linewidth=6, color='red',
+                           alpha=0.35,
                            zorder=1)  # marker='o', markersize=4, linewidth=0.3)
-            axs[i, j].plot(htime, y1 / 1000 - base/1000, label='alm', linestyle='-', linewidth=3, color='tab:blue',
+            axs[i, j].plot(htime, y1 / 1000 - base / 1000, label='alm', linestyle='-', linewidth=3, color='tab:blue',
                            zorder=2)
-            axs[i, j].plot(htime, y2 / 1000 - base/1000, label='eph', linestyle='--', linewidth=2, color='yellow',
+            axs[i, j].plot(htime, y2 / 1000 - base / 1000, label='eph', linestyle='--', linewidth=2, color='yellow',
                            zorder=3)
             # axs[i].plot(sat.TOW, y4, label='ubx1', linestyle='-')  # marker='o', markersize=4, linewidth=0.3)
             axs[i, j].set_ylabel(ylabel)
@@ -129,12 +218,13 @@ if __name__ == "__main__":
 
         for i in range(3):
             plot_axs(i, 0, sat.alm.apply(lambda x: x[i]), sat.eph.apply(lambda x: x[i]),
-                     sat.ubx.apply(lambda x: x[i]), 'XYZ'[i] + ' eci, км')#, sat.alm.apply(lambda x: x[i]))
+                     sat.ubx.apply(lambda x: x[i]), 'XYZ'[i] + ' eci, км')  # , sat.alm.apply(lambda x: x[i]))
             plot_axs(i, 1, sat.alm_ecef.apply(lambda x: x[i]), sat.eph_ecef.apply(lambda x: x[i]),
-                     sat.ubx_ecef.apply(lambda x: x[i]), 'XYZ'[i] + ' ecef, км')#, sat.alm_ecef.apply(lambda x: x[i]))
+                     sat.ubx_ecef.apply(lambda x: x[i]),
+                     'XYZ'[i] + ' ecef, км')  # , sat.alm_ecef.apply(lambda x: x[i]))
 
-        axs[0, 0].set_title('Координаты в ECI\n')
-        axs[0, 1].set_title('Координаты в ECEF\n')
+        axs[0, 0].set_title('Координаты в ECI (абсолютной)\n')
+        axs[0, 1].set_title('Координаты в ECEF (относительной)\n')
         # plot_axs(1, sat.alm_y / 1000, sat.eph_y / 1000, sat.ubx[:, 1] / 1000, 'Y, км')
         # plot_axs(2, sat.alm_z / 1000, sat.eph_z / 1000, sat.ubx[:, 2] / 1000, 'Z, км')
 
