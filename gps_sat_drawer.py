@@ -3,80 +3,44 @@ import pandas as pd
 
 from matplotlib import pyplot as plt
 
-from datetime import datetime, timedelta
-
-import pymap3d as pm
-
 import os
-from math import radians, degrees, pi, asin, sin, cos, atan2
 
-r = 6400
-h = 20200
-OmegaEathDot = 7.2921151467 * 10e-5
-start_date = datetime(1980, 1, 1) + timedelta(weeks=2048 + 256)
+import Constants
+from Constants import ApproximateEarthRadius, GPSAltitude
+from Transformations import aer2eci, aer2ecef, eci2ecef
 
-lla = [55.690555555555555, 37.858333333333334, 140]
-ecef = (2842100.6406425796, 4164888.83911829, 3893127.006272498)  # 2800, 4200, 3900 км
+
 # ecef = np.array(ecef) / 1000
 
 # sat_df = pd.DataFrame(columns=['TOW', 'az', 'el', 'az_cor', 'el_cor'])
 
 
 def calc_ubx_eci(row):
-    return pm.aer2ecef(row.azim, row.elev, row.dist,
-                       lla[0], lla[1] - row.TOW * OmegaEathDot * 180 / np.pi, lla[2])
+    return aer2eci(row.azim, row.elev, row.dist,
+                   Constants.LLA[0],
+                   Constants.LLA[1] + row.TOW * Constants.OmegaEarthDot * 180 / np.pi * 0.1,
+                   Constants.LLA[2],
+                   row.TOW)
 
 
 def calc_ubx_ecef(row):
-    def R(phi, lam):
-        phi = np.radians(phi)
-        lam = np.radians(lam)
-        return np.array([
-            [-sin(phi) * cos(lam), -sin(phi) * sin(lam), cos(phi)],
-            [-sin(lam), cos(lam), 0],
-            [-cos(phi) * cos(lam), -cos(phi) * sin(lam), -sin(phi)],
-        ])
-    LLA = lla#(lla[0], lla[1] + row.TOW * OmegaEathDot * 180 / np.pi * 0.1, lla[2])
-    az = radians(row.azim)
-    el = radians(row.elev)
-    E, N, U = [sin(az) * cos(el) * row.dist, cos(az) * cos(el) * row.dist, sin(el) * row.dist]
-    NED = np.array([N, E, -U])
-    UVW = np.transpose(R(LLA[0], LLA[1])) @ NED
-    XYZ = pm.geodetic2ecef(*LLA)
-    ECEF = UVW + XYZ
-    # if not np.isnan(row.elev):
-    #     azim_cor, elev_cor, _ = pm.ecef2aer(*ECEF, *lla)
-    #     sat_df.loc[len(sat_df)] = pd.Series({'TOW': row.TOW, 'az': row.azim, 'el': row.elev, 'az_cor': azim_cor, 'el_cor': elev_cor})
-    #     if len(sat_df) % 100 == 0:
-    #         print(len(sat_df))
-    return ECEF
-    # if not np.isnan(row.elev):
-    #     a=0
+    return aer2ecef(azim=row.azim,
+                    elev=row.elev,
+                    dist=row.dist,
+                    lat=Constants.LLA[0],
+                    lon=Constants.LLA[1] + row.TOW * Constants.OmegaEarthDot * 180 / np.pi * 0.1,
+                    alt=Constants.LLA[2])
     # return pm.aer2ecef(row.azim, row.elev, row.dist,# *lla)
     #                    lla[0], lla[1] + row.TOW * OmegaEathDot * 180 / np.pi * 0.1, lla[2])
 
 
 def calc_dist(row):
+    r = Constants.ApproximateEarthRadius
+    h = Constants.GPSAltitude
     dist = 0.5 * (
             np.sqrt(2) * np.sqrt(2 * h * h + 4 * h * r + r * r - r * r * np.cos(2 * row.elev * np.pi / 180)) -
             2 * r * np.sin(row.elev * np.pi / 180))
     return dist * 1000
-
-
-def rotateZ(x, y, z, ang):
-    return (
-        x * np.cos(ang) + y * np.sin(ang),
-        - x * np.sin(ang) + y * np.cos(ang),
-        z
-    )
-
-
-def ecef2eci(t, x, y, z):
-    return rotateZ(x, y, z, t * OmegaEathDot)
-
-
-def eci2ecef(t, x, y, z):
-    return rotateZ(x, y, z, - t * OmegaEathDot)
 
 
 if __name__ == "__main__":
@@ -85,15 +49,6 @@ if __name__ == "__main__":
                             'elev', 'azim', 'doMes', 'cpMes', 'prMes'])
 
     df = df[df.gnssId == 'GNSS.GPS']
-    # print(len(df))
-    # df = df.dropna(subset=df.columns.difference(['svId', 'gnssId', 'TOW']), how='all')
-    # print(len(df))
-    # df = df.head(500000)
-
-    # df['alm'] = df.apply(lambda row: (row['alm_x'], row['alm_y'], row['alm_z']), axis=1)
-    # df = df.drop(columns=['alm_x', 'alm_y', 'alm_z'])
-    # df['eph'] = df.apply(lambda row: (row['eph_x'], row['eph_y'], row['eph_z']), axis=1)
-    # df = df.drop(columns=['eph_x', 'eph_y', 'eph_z'])
     df.reset_index(drop=True, inplace=True)
 
     folder_path = 'satellites_xyz'
