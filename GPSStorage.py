@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from math import pi, sqrt, sin, atan, atan2, cos, tan
-
+import Constants
 import numpy as np
 # from tabulate import tabulate
 
@@ -43,50 +43,50 @@ class GPSStorage:
             self.satellites[sat] = Satellite(gnssId, svId)
 
     def update(self, data):
-        if data is None:
+        if data is None or not data:
             return
-        if isinstance(data, Message):
-            if hasattr(data, 'iTOW'):
-                if self.iTOW != data.iTOW:
-                    self.end_of_step()
-                    pass
-                self.iTOW = data.iTOW
-            if isinstance(data, AID_ALM):
-                self.check_satellite(GNSS.GPS, data.svId)
-                self.satellites[(GNSS.GPS, data.svId)].alm = data.alm
-            if isinstance(data, AID_EPH):
-                self.check_satellite(GNSS.GPS, data.svId)
-                self.satellites[(GNSS.GPS, data.svId)].eph = data.eph
-            if isinstance(data, NAV_POSECEF):
-                self.ecefX = data.ecefX
-                self.ecefY = data.ecefY
-                self.ecefZ = data.ecefZ
-                self.pAcc = data.pAcc
-            if isinstance(data, NAV_VELECEF):
-                self.ecefVX = data.ecefVX
-                self.ecefVY = data.ecefVY
-                self.ecefVZ = data.ecefVZ
-                self.sAcc = data.sAcc
-            if isinstance(data, NAV_TIMEGPS):
-                self.week = data.week
-                self.fTOW = data.fTOW
-                self.TOW = data.TOW
-                self.leapS = data.leapS
-                self.Valid = data.Valid
-                self.start_week = self.start_age + timedelta(self.week * 7)
-                self.time = self.start_week + timedelta(seconds=self.TOW / 1000)
-            if isinstance(data, NAV_SAT | NAV_ORB | RXM_SVSI | RXM_RAWX):
-                for (gnssId, svId), param in getattr(data, data.attr).items():
-                    self.check_satellite(GNSS(gnssId), svId)
-                    setattr(self.satellites[(GNSS(gnssId), svId)], data.attr, param)
-            if isinstance(data, RXM_SFRBX):
+        if not isinstance(data, Message):
+            return
+        if hasattr(data, 'iTOW'):
+            if self.iTOW != data.iTOW:
+                self.end_of_tick()
                 pass
+            self.iTOW = data.iTOW
+        if isinstance(data, AID_ALM):
+            self.check_satellite(GNSS.GPS, data.svId)
+            self.satellites[(GNSS.GPS, data.svId)].alm = data.alm
+        if isinstance(data, AID_EPH):
+            self.check_satellite(GNSS.GPS, data.svId)
+            self.satellites[(GNSS.GPS, data.svId)].eph = data.eph
+        if isinstance(data, NAV_POSECEF):
+            self.ecefX = data.ecefX
+            self.ecefY = data.ecefY
+            self.ecefZ = data.ecefZ
+            self.pAcc = data.pAcc
+        if isinstance(data, NAV_VELECEF):
+            self.ecefVX = data.ecefVX
+            self.ecefVY = data.ecefVY
+            self.ecefVZ = data.ecefVZ
+            self.sAcc = data.sAcc
+        if isinstance(data, NAV_TIMEGPS):
+            self.week = data.week
+            self.fTOW = data.fTOW
+            self.TOW = data.TOW
+            self.leapS = data.leapS
+            self.Valid = data.Valid
+            self.start_week = self.start_age + timedelta(self.week * 7)
+            self.time = self.start_week + timedelta(seconds=self.TOW / 1000)
+        if isinstance(data, NAV_SAT | NAV_ORB | RXM_SVSI | RXM_RAWX):
+            for (gnssId, svId), param in getattr(data, data.attr).items():
+                self.check_satellite(GNSS(gnssId), svId)
+                setattr(self.satellites[(GNSS(gnssId), svId)], data.attr, param)
+        if isinstance(data, RXM_SFRBX):
+            pass
 
     def __str__(self):
         return str(self.__dict__)
 
-
-    def end_of_step(self):
+    def end_of_tick(self):
         for key, satellite in self.satellites.items():
             if satellite.alm:
                 alm_x, alm_y, alm_z, *_ = calc_sat_alm(satellite.alm, self.iTOW / 1000, self.week)
@@ -115,9 +115,19 @@ class GPSStorage:
             self.satellites[key].rawx = None
 
             with open(self.sat_calc_file, 'a') as file:
-                file.write(f"{satellite.svId};{satellite.gnssId};{self.iTOW/1000};{alm_x};{alm_y};{alm_z};{eph_x};{eph_y};{eph_z};{elev};{azim};{doMes};{cpMes};{prMes}\n")
+                file.write(
+                    f"{satellite.svId};{satellite.gnssId};{self.iTOW / 1000};{alm_x};{alm_y};{alm_z};{eph_x};{eph_y};{eph_z};{elev};{azim};{doMes};{cpMes};{prMes}\n")
 
         pass
+
+
+def check_time(time, *args, **kwargs):
+    half_week = 302400.0
+    if time > half_week:
+        time -= 2 * half_week
+    elif time < - half_week:
+        time += 2 * half_week
+    return time
 
 
 def calc_sat_alm(ALM: list, time, N):
@@ -139,15 +149,15 @@ def calc_sat_alm(ALM: list, time, N):
     receiving_time: datetime = ALM[14]  # время принятия сигнала
 
     mu = 3.9860044 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
-    OmegaEathDot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
+    OmegaEarthDot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
     i0 = 0.30 * pi  # rad
 
     a = sqrtA ** 2  # большая полуось
     n0 = sqrt(mu / a ** 3)  # rad/s вычисленное среднее перемещение
 
-    t = time
     # TODO: добавить поправки генераторов
-    tk = (N - N0a) * 604800 + time - Toa#+ 3600 * 6
+    tk = (N - N0a) * 604800 + time - Toa  # + 3600 * 6
+    tk = check_time(tk)
 
     Mk = M0 + n0 * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
@@ -158,9 +168,9 @@ def calc_sat_alm(ALM: list, time, N):
         sqrt(1 - e * e) * sin(Ek) / (1 - e * cos(Ek)),
         (cos(Ek) - e) / (1 - e * cos(Ek))
     )
-    r_k = a * (1 - e * cos(Ek))
+    r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
     ik = i0 + di
-    Omega_k = Omega0 + (OmegaDot - OmegaEathDot) * tk - OmegaEathDot * Toa
+    Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toa
     p = a * (1 - e * e)
     Vr = sqrt(mu / p) * e * sin(nu_k)
     Vn = sqrt(mu / p) * (1 + e * cos(nu_k))
@@ -170,18 +180,19 @@ def calc_sat_alm(ALM: list, time, N):
     Y = r_k * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik))
     Z = r_k * sin(u_k) * sin(ik)
 
+    return X, Y, Z
 
-    V0x = Vr * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik)) \
-          - Vn * (sin(u_k) * cos(Omega_k) + cos(u_k) * sin(Omega_k) * cos(ik))
-    V0y = Vr * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik)) \
-          - Vn * (sin(u_k) * sin(Omega_k) - cos(u_k) * cos(Omega_k) * cos(ik))
-    V0z = Vr * sin(u_k) * sin(ik) \
-          + Vn * cos(u_k) * sin(ik)
-
-    Vx = V0x + 0*OmegaEathDot * Y
-    Vy = V0y - 0*OmegaEathDot * X
-    Vz = V0z
-    return (X, Y, Z, Vx, Vy, Vz)
+    # V0x = Vr * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik)) \
+    #       - Vn * (sin(u_k) * cos(Omega_k) + cos(u_k) * sin(Omega_k) * cos(ik))
+    # V0y = Vr * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik)) \
+    #       - Vn * (sin(u_k) * sin(Omega_k) - cos(u_k) * cos(Omega_k) * cos(ik))
+    # V0z = Vr * sin(u_k) * sin(ik) \
+    #       + Vn * cos(u_k) * sin(ik)
+    #
+    # Vx = V0x + 0*OmegaEarthDot * Y
+    # Vy = V0y - 0*OmegaEarthDot * X
+    # Vz = V0z
+    # return (X, Y, Z, Vx, Vy, Vz)
 
 
 def calc_sat_eph(EPH: list, time, N, flag=True):
@@ -215,15 +226,22 @@ def calc_sat_eph(EPH: list, time, N, flag=True):
     accuracy = EPH[27]
     receiving_time = EPH[28]
 
-    mu = 3.9860044 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
-    OmegaEathDot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
+    CORRECTION_FACTOR = 1.1
+
+    OmegaEarthDot = Constants.OmegaEarthDot * CORRECTION_FACTOR
 
     a = sqrtA ** 2  # большая полуось
-    n0 = sqrt(mu / a ** 3)  # rad/s вычисленное среднее перемещение
+    n0 = sqrt(Constants.mu / a ** 3)  # rad/s вычисленное среднее перемещение
     n = n0 + dn  # скорректированное средне движение
-    t = time
+
     # TODO: добавить поправки генераторов
+    # dt = check_time(time - Toc)
+    # satNr = (af2 * dt + af1) * dt + af0 - Tgd
+    # time = time - satNr
+    # tk = check_time(time - Toe)
+
     tk = 0 * 604800 + time - Toe
+    tk = check_time(tk)
 
     Mk = M0 + n * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
@@ -236,9 +254,9 @@ def calc_sat_eph(EPH: list, time, N, flag=True):
         (cos(Ek) - e) / (1 - e * cos(Ek))
     )
     Phi_k = nu_k + omega  # аргумент lat
-    r_k = a * (1 - e * cos(Ek))
+    r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
     ik = i0 + IDOT * tk
-    Omega_k = Omega0 + (OmegaDot - OmegaEathDot) * tk - OmegaEathDot * Toe
+    Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toe
     du_k = Cuc * cos(2 * Phi_k) + Cus * sin(2 * Phi_k)
     dr_k = Crc * cos(2 * Phi_k) + Crs * sin(2 * Phi_k)
     di_k = Cic * cos(2 * Phi_k) + Cis * sin(2 * Phi_k)
@@ -250,15 +268,16 @@ def calc_sat_eph(EPH: list, time, N, flag=True):
     X = r_k * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik))
     Y = r_k * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik))
     Z = r_k * sin(u_k) * sin(ik)
+    return X, Y, Z
 
-    if flag:
-        X1, Y1, Z1, Vx1, Vy1, Vz1 = calc_sat_eph(EPH, time + 1, N, False)
-        X0, Y0, Z0, Vx0, Vy0, Vz0 = calc_sat_eph(EPH, time - 1, N, False)
+    # if flag:
+    #     X1, Y1, Z1, Vx1, Vy1, Vz1 = calc_sat_eph(EPH, time + 1, N, False)
+    #     X0, Y0, Z0, Vx0, Vy0, Vz0 = calc_sat_eph(EPH, time - 1, N, False)
+    #
+    #     Vx = (X1 - X0) / 2
+    #     Vy = (Y1 - Y0) / 2
+    #     Vz = (Z1 - Z0) / 2
+    # else:
+    #     Vx, Vy, Vz = 0, 0, 0
 
-        Vx = (X1 - X0) / 2
-        Vy = (Y1 - Y0) / 2
-        Vz = (Z1 - Z0) / 2
-    else:
-        Vx, Vy, Vz = 0, 0, 0
-
-    return X, Y, Z, Vx, Vy, Vz
+    # return X, Y, Z, Vx, Vy, Vz

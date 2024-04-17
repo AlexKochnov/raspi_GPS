@@ -2,7 +2,15 @@ from GPSUtils import GNSS
 from UBXUtils import flag_to_int, get_bytes_from_flag
 
 
-class SAT:
+class SatelliteBlock:
+    def __str__(self):
+        return str(self.__dict__)
+
+    def __repr__(self):
+        return str(self)
+
+
+class SAT(SatelliteBlock):
     def __init__(self, cno, elev, azim, prRes, flags):
         self.cno = cno
         self.elev = elev
@@ -15,11 +23,10 @@ class SAT:
         self.ephAvail = get_bytes_from_flag(flags, 11)
         self.almAvail = get_bytes_from_flag(flags, 12)
 
-    def __str__(self):
-        return str(self.__dict__)
 
 
-class ORB:
+
+class ORB(SatelliteBlock):
     def __init__(self, svFlag, eph, alm, otherOrb):
         svFlag = flag_to_int(svFlag)
         eph = flag_to_int(eph)
@@ -34,11 +41,9 @@ class ORB:
         self.anoAopUsability = otherOrb % 32
         self.type = otherOrb // 32
 
-    def __str__(self):
-        return str(self.__dict__)
 
 
-class SVSI:
+class SVSI(SatelliteBlock):
     def __init__(self, sv_flag, azim, elev, age_flag):
         self.azim = azim
         self.elev = elev
@@ -52,11 +57,8 @@ class SVSI:
         self.almAge = (age_flag & 0x0f) - 4
         self.ephAge = ((age_flag & 0xf0) >> 4) - 4
 
-    def __str__(self):
-        return str(self.__dict__)
 
-
-class RAWX:
+class RAWX(SatelliteBlock):
     def __init__(self, prMes, cpMes, doMes, freqId, locktime, cno, prStedv, cpStedv, doStedv, trkStat):
         self.prMes = prMes
         self.cpMes = cpMes
@@ -75,9 +77,6 @@ class RAWX:
         if self.subHalfCyc:
             # self.cpMes -= 1
             pass
-
-    def __str__(self):
-        return str(self.__dict__)
 
 
 class ALM:
@@ -122,3 +121,6 @@ class Satellite:
 
     def __str__(self):
         return str(self.__dict__)
+
+    def __repr__(self):
+        return str(self)

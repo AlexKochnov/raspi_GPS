@@ -9,6 +9,8 @@ import UBXUnpacker
 from GPSStorage import GPSStorage, calc_sat_alm, calc_sat_eph
 from UBXUtils import *
 
+import Constants
+
 import numpy as np, pandas as pd
 # import matplotlib.pyplot as plt
 
@@ -49,6 +51,10 @@ class GPSReader:
     def __init__(self, port="/dev/ttyS0", baudrate=9600, timeout=1):  # timeout влияет на буфер, 0.1 мало
         self.stream = Serial(port, baudrate, timeout=timeout)
         self.tune()
+
+    def __iter__(self):
+        while True:
+            yield self.next()
 
     def next(self):
         self.counter += 1
@@ -109,10 +115,10 @@ class GPSReader:
             return
         msg_class = UBXUnpacker.Message.byte_find(clsid, msgid)
         if msg_class != UBXUnpacker.Message:
-            parsed = msg_class(plb, datetime.now())
+            parsed = msg_class(plb, datetime.now(tz=Constants.tz_moscow))
         else:
             parsed = UBXReader.parse(raw_message)
-            # parsed = msg_class(datetime.now())
+            # parsed = msg_class(datetime.now(tz=Constants.tz_moscow))
         self.__save_parsed__(parsed)
         return parsed
 
@@ -125,13 +131,13 @@ class GPSReader:
 
     def __save_raw__(self, raw_message):
         if self.print_raw:
-            print(f'{datetime.now()}: {raw_message}')
+            print(f'{datetime.now(tz=Constants.tz_moscow)}: {raw_message}')
         with open(self.raw_logger, 'a') as file:
             file.write(str(raw_message) + '\n')
 
     def __save_parsed__(self, parsed_message):
         if self.print_parsed:
-            print(f'{datetime.now()}: {parsed_message}')
+            print(f'{datetime.now(tz=Constants.tz_moscow)}: {parsed_message}')
         with open(self.parsed_logger, 'a') as file:
             file.write(str(parsed_message) + '\n')
 
@@ -151,15 +157,20 @@ if __name__ == "__main__":
 
     start_year = datetime(2023, 1, 1)
 
-    counter = 0
+    # counter = 0
 
-    while True:
-        counter += 1
+    # while True:
+    for counter, parsed_data in enumerate(Reader):
+        # counter += 1
+        Storage.update(parsed_data)
+        # print(counter)
 
-        parsed = Reader.next()
-        if not parsed:
-            continue
-        Storage.update(parsed)
+        # Storage.update(Reader.next())
+
+        # parsed = Reader.next()
+        # if not parsed:
+        #     continue
+        # Storage.update(parsed)
         # for (gnssId, svId), sat in Storage.satellites.items():
         #     if sat.eph and sat.alm and True:
         #         time_stamp = Storage.iTOW / 1000
@@ -206,53 +217,53 @@ if __name__ == "__main__":
         ##         plot_axs(3, alm[:, 3] *1e6, eph[:, 3]*1e6, 'Z, км')
         #         plt.show()
         #         a = 0
-                # plot_axs(1, sat.alm_y / 1000, sat.eph_y / 1000, 'Y, км')
-                # plot_axs(2, sat.alm_z / 1000, sat.eph_z / 1000, 'Z, км')
+        # plot_axs(1, sat.alm_y / 1000, sat.eph_y / 1000, 'Y, км')
+        # plot_axs(2, sat.alm_z / 1000, sat.eph_z / 1000, 'Z, км')
 
-                # plt.clf()
-                # plt.plot(time, alm[:, 0] / 10**6, label='X, alm', color='b', linestyle='--', linewidth=2)
-                # plt.plot(time, alm[:, 1] / 10**6, label='Y, alm', color='g', linestyle='--', linewidth=2)
-                # plt.plot(time, alm[:, 2] / 10**6, label='Z, alm', color='r', linestyle='--', linewidth=2)
-                # plt.plot(time, eph[:, 0] / 10**6, label='X, eph', color='b', linestyle='-', linewidth=1)
-                # plt.plot(time, eph[:, 1] / 10**6, label='Y, eph', color='g', linestyle='-', linewidth=1)
-                # plt.plot(time, eph[:, 2] / 10**6, label='Z, eph', color='r', linestyle='-', linewidth=1)
-                # plt.xlabel("Время от настоящего, ч")
-                # plt.ylabel("Координаты спутника, км")
-                # plt.legend(loc='upper left')
-                #
-                # plt.twinx()
-                # plt.plot(time, (alm[:, 0] - eph[:, 0]), label='Xalm - Xeph', color='c', linestyle='-', linewidth=1)
-                # plt.plot(time, (alm[:, 1] - eph[:, 1]), label='Yalm - Yeph', color='m', linestyle='-', linewidth=1)
-                # plt.plot(time, (alm[:, 2] - eph[:, 2]), label='Zalm - Zeph', color='y', linestyle='-', linewidth=1)
-                # plt.ylabel("Разница координат, м")
-                # plt.legend(loc='upper right')
-                # plt.savefig('position.png', dpi=1000)
-                #
-                # b = 0
-                #
-                # plt.clf()
-                # plt.plot(time, alm[:, 3], label='Vx, alm', color='b', linestyle='--', linewidth=2)
-                # plt.plot(time, alm[:, 4], label='Vy, alm', color='g', linestyle='--', linewidth=2)
-                # plt.plot(time, alm[:, 5], label='Vz, alm', color='r', linestyle='--', linewidth=2)
-                # plt.plot(time, eph[:, 3], label='Vx, eph', color='b', linestyle='-', linewidth=1)
-                # plt.plot(time, eph[:, 4], label='Vy, eph', color='g', linestyle='-', linewidth=1)
-                # plt.plot(time, eph[:, 5], label='Vz, eph', color='r', linestyle='-', linewidth=1)
-                # plt.xlabel("Время от настоящего, ч")
-                # plt.ylabel("Скорости спутника, м/c")
-                # plt.legend(loc='upper left')
-                #
-                # plt.twinx()
-                # # plt.plot(time, (alm[:, 3] - eph[:, 3]), label='Vx_alm - Vx_eph', color='c', linestyle='-', linewidth=1)
-                # # plt.plot(time, (alm[:, 4] - eph[:, 4]), label='Vy_alm - Vy_eph', color='m', linestyle='-', linewidth=1)
-                # plt.plot(time, (alm[:, 5] - eph[:, 5]), label='Vz_alm - Vz_eph', color='y', linestyle='-', linewidth=1)
-                # plt.ylabel("Разница скоростей, м/c")
-                # plt.legend(loc='upper right')
-                # plt.savefig('speed.png', dpi=1000)
+        # plt.clf()
+        # plt.plot(time, alm[:, 0] / 10**6, label='X, alm', color='b', linestyle='--', linewidth=2)
+        # plt.plot(time, alm[:, 1] / 10**6, label='Y, alm', color='g', linestyle='--', linewidth=2)
+        # plt.plot(time, alm[:, 2] / 10**6, label='Z, alm', color='r', linestyle='--', linewidth=2)
+        # plt.plot(time, eph[:, 0] / 10**6, label='X, eph', color='b', linestyle='-', linewidth=1)
+        # plt.plot(time, eph[:, 1] / 10**6, label='Y, eph', color='g', linestyle='-', linewidth=1)
+        # plt.plot(time, eph[:, 2] / 10**6, label='Z, eph', color='r', linestyle='-', linewidth=1)
+        # plt.xlabel("Время от настоящего, ч")
+        # plt.ylabel("Координаты спутника, км")
+        # plt.legend(loc='upper left')
+        #
+        # plt.twinx()
+        # plt.plot(time, (alm[:, 0] - eph[:, 0]), label='Xalm - Xeph', color='c', linestyle='-', linewidth=1)
+        # plt.plot(time, (alm[:, 1] - eph[:, 1]), label='Yalm - Yeph', color='m', linestyle='-', linewidth=1)
+        # plt.plot(time, (alm[:, 2] - eph[:, 2]), label='Zalm - Zeph', color='y', linestyle='-', linewidth=1)
+        # plt.ylabel("Разница координат, м")
+        # plt.legend(loc='upper right')
+        # plt.savefig('position.png', dpi=1000)
+        #
+        # b = 0
+        #
+        # plt.clf()
+        # plt.plot(time, alm[:, 3], label='Vx, alm', color='b', linestyle='--', linewidth=2)
+        # plt.plot(time, alm[:, 4], label='Vy, alm', color='g', linestyle='--', linewidth=2)
+        # plt.plot(time, alm[:, 5], label='Vz, alm', color='r', linestyle='--', linewidth=2)
+        # plt.plot(time, eph[:, 3], label='Vx, eph', color='b', linestyle='-', linewidth=1)
+        # plt.plot(time, eph[:, 4], label='Vy, eph', color='g', linestyle='-', linewidth=1)
+        # plt.plot(time, eph[:, 5], label='Vz, eph', color='r', linestyle='-', linewidth=1)
+        # plt.xlabel("Время от настоящего, ч")
+        # plt.ylabel("Скорости спутника, м/c")
+        # plt.legend(loc='upper left')
+        #
+        # plt.twinx()
+        # # plt.plot(time, (alm[:, 3] - eph[:, 3]), label='Vx_alm - Vx_eph', color='c', linestyle='-', linewidth=1)
+        # # plt.plot(time, (alm[:, 4] - eph[:, 4]), label='Vy_alm - Vy_eph', color='m', linestyle='-', linewidth=1)
+        # plt.plot(time, (alm[:, 5] - eph[:, 5]), label='Vz_alm - Vz_eph', color='y', linestyle='-', linewidth=1)
+        # plt.ylabel("Разница скоростей, м/c")
+        # plt.legend(loc='upper right')
+        # plt.savefig('speed.png', dpi=1000)
 
-                # plt.plot(time, alm[:, 0:3], colors=('b--', 'g--', 'r--'))
-                # plt.plot(time, eph[:, 0:3], colors=('b', 'g', 'r'))
-                # plt.legend(('Xa', 'Ya', 'Za', 'Xe', 'Ye', 'Ze'))
-                # plt.savefig('position.png', dpi=1000)
+        # plt.plot(time, alm[:, 0:3], colors=('b--', 'g--', 'r--'))
+        # plt.plot(time, eph[:, 0:3], colors=('b', 'g', 'r'))
+        # plt.legend(('Xa', 'Ya', 'Za', 'Xe', 'Ye', 'Ze'))
+        # plt.savefig('position.png', dpi=1000)
 
         # print(parsed)
         # if not isinstance(parsed, list) or not isinstance(parsed, tuple):

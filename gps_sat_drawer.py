@@ -2,33 +2,36 @@ import numpy as np
 import pandas as pd
 
 from matplotlib import pyplot as plt
+from math import sin, cos, radians
 
 import os
 
 import Constants
-from Constants import ApproximateEarthRadius, GPSAltitude
-from Transformations import aer2eci, aer2ecef, eci2ecef
-
-
-# ecef = np.array(ecef) / 1000
+from Transformations import aer2eci, aer2ecef, eci2ecef, Raer2ned
 
 # sat_df = pd.DataFrame(columns=['TOW', 'az', 'el', 'az_cor', 'el_cor'])
 
+FLAG_01_CORRECTION = False
+
 
 def calc_ubx_eci(row):
-    return aer2eci(row.azim, row.elev, row.dist,
-                   Constants.LLA[0],
-                   Constants.LLA[1] + row.TOW * Constants.OmegaEarthDot * 180 / np.pi * 0.1,
-                   Constants.LLA[2],
-                   row.TOW)
+    # k_correction = 1 if FLAG_01_CORRECTION else 0
+    return aer2eci(azim=row.azim,
+                   elev=row.elev,
+                   dist=row.dist,
+                   lat=Constants.LLA[0],
+                   lon=Constants.LLA[1] + row.TOW * Constants.OmegaEarthDot * 180 / np.pi * 0.1 * FLAG_01_CORRECTION,
+                   alt=Constants.LLA[2],
+                   time_sec=row.TOW)
 
 
 def calc_ubx_ecef(row):
+    # k_correction = 1 if FLAG_01_CORRECTION else 0
     return aer2ecef(azim=row.azim,
                     elev=row.elev,
                     dist=row.dist,
                     lat=Constants.LLA[0],
-                    lon=Constants.LLA[1] + row.TOW * Constants.OmegaEarthDot * 180 / np.pi * 0.1,
+                    lon=Constants.LLA[1] + row.TOW * Constants.OmegaEarthDot * 180 / np.pi * 0.1 * FLAG_01_CORRECTION,
                     alt=Constants.LLA[2])
     # return pm.aer2ecef(row.azim, row.elev, row.dist,# *lla)
     #                    lla[0], lla[1] + row.TOW * OmegaEathDot * 180 / np.pi * 0.1, lla[2])
@@ -37,10 +40,16 @@ def calc_ubx_ecef(row):
 def calc_dist(row):
     r = Constants.ApproximateEarthRadius
     h = Constants.GPSAltitude
+    if row.elev == -91:
+        return np.nan
     dist = 0.5 * (
             np.sqrt(2) * np.sqrt(2 * h * h + 4 * h * r + r * r - r * r * np.cos(2 * row.elev * np.pi / 180)) -
             2 * r * np.sin(row.elev * np.pi / 180))
     return dist * 1000
+
+def calc_dist2(row):
+    Re = Raer2ned(Constants.LLA[0], Constants.LLA[1], row.azim, row.elev)
+    dist = 1 / ( Re[0]**2/Constants.a**2 + Re[1]**2/Constants.a**2 + Re[2]**2/Constants.b**2)
 
 
 if __name__ == "__main__":
@@ -49,31 +58,42 @@ if __name__ == "__main__":
                             'elev', 'azim', 'doMes', 'cpMes', 'prMes'])
 
     df = df[df.gnssId == 'GNSS.GPS']
+    # df = df[df.TOW < 50 * 3600]
+    # print(min(df.TOW), max(df.TOW))
+    # df[df.TOW < 50 * 3600].TOW += 3600 * 24 * 7
+    df.loc[df['TOW'] > 50 * 3600, 'TOW'] -= 3600 * 24 * 7
+    # df = df[df.TOW < 20 * 3600]
+    # df = df[df.TOW >= 0]
+
+    # print(min(df.TOW), max(df.TOW))
+    # print(df[df.svId == 10].TOW)
+
+
     df.reset_index(drop=True, inplace=True)
 
     folder_path = 'satellites_xyz'
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
-    for svId in range(2, 33):
+    for svId in range(7, 33):
         sat = df[df.svId == svId]
         sat.reset_index(drop=True, inplace=True)
 
         sat['alm'] = sat.apply(lambda row: (row['alm_x'], row['alm_y'], row['alm_z']), axis=1)
         sat = sat.drop(columns=['alm_x', 'alm_y', 'alm_z'])
         sat['alm_ecef'] = sat.apply(lambda row: eci2ecef(row['TOW'], *row['alm']), axis=1)
-        print(f'sv{svId}: alm calculated')
+        # print(f'sv{svId}: alm calculated')
 
         sat['eph'] = sat.apply(lambda row: (row['eph_x'], row['eph_y'], row['eph_z']), axis=1)
         sat = sat.drop(columns=['eph_x', 'eph_y', 'eph_z'])
         sat['eph_ecef'] = sat.apply(lambda row: eci2ecef(row['TOW'], *row['eph']), axis=1)
-        print(f'sv{svId}: eph calculated')
+        # print(f'sv{svId}: eph calculated')
 
         sat['dist'] = sat.apply(calc_dist, axis=1)
         sat['ubx_ecef'] = sat.apply(calc_ubx_ecef, axis=1)
         sat['ubx'] = sat.apply(calc_ubx_eci, axis=1)
         # sat['ubx'] = sat.apply(lambda row: ecef2eci(row['TOW'], *row['ubx_ecef']), axis=1)
-        print(f'sv{svId}: ubx calculated')
+        # print(f'sv{svId}: ubx calculated')
         # sat['ubx'] = sat.apply(calc_ubx_eci, axis=1)
         # sat['ubx_ecef'] = sat.apply(lambda row: eci2ecef(row['TOW'], *row['ubx']), axis=1)
         # sat.to_csv('sat12.csv', sep=';')
@@ -122,9 +142,10 @@ if __name__ == "__main__":
         #          ubx[:, 2] / 1000 - sat.alm_z / 1000, 'Z, км')
 
         plt.xlabel('Время TOW, ч')
-        fig.suptitle(f"Координаты спутника #{svId}")
+        fig.suptitle(f"Координаты спутника #{svId} {'с коррекцией 0,1' if FLAG_01_CORRECTION else 'без коррекции 0,1'}")
         plt.tight_layout()
-        plt.savefig(os.path.join(folder_path, f'sat{svId:02}.png'), dpi=500)
+        plt.savefig(os.path.join(folder_path,
+                                 f'sat{svId:02}{"_not_cor" if not FLAG_01_CORRECTION else ""}.png'), dpi=500)
         # plt.show()
 
         del sat

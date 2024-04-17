@@ -72,6 +72,11 @@ def set_rate(msgClass: hex, msgID: hex, rateUART1: int) -> bytes:
     # return UBXMessage('CFG', 'CFG-MSG', SET, msgClass=msgClass, msgID=msgID, rateUART1=rateUART1).serialize()
 
 
+def check_rate(msgClass: hex, msgID: hex) -> bytes:
+    cmd = b'\x06\x01' + b'\x03\x00' + msgClass.to_bytes() + msgID.to_bytes()
+    return b'\xb5b' + cmd + calc_checksum(cmd)
+
+
 MSG2set = [
     # set_rate(msgClass=0x02, msgID=0x13, rateUART1=1),  # RXM-SFRBX
 
@@ -96,6 +101,7 @@ MSG2set = [
     set_rate(msgClass=0x01, msgID=0x20, rateUART1=1),  # NAV-TIMEGPS
     set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
     set_rate(msgClass=0x01, msgID=0x35, rateUART1=1),  # NAV-SAT
+    set_rate(msgClass=0x02, msgID=0x15, rateUART1=1), # RXM-RAWX
 
     set_rate(msgClass=0x01, msgID=0x01, rateUART1=0),  # NAV-POSECEF
     set_rate(msgClass=0x01, msgID=0x11, rateUART1=0),  # NAV-VELECEF
@@ -112,6 +118,7 @@ MSG2set = [
 
     set_rate(msgClass=0x0A, msgID=0x07, rateUART1=0),  # mon rxbuf
     set_rate(msgClass=0x0A, msgID=0x08, rateUART1=0),  # mon txbuf
+
 
     # set_rate(msgClass=0x10, msgID=0x14, rateUART1=1),  # ESF-ALG
     # set_rate(msgClass=0x10, msgID=0x10, rateUART1=1),  # ESF-STATUS

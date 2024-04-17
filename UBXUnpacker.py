@@ -271,7 +271,7 @@ class GPSParser:
 
     @staticmethod
     def ParseSf1(subframe):
-        week = bin2dec(subframe[60:70]) + 0 * 1024 * 2
+        week = bin2dec(subframe[60:70]) + 1024 * 2
         accuracy = bin2dec(subframe[72:76])
         health = bin2dec(subframe[76:82])
         IODC = bin2dec(subframe[82:84] + subframe[196:204])

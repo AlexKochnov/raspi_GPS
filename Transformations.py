@@ -4,7 +4,6 @@ import numpy as np
 import pymap3d as pm
 
 import Constants
-from Constants import OmegaEarthDot
 
 
 def aer2eci(azim, elev, dist, lat, lon, alt, time_sec):
@@ -12,7 +11,27 @@ def aer2eci(azim, elev, dist, lat, lon, alt, time_sec):
     return pm.aer2ecef(azim, elev, dist, lat, lon_corrected, alt)
 
 
+def Raer2ned(phi, lam, azim, elev):
+    phi = np.radians(phi)
+    lam = np.radians(lam)
+    az_rad = radians(azim)
+    el_rad = radians(elev)
+    R = np.array([
+            [-sin(phi) * cos(lam), -sin(phi) * sin(lam), cos(phi)],
+            [-sin(lam), cos(lam), 0],
+            [-cos(phi) * cos(lam), -cos(phi) * sin(lam), -sin(phi)],
+        ])
+    return np.transpose(R) @ [cos(az_rad) * cos(el_rad), sin(az_rad) * cos(el_rad), -sin(el_rad)]
+
+
 def aer2ecef(azim, elev, dist, lat, lon, alt):
+    UVW = Raer2ned(lat, lon, azim, elev) * dist
+    XYZ = lla2ecef(lat, lon, alt)
+    ECEF = UVW + XYZ
+    return ECEF
+
+
+def aer2ecef2(azim, elev, dist, lat, lon, alt):
     def R(phi, lam):
         phi = np.radians(phi)
         lam = np.radians(lam)
@@ -31,7 +50,6 @@ def aer2ecef(azim, elev, dist, lat, lon, alt):
     XYZ = lla2ecef(lat, lon, alt)
     ECEF = UVW + XYZ
     return ECEF
-
 
 def lla2ecef(lat, lon, alt):
     B = np.radians(lat)
@@ -68,8 +86,8 @@ def rotateZ(x, y, z, ang):
 
 
 def ecef2eci(t, x, y, z):
-    return rotateZ(x, y, z, t * OmegaEarthDot)
+    return rotateZ(x, y, z, t * Constants.OmegaEarthDot)
 
 
 def eci2ecef(t, x, y, z):
-    return rotateZ(x, y, z, - t * OmegaEarthDot)
+    return rotateZ(x, y, z, - t * Constants.OmegaEarthDot)
