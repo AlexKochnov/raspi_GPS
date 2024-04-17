@@ -1,5 +1,16 @@
-from GPSUtils import GNSS
+from enum import Enum
+
 from UBXUtils import flag_to_int, get_bytes_from_flag
+
+
+class GNSS(Enum):
+    GPS = 0
+    SBAS = 1
+    Galileo = 2
+    BeiDou = 3
+    IMEA = 4
+    QZSS = 5
+    GLONASS = 6
 
 
 class SatelliteBlock:
@@ -24,8 +35,6 @@ class SAT(SatelliteBlock):
         self.almAvail = get_bytes_from_flag(flags, 12)
 
 
-
-
 class ORB(SatelliteBlock):
     def __init__(self, svFlag, eph, alm, otherOrb):
         svFlag = flag_to_int(svFlag)
@@ -40,7 +49,6 @@ class ORB(SatelliteBlock):
         self.almSource = alm // 32
         self.anoAopUsability = otherOrb % 32
         self.type = otherOrb // 32
-
 
 
 class SVSI(SatelliteBlock):
@@ -103,6 +111,9 @@ class EPH:
 
     def to_list(self):
         pass
+class Coordinates:
+    eph = None
+    alm = None
 
 
 class Satellite:
@@ -114,6 +125,8 @@ class Satellite:
     rawx: RAWX = None
     alm: list = None
     eph: list = None
+    alm_coord: list = None
+    eph_coord: list = None
 
     def __init__(self, gnssId, svId):
         self.gnssId = GNSS(gnssId)
@@ -124,3 +137,5 @@ class Satellite:
 
     def __repr__(self):
         return str(self)
+
+

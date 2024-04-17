@@ -1,17 +1,18 @@
-from datetime import datetime, timedelta
-from math import pi, sqrt, sin, atan, atan2, cos, tan
+from datetime import timedelta
+from math import pi, sqrt, sin, atan2, cos
 import Constants
 import numpy as np
+from scipy.optimize import minimize
 # from tabulate import tabulate
 
-import UBXUnpacker
-
 from GPSUtils import *
-from Satellites import *
 from UBXUnpacker import *
 
 
 class GPSStorage:
+    min_sat_using = 4
+    max_sat_using = 8
+
     sat_calc_file = 'sat_raw_calc_data.txt'
     # EPH_headers = ['SV_ID', 'week', 'Toe', 'Toc', 'IODE1', 'IODE2', 'IODC', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc',
     #                'Cis', 'Cic', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0', 'w', 'Tgd', 'af2', 'af1', 'af0',
@@ -34,6 +35,8 @@ class GPSStorage:
     leapS = 0
     Valid = {'TOW': 0, 'week': 0, 'leapS': 0}
 
+    MyCoordinates = None
+
     def __init__(self):
         pass
 
@@ -43,6 +46,7 @@ class GPSStorage:
             self.satellites[sat] = Satellite(gnssId, svId)
 
     def update(self, data):
+        print(self.satellites)
         if data is None or not data:
             return
         if not isinstance(data, Message):
@@ -86,8 +90,59 @@ class GPSStorage:
     def __str__(self):
         return str(self.__dict__)
 
+    def get_TOW(self):
+        if self.TOW:
+            return self.TOW
+        if self.iTOW:
+            return self.iTOW / 1000
+        return None
+
     def end_of_tick(self):
-        for key, satellite in self.satellites.items():
+        self.calc_coordinates()
+        self.satellite_logger()
+        self.reset_variables()
+
+    @staticmethod
+    def get_minimize_function(good_eph):
+        def calc_rho(satellite, xyzt):
+            return sqrt(
+                (satellite.eph_coord[0] - xyzt[0]) ** 2
+                + (satellite.eph_coord[1] - xyzt[1]) ** 2
+                + (satellite.eph_coord[2] - xyzt[2]) ** 2
+            )
+
+        def minimize_function(xyzt):
+            sum([(calc_rho(satellite, xyzt) - satellite.rawx.prMes)**2 for satellite in good_eph])
+
+        return minimize_function
+
+    def calc_coordinates(self):
+        for svId, satellite in self.satellites.items():
+            self.satellites[svId].alm_coord = calc_sat_alm(satellite.alm, self.get_TOW(), self.week)
+            self.satellites[svId].eph_coord = calc_sat_eph(satellite.eph, self.get_TOW(), self.week)
+
+        good_eph = [satellite for satellite in self.satellites.values()
+                    if satellite.eph is not None and satellite.rawx is not None and satellite.sat.qualityInd > 3]
+        if good_eph:
+            a = 0
+        good_eph.sort(key=lambda satellite: satellite.sat.qualityInd, reverse=True)
+        good_eph_count = min(self.max_sat_using, len(good_eph))
+        good_eph = good_eph[:good_eph_count]
+        print(good_eph)
+        if len(good_eph) < self.min_sat_using:
+            self.MyCoordinates = None
+            return
+        xyzt0 = np.array([0, 0, 0, 0])
+        xyzt = minimize(
+                self.get_minimize_function(good_eph),
+                xyzt0,
+                options={'xtol': 1e-8, 'disp': True, 'maxiter': 100}
+        )
+        self.MyCoordinates = xyzt
+        print(f'Calced coordinates {xyzt}')
+
+    def satellite_logger(self):
+        for svId, satellite in self.satellites.items():
             if satellite.alm:
                 alm_x, alm_y, alm_z, *_ = calc_sat_alm(satellite.alm, self.iTOW / 1000, self.week)
             else:
@@ -111,15 +166,18 @@ class GPSStorage:
             else:
                 cpMes, prMes, doMes = np.nan, np.nan, np.nan
 
-            self.satellites[key].sat = None
-            self.satellites[key].rawx = None
+            # self.satellites[svId].sat = None
+            # self.satellites[svId].rawx = None
 
             with open(self.sat_calc_file, 'a') as file:
                 file.write(
                     f"{satellite.svId};{satellite.gnssId};{self.iTOW / 1000};{alm_x};{alm_y};{alm_z};{eph_x};{eph_y};{eph_z};{elev};{azim};{doMes};{cpMes};{prMes}\n")
 
-        pass
-
+    def reset_variables(self):
+        self.TOW = self.iTOW = self.fTOW = None
+        for svId, satellite in self.satellites.items():
+            self.satellites[svId].rawx = None
+            self.satellites[svId].sat = None
 
 def check_time(time, *args, **kwargs):
     half_week = 302400.0
@@ -130,7 +188,9 @@ def check_time(time, *args, **kwargs):
     return time
 
 
-def calc_sat_alm(ALM: list, time, N):
+def calc_sat_alm(ALM: list or None, time, N):
+    if ALM is None:
+        return None
     # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
     SV_ID = ALM[0]  # ID спутника
     N0a = ALM[1]  # номер недели передаваемых данных
@@ -168,7 +228,8 @@ def calc_sat_alm(ALM: list, time, N):
         sqrt(1 - e * e) * sin(Ek) / (1 - e * cos(Ek)),
         (cos(Ek) - e) / (1 - e * cos(Ek))
     )
-    r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
+    # r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
+    r_k = a * (1 - e * cos(Ek))
     ik = i0 + di
     Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toa
     p = a * (1 - e * e)
@@ -195,7 +256,9 @@ def calc_sat_alm(ALM: list, time, N):
     # return (X, Y, Z, Vx, Vy, Vz)
 
 
-def calc_sat_eph(EPH: list, time, N, flag=True):
+def calc_sat_eph(EPH: list or None, time, N, flag=True):
+    if EPH is None:
+        return None
     SV_ID = EPH[0]
     Noe = EPH[1]
     Toe = EPH[2]
@@ -254,7 +317,8 @@ def calc_sat_eph(EPH: list, time, N, flag=True):
         (cos(Ek) - e) / (1 - e * cos(Ek))
     )
     Phi_k = nu_k + omega  # аргумент lat
-    r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
+    # r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
+    r_k = a * (1 - e * cos(Ek))
     ik = i0 + IDOT * tk
     Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toe
     du_k = Cuc * cos(2 * Phi_k) + Cus * sin(2 * Phi_k)
