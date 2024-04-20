@@ -1,5 +1,7 @@
-from UBXUnpacker import *
+# from UBXUnpacker import *
 from pyubx2 import UBXMessage, SET
+import struct
+
 
 
 def calc_checksum(cmd: bytes) -> bytes:
@@ -13,6 +15,8 @@ def calc_checksum(cmd: bytes) -> bytes:
 
 def check_cks(cmd: bytes) -> bool:
     return calc_checksum(cmd[2:-2]) == cmd[-2:]
+
+
 
 
 class POOLMessages:
@@ -73,7 +77,7 @@ def set_rate(msgClass: hex, msgID: hex, rateUART1: int) -> bytes:
 
 
 def check_rate(msgClass: hex, msgID: hex) -> bytes:
-    cmd = b'\x06\x01' + b'\x03\x00' + msgClass.to_bytes() + msgID.to_bytes()
+    cmd = b'\x06\x01' + b'\x02\x00' + msgClass.to_bytes() + msgID.to_bytes()
     return b'\xb5b' + cmd + calc_checksum(cmd)
 
 
@@ -84,7 +88,7 @@ MSG2set = [
     set_rate(msgClass=0xF0, msgID=0x01, rateUART1=0),  # GLL
     set_rate(msgClass=0xF0, msgID=0x02, rateUART1=0),  # GSA
     set_rate(msgClass=0xF0, msgID=0x03, rateUART1=0),  # GSV
-    set_rate(msgClass=0xF0, msgID=0x04, rateUART1=0),  # RMC
+    set_rate(msgClass=0xF0, msgID=0x04, rateUART1=1),  # RMC
     set_rate(msgClass=0xF0, msgID=0x05, rateUART1=0),  # VTG
     set_rate(msgClass=0xF0, msgID=0x08, rateUART1=0),  # ZDA
     set_rate(msgClass=0xF0, msgID=0x41, rateUART1=0),  # TXT
@@ -103,7 +107,7 @@ MSG2set = [
     set_rate(msgClass=0x01, msgID=0x35, rateUART1=1),  # NAV-SAT
     set_rate(msgClass=0x02, msgID=0x15, rateUART1=1), # RXM-RAWX
 
-    set_rate(msgClass=0x01, msgID=0x01, rateUART1=0),  # NAV-POSECEF
+    set_rate(msgClass=0x01, msgID=0x01, rateUART1=1),  # NAV-POSECEF
     set_rate(msgClass=0x01, msgID=0x11, rateUART1=0),  # NAV-VELECEF
     # set_rate(msgClass=0x01, msgID=0x20, rateUART1=0),  # NAV-TIMEGPS
     # set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
@@ -118,6 +122,8 @@ MSG2set = [
 
     set_rate(msgClass=0x0A, msgID=0x07, rateUART1=0),  # mon rxbuf
     set_rate(msgClass=0x0A, msgID=0x08, rateUART1=0),  # mon txbuf
+
+    check_rate(0x02, 0x15)
 
 
     # set_rate(msgClass=0x10, msgID=0x14, rateUART1=1),  # ESF-ALG

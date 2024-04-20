@@ -23,11 +23,12 @@ a = 6378136
 alpha = 1 / 298.257223563
 b = a - alpha * a
 
-StartDate = datetime(1980, 1, 1) + timedelta(weeks=2310)
 
 # Moscow:
 LLA = [55.690555555555555, 37.858333333333334, 140]
 # ECEF = (2842100.6406425796, 4164888.83911829, 3893127.006272498)  # 2800, 4200, 3900 км
-
+import pymap3d as pm
+ECEF = pm.geodetic2ecef(*LLA)
+ECI = pm.geodetic2ecef(*LLA)
 
 

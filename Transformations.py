@@ -6,6 +6,12 @@ import pymap3d as pm
 import Constants
 
 
+
+def eci2lla(time, x, y, z):
+    ecef = eci2ecef(time, x, y, z)
+    lla = pm.ecef2geodetic(*ecef)
+    return lla
+
 def aer2eci(azim, elev, dist, lat, lon, alt, time_sec):
     lon_corrected = lon - time_sec * Constants.OmegaEarthDot * 180 / np.pi
     return pm.aer2ecef(azim, elev, dist, lat, lon_corrected, alt)

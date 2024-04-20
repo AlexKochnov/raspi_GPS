@@ -1,6 +1,6 @@
 from datetime import timedelta
-from math import pi, sqrt, sin, atan2, cos
-import Constants
+import pickle
+
 import numpy as np
 from scipy.optimize import minimize
 # from tabulate import tabulate
@@ -8,12 +8,18 @@ from scipy.optimize import minimize
 from GPSUtils import *
 from UBXUnpacker import *
 
+import Constants
+import Minimizing
+import SatellitesCoordinateCalculator as SCC
+from Transformations import *
+
 
 class GPSStorage:
     min_sat_using = 4
     max_sat_using = 8
 
     sat_calc_file = 'sat_raw_calc_data.txt'
+    calc_log_file = 'calculations.log'
     # EPH_headers = ['SV_ID', 'week', 'Toe', 'Toc', 'IODE1', 'IODE2', 'IODC', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc',
     #                'Cis', 'Cic', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0', 'w', 'Tgd', 'af2', 'af1', 'af0',
     #                'health', 'accuracy', 'receiving_time']
@@ -35,7 +41,7 @@ class GPSStorage:
     leapS = 0
     Valid = {'TOW': 0, 'week': 0, 'leapS': 0}
 
-    MyCoordinates = None
+    MyCoordinatesSolve = None
 
     def __init__(self):
         pass
@@ -46,7 +52,7 @@ class GPSStorage:
             self.satellites[sat] = Satellite(gnssId, svId)
 
     def update(self, data):
-        print(self.satellites)
+        # print(self.satellites)
         if data is None or not data:
             return
         if not isinstance(data, Message):
@@ -102,54 +108,75 @@ class GPSStorage:
         self.satellite_logger()
         self.reset_variables()
 
-    @staticmethod
-    def get_minimize_function(good_eph):
-        def calc_rho(satellite, xyzt):
-            return sqrt(
-                (satellite.eph_coord[0] - xyzt[0]) ** 2
-                + (satellite.eph_coord[1] - xyzt[1]) ** 2
-                + (satellite.eph_coord[2] - xyzt[2]) ** 2
-            )
-
-        def minimize_function(xyzt):
-            sum([(calc_rho(satellite, xyzt) - satellite.rawx.prMes)**2 for satellite in good_eph])
-
-        return minimize_function
-
     def calc_coordinates(self):
         for svId, satellite in self.satellites.items():
-            self.satellites[svId].alm_coord = calc_sat_alm(satellite.alm, self.get_TOW(), self.week)
-            self.satellites[svId].eph_coord = calc_sat_eph(satellite.eph, self.get_TOW(), self.week)
+            self.satellites[svId].alm_coord = SCC.calc_sat_alm(satellite.alm, self.get_TOW(), self.week)
+            self.satellites[svId].eph_coord = SCC.calc_sat_eph(satellite.eph, self.get_TOW(), self.week)
 
         good_eph = [satellite for satellite in self.satellites.values()
-                    if satellite.eph is not None and satellite.rawx is not None and satellite.sat.qualityInd > 3]
+                    if satellite.eph is not None and satellite.rawx and satellite.eph_coord is not None]
+                    # and satellite.rawx.prValid and satellite.rawx.cpValid]# is not None and satellite.sat.qualityInd > 3]
         if good_eph:
             a = 0
-        good_eph.sort(key=lambda satellite: satellite.sat.qualityInd, reverse=True)
+        Flag = True
+
+        if Flag:
+            # with open(self.calc_log_file + '5', 'rb') as logger:
+            with open('5_calculation579460.000205107.log', 'rb') as logger:
+                good_eph = pickle.load(logger)
+        # good_eph.sort(key=lambda satellite: satellite.sat.qualityInd, reverse=True)
         good_eph_count = min(self.max_sat_using, len(good_eph))
         good_eph = good_eph[:good_eph_count]
-        print(good_eph)
+        print(f'good_eph [{len(good_eph)}]: {good_eph}')
         if len(good_eph) < self.min_sat_using:
-            self.MyCoordinates = None
+            self.MyCoordinatesSolve = None
             return
-        xyzt0 = np.array([0, 0, 0, 0])
-        xyzt = minimize(
-                self.get_minimize_function(good_eph),
-                xyzt0,
-                options={'xtol': 1e-8, 'disp': True, 'maxiter': 100}
-        )
-        self.MyCoordinates = xyzt
-        print(f'Calced coordinates {xyzt}')
+        serialized_good_eph = pickle.dumps(good_eph)
+        print('serialized good eph:')
+        print(serialized_good_eph)
+
+        serialized_Storage = pickle.dumps(self)
+        with open(f'storages/storage{self.TOW}.log', 'wb') as logger:
+            logger.write(serialized_Storage)
+        print('Serialized Storage:')
+        print(serialized_Storage)
+
+        if not Flag:
+            with open(f'calculations/calculation{self.TOW}.log', 'wb') as logger:
+                logger.write(serialized_good_eph)
+            with open('parsed.log', 'a') as logger:
+                logger.write(f'Serialized good eph [{len(good_eph)}]: {serialized_good_eph}\n')
+
+        solve = Minimizing.solve_navigation_task(good_eph)
+        xyz = solve.x[:3]
+        ecef = eci2ecef(self.TOW, *xyz)
+        lla = eci2lla(self.TOW, *xyz)
+        # print(np.linalg.norm(np.array(xyz)))
+        # print(np.linalg.norm(np.array(ecef)))
+        print(f'ECI xyz and dT: {solve.x}')
+        print(f'ECEF xyz: {ecef}')
+        print(f'LLA calculated:{lla}')
+        print(f'LLA my valid: {Constants.LLA}')
+        error = np.linalg.norm(np.array(ecef) - np.array(Constants.ECEF))
+        print(f'Full error: {error}')
+
+        self.MyCoordinatesSolve = solve
+        if len(good_eph) >= 5 or error < 1000:
+            print("GOODGOODGOOD")
+            a = 0
+        print(f'Calced coordinates {solve}')
 
     def satellite_logger(self):
         for svId, satellite in self.satellites.items():
-            if satellite.alm:
-                alm_x, alm_y, alm_z, *_ = calc_sat_alm(satellite.alm, self.iTOW / 1000, self.week)
+            if satellite.alm_coord:
+                # alm_x, alm_y, alm_z, *_ = SCC.calc_sat_alm(satellite.alm, self.iTOW / 1000, self.week)
+                alm_x, alm_y, alm_z, *_ = satellite.alm_coord
             else:
                 alm_x, alm_y, alm_z = np.nan, np.nan, np.nan
 
-            if satellite.eph:
-                eph_x, eph_y, eph_z, *_ = calc_sat_eph(satellite.eph, self.iTOW / 1000, self.week)
+            if satellite.eph_coord:
+                # eph_x, eph_y, eph_z, *_ = SCC.calc_sat_eph(satellite.eph, self.iTOW / 1000, self.week)
+                eph_x, eph_y, eph_z, *_ = satellite.eph_coord
             else:
                 eph_x, eph_y, eph_z = np.nan, np.nan, np.nan
 
@@ -165,10 +192,6 @@ class GPSStorage:
                 doMes = satellite.rawx.doMes
             else:
                 cpMes, prMes, doMes = np.nan, np.nan, np.nan
-
-            # self.satellites[svId].sat = None
-            # self.satellites[svId].rawx = None
-
             with open(self.sat_calc_file, 'a') as file:
                 file.write(
                     f"{satellite.svId};{satellite.gnssId};{self.iTOW / 1000};{alm_x};{alm_y};{alm_z};{eph_x};{eph_y};{eph_z};{elev};{azim};{doMes};{cpMes};{prMes}\n")
@@ -178,170 +201,3 @@ class GPSStorage:
         for svId, satellite in self.satellites.items():
             self.satellites[svId].rawx = None
             self.satellites[svId].sat = None
-
-def check_time(time, *args, **kwargs):
-    half_week = 302400.0
-    if time > half_week:
-        time -= 2 * half_week
-    elif time < - half_week:
-        time += 2 * half_week
-    return time
-
-
-def calc_sat_alm(ALM: list or None, time, N):
-    if ALM is None:
-        return None
-    # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
-    SV_ID = ALM[0]  # ID спутника
-    N0a = ALM[1]  # номер недели передаваемых данных
-    Toa = ALM[2]  # опорное время внутри недели N, на которую передаются данные альманах
-    e = ALM[3]  # эксцентриситет
-    di = ALM[4] * pi  # rad, поправка к наклонению
-    OmegaDot = ALM[5] * pi  # rad/s, скорость прецессии орбиты
-    sqrtA = ALM[6]  # корень из большей полуоси
-    Omega0 = ALM[7] * pi  # rad Угол восходящего узла на момент начала недели N
-    omega = ALM[8] * pi  # rad аргумент перигея
-    M0 = ALM[9] * pi  # rad средняя аномалия на эпоху Toa
-    af0 = ALM[10]  #
-    af1 = ALM[11]  #
-    health = ALM[12]  #
-    Data_ID = ALM[13]  #
-    receiving_time: datetime = ALM[14]  # время принятия сигнала
-
-    mu = 3.9860044 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
-    OmegaEarthDot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
-    i0 = 0.30 * pi  # rad
-
-    a = sqrtA ** 2  # большая полуось
-    n0 = sqrt(mu / a ** 3)  # rad/s вычисленное среднее перемещение
-
-    # TODO: добавить поправки генераторов
-    tk = (N - N0a) * 604800 + time - Toa  # + 3600 * 6
-    tk = check_time(tk)
-
-    Mk = M0 + n0 * tk  # средняя аномалия
-    ## Решение уравнения Mk = Ek - e * sin(Ek)
-    Ek = Mk  # rad
-    for i in range(20):
-        Ek = Ek + (Mk - Ek + e * sin(Ek)) / (1 - e * cos(Ek))
-    nu_k = atan2(
-        sqrt(1 - e * e) * sin(Ek) / (1 - e * cos(Ek)),
-        (cos(Ek) - e) / (1 - e * cos(Ek))
-    )
-    # r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
-    r_k = a * (1 - e * cos(Ek))
-    ik = i0 + di
-    Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toa
-    p = a * (1 - e * e)
-    Vr = sqrt(mu / p) * e * sin(nu_k)
-    Vn = sqrt(mu / p) * (1 + e * cos(nu_k))
-    u_k = omega + nu_k
-
-    X = r_k * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik))
-    Y = r_k * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik))
-    Z = r_k * sin(u_k) * sin(ik)
-
-    return X, Y, Z
-
-    # V0x = Vr * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik)) \
-    #       - Vn * (sin(u_k) * cos(Omega_k) + cos(u_k) * sin(Omega_k) * cos(ik))
-    # V0y = Vr * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik)) \
-    #       - Vn * (sin(u_k) * sin(Omega_k) - cos(u_k) * cos(Omega_k) * cos(ik))
-    # V0z = Vr * sin(u_k) * sin(ik) \
-    #       + Vn * cos(u_k) * sin(ik)
-    #
-    # Vx = V0x + 0*OmegaEarthDot * Y
-    # Vy = V0y - 0*OmegaEarthDot * X
-    # Vz = V0z
-    # return (X, Y, Z, Vx, Vy, Vz)
-
-
-def calc_sat_eph(EPH: list or None, time, N, flag=True):
-    if EPH is None:
-        return None
-    SV_ID = EPH[0]
-    Noe = EPH[1]
-    Toe = EPH[2]
-    Toc = EPH[3]
-    IODE1 = EPH[4]
-    IODE2 = EPH[5]
-    IODC = EPH[6]
-    IDOT = EPH[7] * pi
-    OmegaDot = EPH[8] * pi
-    Crs = EPH[9]
-    Crc = EPH[10]
-    Cus = EPH[11]
-    Cuc = EPH[12]
-    Cis = EPH[13]
-    Cic = EPH[14]
-    dn = EPH[15] * pi
-    i0 = EPH[16] * pi
-    e = EPH[17]
-    sqrtA = EPH[18]
-    M0 = EPH[19] * pi
-    Omega0 = EPH[20] * pi
-    omega = EPH[21] * pi
-    Tgd = EPH[22]
-    af2 = EPH[23]
-    af1 = EPH[24]
-    af0 = EPH[25]
-    health = EPH[26]
-    accuracy = EPH[27]
-    receiving_time = EPH[28]
-
-    CORRECTION_FACTOR = 1.1
-
-    OmegaEarthDot = Constants.OmegaEarthDot * CORRECTION_FACTOR
-
-    a = sqrtA ** 2  # большая полуось
-    n0 = sqrt(Constants.mu / a ** 3)  # rad/s вычисленное среднее перемещение
-    n = n0 + dn  # скорректированное средне движение
-
-    # TODO: добавить поправки генераторов
-    # dt = check_time(time - Toc)
-    # satNr = (af2 * dt + af1) * dt + af0 - Tgd
-    # time = time - satNr
-    # tk = check_time(time - Toe)
-
-    tk = 0 * 604800 + time - Toe
-    tk = check_time(tk)
-
-    Mk = M0 + n * tk  # средняя аномалия
-    ## Решение уравнения Mk = Ek - e * sin(Ek)
-    Ek = Mk  # rad
-    for i in range(20):
-        Ek = Ek + (Mk - Ek + e * sin(Ek)) / (1 - e * cos(Ek))
-
-    nu_k = atan2(
-        sqrt(1 - e * e) * sin(Ek) / (1 - e * cos(Ek)),
-        (cos(Ek) - e) / (1 - e * cos(Ek))
-    )
-    Phi_k = nu_k + omega  # аргумент lat
-    # r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
-    r_k = a * (1 - e * cos(Ek))
-    ik = i0 + IDOT * tk
-    Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toe
-    du_k = Cuc * cos(2 * Phi_k) + Cus * sin(2 * Phi_k)
-    dr_k = Crc * cos(2 * Phi_k) + Crs * sin(2 * Phi_k)
-    di_k = Cic * cos(2 * Phi_k) + Cis * sin(2 * Phi_k)
-
-    u_k = Phi_k + du_k
-    r_k = r_k + dr_k
-    ik = ik + di_k
-
-    X = r_k * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik))
-    Y = r_k * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik))
-    Z = r_k * sin(u_k) * sin(ik)
-    return X, Y, Z
-
-    # if flag:
-    #     X1, Y1, Z1, Vx1, Vy1, Vz1 = calc_sat_eph(EPH, time + 1, N, False)
-    #     X0, Y0, Z0, Vx0, Vy0, Vz0 = calc_sat_eph(EPH, time - 1, N, False)
-    #
-    #     Vx = (X1 - X0) / 2
-    #     Vy = (Y1 - Y0) / 2
-    #     Vz = (Z1 - Z0) / 2
-    # else:
-    #     Vx, Vy, Vz = 0, 0, 0
-
-    # return X, Y, Z, Vx, Vy, Vz

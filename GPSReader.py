@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from serial import Serial
 
 import UBXUnpacker
-from GPSStorage import GPSStorage, calc_sat_alm, calc_sat_eph
+from GPSStorage import GPSStorage
 from UBXUtils import *
 
 import Constants
@@ -45,6 +45,8 @@ class GPSReader:
     ]
 
     Pool_step = 150
+    Pool_start = 15
+
     counter = 0
     counetr2 = 0
 
@@ -58,7 +60,7 @@ class GPSReader:
 
     def next(self):
         self.counter += 1
-        if self.counter % self.Pool_step == 0:
+        if self.counter % self.Pool_step == self.Pool_start:
             self.pool_next()
         else:
             return self.read_next_message()
@@ -85,6 +87,9 @@ class GPSReader:
         if self.PoolQ:
             # cmd = self.PoolQ.pop()
             cmd = self.PoolQ[self.counetr2 % len(self.PoolQ)]
+            if cmd == POOLMessages.RST:
+                with open(GPSReader.parsed_logger, 'a') as logger:
+                    logger.write('------------------------------RESET------------------------------\n')
             self.counetr2 += 1
             print(f'\tPool: {cmd}')
             self.send(b'\xb5b' + cmd + calc_checksum(cmd))
@@ -156,6 +161,8 @@ if __name__ == "__main__":
     Storage = GPSStorage()
 
     start_year = datetime(2023, 1, 1)
+    with open(GPSReader.parsed_logger, 'a') as logger:
+        logger.write('------------------------------Start------------------------------\n')
 
     # counter = 0
 
