@@ -161,8 +161,10 @@ class GPSStorage:
         print(f'Full error: {error}')
 
         self.MyCoordinatesSolve = solve
-        if len(good_eph) >= 5 or error < 1000:
-            print("GOODGOODGOOD")
+        if len(good_eph) >= 6:
+            print("GOOD_COUNT")
+        if error < 1000:
+            print("GOOD_ERROR")
             a = 0
         print(f'Calced coordinates {solve}')
 

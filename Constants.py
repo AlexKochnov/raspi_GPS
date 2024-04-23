@@ -11,7 +11,7 @@ ApproximateEarthRadius = 6400
 OmegaEarthDot = 7.2921151467 * 10e-5
 mu = 3.9860044 * 1e14
 
-с = 299792458
+c = 299792458
 
 ### ПЗ-90
 az = 6378137

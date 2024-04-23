@@ -34,6 +34,7 @@ def calc_sat_alm(ALM: list or None, time, N):
     receiving_time: datetime = ALM[14]  # время принятия сигнала
 
     CORRECTION_FACTOR = 1.1
+    # print(CORRECTION_FACTOR)
 
     OmegaEarthDot = Constants.OmegaEarthDot * CORRECTION_FACTOR
 
@@ -48,6 +49,7 @@ def calc_sat_alm(ALM: list or None, time, N):
     # TODO: добавить поправки генераторов
     tk = (N - N0a) * 604800 + time - Toa  # + 3600 * 6
     tk = check_time(tk)
+    # print(tk)
 
     Mk = M0 + n0 * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
@@ -62,6 +64,7 @@ def calc_sat_alm(ALM: list or None, time, N):
     r_k = a * (1 - e * cos(Ek))
     ik = i0 + di
     Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toa
+    # print(Omega_k % pi)
     p = a * (1 - e * e)
     Vr = sqrt(Constants.mu / p) * e * sin(nu_k)
     Vn = sqrt(Constants.mu / p) * (1 + e * cos(nu_k))
@@ -120,6 +123,8 @@ def calc_sat_eph(EPH: list or None, time, N, flag=True):
     receiving_time = EPH[28]
 
     CORRECTION_FACTOR = 1.1
+    # print(CORRECTION_FACTOR)
+
 
     OmegaEarthDot = Constants.OmegaEarthDot * CORRECTION_FACTOR
 
@@ -135,6 +140,7 @@ def calc_sat_eph(EPH: list or None, time, N, flag=True):
 
     tk = 0 * 604800 + time - Toe
     tk = check_time(tk)
+    # print(tk)
 
     Mk = M0 + n * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
@@ -151,6 +157,7 @@ def calc_sat_eph(EPH: list or None, time, N, flag=True):
     r_k = a * (1 - e * cos(Ek))
     ik = i0 + IDOT * tk
     Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toe
+    # print(Omega_k % pi)
     du_k = Cuc * cos(2 * Phi_k) + Cus * sin(2 * Phi_k)
     dr_k = Crc * cos(2 * Phi_k) + Crs * sin(2 * Phi_k)
     di_k = Cic * cos(2 * Phi_k) + Cis * sin(2 * Phi_k)

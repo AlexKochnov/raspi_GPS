@@ -4,6 +4,10 @@ from scipy.optimize import minimize
 import Constants
 
 
+TimeCoefficient = 1e9 # 1 -> 1 sec, 1e3 -> 1 ms, 1e6 -> 1 mk s
+
+
+
 def calc_rho(satellite, xyzt):
     result = np.sqrt(
         (satellite.eph_coord[0] - xyzt[0]) ** 2
@@ -14,10 +18,14 @@ def calc_rho(satellite, xyzt):
     return result
 
 
+def dRho(satellite, xyzt):
+    return calc_rho(satellite, xyzt) + Constants.c * xyzt[3] / TimeCoefficient - satellite.rawx.prMes #+ xyzt[4]
+
+
 def get_minimize_function(good_eph):
     def minimize_function(xyzt):
         arr = list(
-            [(calc_rho(satellite, xyzt) + Constants.с * xyzt[3] - satellite.rawx.prMes) ** 2 for satellite in good_eph])
+            [dRho(satellite, xyzt) ** 2 for satellite in good_eph])
         # print(arr)
         # print(sum(arr))
         return sum(arr)
@@ -27,25 +35,23 @@ def get_minimize_function(good_eph):
 
 def get_minimize_derivative(good_eph):
     def minimize_derivative(xyzt):
-        def dRho(satellite):
-            return calc_rho(satellite, xyzt) + Constants.с * xyzt[3] - satellite.rawx.prMes
-
         X = list([
             -2 * (satellite.eph_coord[0] - xyzt[0])
-            * dRho(satellite)
+            * dRho(satellite, xyzt)
             / calc_rho(satellite, xyzt)
             for satellite in good_eph])
         Y = list([
             -2 * (satellite.eph_coord[1] - xyzt[1])
-            * dRho(satellite)
+            * dRho(satellite, xyzt)
             / calc_rho(satellite, xyzt)
             for satellite in good_eph])
         Z = list([
             -2 * (satellite.eph_coord[2] - xyzt[2])
-            * dRho(satellite)
+            * dRho(satellite, xyzt)
             / calc_rho(satellite, xyzt)
             for satellite in good_eph])
-        T = list([2 * Constants.с * dRho(satellite) for satellite in good_eph])
+        T = list([2 * Constants.c * dRho(satellite, xyzt) / TimeCoefficient for satellite in good_eph])
+        # Q = list([2 * dRho(satellite, xyzt) for satellite in good_eph])
         return sum(X), sum(Y), sum(Z), sum(T)
 
     return minimize_derivative

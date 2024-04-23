@@ -53,15 +53,18 @@ def calc_dist2(row):
 
 
 if __name__ == "__main__":
-    df = pd.read_csv('sat_raw_calc_data.txt', sep=';', header=None,
+    df = pd.read_csv(
+                    # 'raw_2.txt',
+                     'sat_raw_calc_data.txt',
+                     sep=';', header=None,
                      names=['svId', 'gnssId', 'TOW', 'alm_x', 'alm_y', 'alm_z', 'eph_x', 'eph_y', 'eph_z',
                             'elev', 'azim', 'doMes', 'cpMes', 'prMes'])
 
     df = df[df.gnssId == 'GNSS.GPS']
-    # df = df[df.TOW < 50 * 3600]
-    # print(min(df.TOW), max(df.TOW))
+    df = df[df.TOW > 50 * 3600]
+    print(min(df.TOW), max(df.TOW))
     # df[df.TOW < 50 * 3600].TOW += 3600 * 24 * 7
-    df.loc[df['TOW'] > 50 * 3600, 'TOW'] -= 3600 * 24 * 7
+    # df.loc[df['TOW'] > 50 * 3600, 'TOW'] -= 3600 * 24 * 7
     # df = df[df.TOW < 20 * 3600]
     # df = df[df.TOW >= 0]
 
@@ -75,7 +78,7 @@ if __name__ == "__main__":
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
-    for svId in range(7, 33):
+    for svId in range(2, 33):
         sat = df[df.svId == svId]
         sat.reset_index(drop=True, inplace=True)
 
