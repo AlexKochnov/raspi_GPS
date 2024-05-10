@@ -118,7 +118,7 @@ class GPSStorage:
                     # and satellite.rawx.prValid and satellite.rawx.cpValid]# is not None and satellite.sat.qualityInd > 3]
         if good_eph:
             a = 0
-        Flag = True
+        Flag = False
 
         if Flag:
             # with open(self.calc_log_file + '5', 'rb') as logger:
@@ -160,9 +160,14 @@ class GPSStorage:
         error = np.linalg.norm(np.array(ecef) - np.array(Constants.ECEF))
         print(f'Full error: {error}')
 
+        with open('parsed.log', 'a') as logger:
+            logger.write(f'Solve: {solve}\n')
+            logger.write(f'ECEF SOLVE: {ecef}\n')
+            logger.write(f'LLA SOLVE: {lla}\n')
+            logger.write(f'Full error: {error}\n')
+            logger.write(f'DATA: {[*lla, error, self.TOW]}\n')
+
         self.MyCoordinatesSolve = solve
-        if len(good_eph) >= 6:
-            print("GOOD_COUNT")
         if error < 1000:
             print("GOOD_ERROR")
             a = 0
@@ -170,33 +175,43 @@ class GPSStorage:
 
     def satellite_logger(self):
         for svId, satellite in self.satellites.items():
-            if satellite.alm_coord:
-                # alm_x, alm_y, alm_z, *_ = SCC.calc_sat_alm(satellite.alm, self.iTOW / 1000, self.week)
-                alm_x, alm_y, alm_z, *_ = satellite.alm_coord
-            else:
-                alm_x, alm_y, alm_z = np.nan, np.nan, np.nan
+            try:
+                if satellite.alm_coord:
+                    # alm_x, alm_y, alm_z, *_ = SCC.calc_sat_alm(satellite.alm, self.iTOW / 1000, self.week)
+                    alm_x, alm_y, alm_z, *_ = satellite.alm_coord
+                    alm_x1, alm_y1, alm_z1, *_ = SCC.calc_sat_alm(satellite.alm, self.iTOW / 1000, self.week, 1.0)
 
-            if satellite.eph_coord:
-                # eph_x, eph_y, eph_z, *_ = SCC.calc_sat_eph(satellite.eph, self.iTOW / 1000, self.week)
-                eph_x, eph_y, eph_z, *_ = satellite.eph_coord
-            else:
-                eph_x, eph_y, eph_z = np.nan, np.nan, np.nan
+                else:
+                    alm_x, alm_y, alm_z = np.nan, np.nan, np.nan
+                    alm_x1, alm_y1, alm_z1 = np.nan, np.nan, np.nan
 
-            if satellite.sat:
-                elev = satellite.sat.elev
-                azim = satellite.sat.azim
-            else:
-                elev, azim = np.nan, np.nan
+                if satellite.eph_coord:
+                    # eph_x, eph_y, eph_z, *_ = SCC.calc_sat_eph(satellite.eph, self.iTOW / 1000, self.week)
+                    eph_x, eph_y, eph_z, *_ = satellite.eph_coord
+                    eph_x1, eph_y1, eph_z1, *_ = SCC.calc_sat_eph(satellite.eph, self.iTOW / 1000, self.week, 1.0)
 
-            if satellite.rawx:
-                cpMes = satellite.rawx.cpMes
-                prMes = satellite.rawx.prMes
-                doMes = satellite.rawx.doMes
-            else:
-                cpMes, prMes, doMes = np.nan, np.nan, np.nan
-            with open(self.sat_calc_file, 'a') as file:
-                file.write(
-                    f"{satellite.svId};{satellite.gnssId};{self.iTOW / 1000};{alm_x};{alm_y};{alm_z};{eph_x};{eph_y};{eph_z};{elev};{azim};{doMes};{cpMes};{prMes}\n")
+                else:
+                    eph_x, eph_y, eph_z = np.nan, np.nan, np.nan
+                    eph_x1, eph_y1, eph_z1 = np.nan, np.nan, np.nan
+
+                if satellite.sat:
+                    elev = satellite.sat.elev
+                    azim = satellite.sat.azim
+                else:
+                    elev, azim = np.nan, np.nan
+
+                if satellite.rawx:
+                    cpMes = satellite.rawx.cpMes
+                    prMes = satellite.rawx.prMes
+                    doMes = satellite.rawx.doMes
+                else:
+                    cpMes, prMes, doMes = np.nan, np.nan, np.nan
+                with open(self.sat_calc_file, 'a') as file:
+                    file.write(
+                        f"{satellite.svId};{satellite.gnssId};{self.iTOW / 1000};{alm_x};{alm_y};{alm_z};{eph_x};{eph_y};{eph_z};{elev};{azim};{doMes};{cpMes};{prMes};{alm_x1};{alm_y1};{alm_z1};{eph_x1};{eph_y1};{eph_z1}\n")
+            except Exception as e:
+                print(e)
+                pass
 
     def reset_variables(self):
         self.TOW = self.iTOW = self.fTOW = None

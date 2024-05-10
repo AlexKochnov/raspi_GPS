@@ -44,7 +44,7 @@ class GPSReader:
         # b'\x06\x04\x04\x00\xFF\xFF\x00\x00' # CFG-RST
     ]
 
-    Pool_step = 150
+    Pool_step = 100
     Pool_start = 15
 
     counter = 0

@@ -13,7 +13,7 @@ def check_time(time, *args, **kwargs):
     return time
 
 
-def calc_sat_alm(ALM: list or None, time, N):
+def calc_sat_alm(ALM: list or None, time, N, K=1.1):
     if ALM is None or not time or not N:
         return None
     # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
@@ -33,7 +33,7 @@ def calc_sat_alm(ALM: list or None, time, N):
     Data_ID = ALM[13]  #
     receiving_time: datetime = ALM[14]  # время принятия сигнала
 
-    CORRECTION_FACTOR = 1.1
+    CORRECTION_FACTOR = K#1.1
     # print(CORRECTION_FACTOR)
 
     OmegaEarthDot = Constants.OmegaEarthDot * CORRECTION_FACTOR
@@ -89,7 +89,7 @@ def calc_sat_alm(ALM: list or None, time, N):
     # return (X, Y, Z, Vx, Vy, Vz)
 
 
-def calc_sat_eph(EPH: list or None, time, N, flag=True):
+def calc_sat_eph(EPH: list or None, time, N, K=1.1, flag=True):
     if EPH is None or not time or not N:
         return None
     SV_ID = EPH[0]
@@ -122,7 +122,8 @@ def calc_sat_eph(EPH: list or None, time, N, flag=True):
     accuracy = EPH[27]
     receiving_time = EPH[28]
 
-    CORRECTION_FACTOR = 1.1
+    # CORRECTION_FACTOR = 1
+    CORRECTION_FACTOR = K#1.1
     # print(CORRECTION_FACTOR)
 
 

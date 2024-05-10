@@ -3,9 +3,7 @@ from scipy.optimize import minimize
 
 import Constants
 
-
-TimeCoefficient = 1e9 # 1 -> 1 sec, 1e3 -> 1 ms, 1e6 -> 1 mk s
-
+TimeCoefficient = 1e0  # 1 -> 1 sec, 1e3 -> 1 ms, 1e6 -> 1 mk s
 
 
 def calc_rho(satellite, xyzt):
@@ -14,18 +12,19 @@ def calc_rho(satellite, xyzt):
         + (satellite.eph_coord[1] - xyzt[1]) ** 2
         + (satellite.eph_coord[2] - xyzt[2]) ** 2
     )
+    # result = np.linalg.norm(satellite.eph_coord - xyzt[:-1])
     # print(result)
     return result
 
 
-def dRho(satellite, xyzt):
-    return calc_rho(satellite, xyzt) + Constants.c * xyzt[3] / TimeCoefficient - satellite.rawx.prMes #+ xyzt[4]
+def calc_dRho(satellite, xyzt):
+    return calc_rho(satellite, xyzt) + Constants.c * (xyzt[3] / TimeCoefficient) - satellite.rawx.prMes  # + xyzt[4]
 
 
 def get_minimize_function(good_eph):
     def minimize_function(xyzt):
         arr = list(
-            [dRho(satellite, xyzt) ** 2 for satellite in good_eph])
+            [calc_dRho(satellite, xyzt) ** 2 for satellite in good_eph])
         # print(arr)
         # print(sum(arr))
         return sum(arr)
@@ -37,20 +36,20 @@ def get_minimize_derivative(good_eph):
     def minimize_derivative(xyzt):
         X = list([
             -2 * (satellite.eph_coord[0] - xyzt[0])
-            * dRho(satellite, xyzt)
+            * calc_dRho(satellite, xyzt)
             / calc_rho(satellite, xyzt)
             for satellite in good_eph])
         Y = list([
             -2 * (satellite.eph_coord[1] - xyzt[1])
-            * dRho(satellite, xyzt)
+            * calc_dRho(satellite, xyzt)
             / calc_rho(satellite, xyzt)
             for satellite in good_eph])
         Z = list([
             -2 * (satellite.eph_coord[2] - xyzt[2])
-            * dRho(satellite, xyzt)
+            * calc_dRho(satellite, xyzt)
             / calc_rho(satellite, xyzt)
             for satellite in good_eph])
-        T = list([2 * Constants.c * dRho(satellite, xyzt) / TimeCoefficient for satellite in good_eph])
+        T = list([2 * Constants.c * (calc_dRho(satellite, xyzt) / TimeCoefficient) for satellite in good_eph])
         # Q = list([2 * dRho(satellite, xyzt) for satellite in good_eph])
         return sum(X), sum(Y), sum(Z), sum(T)
 
@@ -61,6 +60,8 @@ def solve_navigation_task(satellites):
     return minimize(
         get_minimize_function(satellites),
         np.array([0, 0, 0, 0]),
+        method='BFGS',
         jac=get_minimize_derivative(satellites),
-        options={'xtol': 1e-8, 'disp': True, 'maxiter': 100}
+        options={'disp': True, 'maxiter': 100},
+        tol=1e-10,
     )

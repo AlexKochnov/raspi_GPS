@@ -1,5 +1,5 @@
 # from UBXUnpacker import *
-from pyubx2 import UBXMessage, SET
+# from pyubx2 import UBXMessage, SET
 import struct
 
 

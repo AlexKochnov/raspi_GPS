@@ -12,6 +12,10 @@ def eci2lla(time, x, y, z):
     lla = pm.ecef2geodetic(*ecef)
     return lla
 
+def ecef2lla(x, y, z):
+    lla = pm.ecef2geodetic(x, y, z)
+    return lla
+
 def aer2eci(azim, elev, dist, lat, lon, alt, time_sec):
     lon_corrected = lon - time_sec * Constants.OmegaEarthDot * 180 / np.pi
     return pm.aer2ecef(azim, elev, dist, lat, lon_corrected, alt)
@@ -58,6 +62,7 @@ def aer2ecef2(azim, elev, dist, lat, lon, alt):
     return ECEF
 
 def lla2ecef(lat, lon, alt):
+    return pm.geodetic2ecef(lat, lon, alt)
     B = np.radians(lat)
     L = np.radians(lon)
     H = alt
@@ -92,8 +97,12 @@ def rotateZ(x, y, z, ang):
 
 
 def ecef2eci(t, x, y, z):
+    if any(np.isnan(np.array([x, y, z]))):
+        return (np.nan, np.nan, np.nan)
     return rotateZ(x, y, z, t * Constants.OmegaEarthDot)
 
 
 def eci2ecef(t, x, y, z):
+    if any(np.isnan(np.array([x, y, z]))):
+        return (np.nan, np.nan, np.nan)
     return rotateZ(x, y, z, - t * Constants.OmegaEarthDot)
