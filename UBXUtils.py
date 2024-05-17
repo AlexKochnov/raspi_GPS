@@ -42,7 +42,7 @@ MSG2pool = [
     # b'\x0B\x33' + b'\x00\x00',  # aid-aop
 
     # b'\x02\x14' + b'\x00\x00' # rxm-measx
-    b'\x02\x15' + b'\x00\x00'  # rxm-rawx pooling
+    # b'\x02\x15' + b'\x00\x00'  # rxm-rawx pooling
     # b'\x02\x13' + b'\x00\x00' # rxm-sfrbx
 
     # b'\x06\x04\x04\x00\x00\x00\x00\x00' # CFG-RST - reset with Cold start and Hardware reset immediately

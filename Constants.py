@@ -8,7 +8,7 @@ GPSAltitude = 20200
 
 ApproximateEarthRadius = 6400
 
-OmegaEarthDot = 7.2921151467 * 10e-5
+OmegaEarthDot = 7.2921151467 * 1e-5
 mu = 3.9860044 * 1e14
 
 c = 299792458

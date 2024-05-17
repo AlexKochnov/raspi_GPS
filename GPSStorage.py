@@ -148,13 +148,13 @@ class GPSStorage:
                 logger.write(f'Serialized good eph [{len(good_eph)}]: {serialized_good_eph}\n')
 
         solve = Minimizing.solve_navigation_task(good_eph)
-        xyz = solve.x[:3]
-        ecef = eci2ecef(self.TOW, *xyz)
-        lla = eci2lla(self.TOW, *xyz)
+        ecef = solve.x[:3]
+        # ecef = eci2ecef(self.TOW, *xyz)
+        lla = ecef2lla(*ecef)
         # print(np.linalg.norm(np.array(xyz)))
         # print(np.linalg.norm(np.array(ecef)))
-        print(f'ECI xyz and dT: {solve.x}')
-        print(f'ECEF xyz: {ecef}')
+        print(f'SOLVE: {solve.x}')
+        # print(f'ECEF xyz: {ecef}')
         print(f'LLA calculated:{lla}')
         print(f'LLA my valid: {Constants.LLA}')
         error = np.linalg.norm(np.array(ecef) - np.array(Constants.ECEF))

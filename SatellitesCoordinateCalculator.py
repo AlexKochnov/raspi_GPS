@@ -13,8 +13,8 @@ def check_time(time, *args, **kwargs):
     return time
 
 
-def calc_sat_alm(ALM: list or None, time, N, K=1.1):
-    if ALM is None or not time or not N:
+def calc_sat_alm(ALM: list or None, time, N, K=1):
+    if ALM is None or time is None or N is None:
         return None
     # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
     SV_ID = ALM[0]  # ID спутника
@@ -89,8 +89,8 @@ def calc_sat_alm(ALM: list or None, time, N, K=1.1):
     # return (X, Y, Z, Vx, Vy, Vz)
 
 
-def calc_sat_eph(EPH: list or None, time, N, K=1.1, flag=True):
-    if EPH is None or not time or not N:
+def calc_sat_eph(EPH: list or None, time, N, K=1, flag=True):
+    if EPH is None or time is None or N is None:
         return None
     SV_ID = EPH[0]
     Noe = EPH[1]

@@ -98,6 +98,7 @@ def load_df(name: FilePath, H, time_correction_minus=False):
     # df.loc[df['TOW'] > 50 * 3600, 'TOW'] -= 3600 * 24 * 7
     # df['time'] = df['TOW']# > 50 * 36003600 * 24 * 7
     # df.loc[df['time'] > 50 * 3600, 'time'] -= 3600 * 24 * 7
+    df['time'] = df['TOW']
     if time_correction_minus:
         df.loc[df['TOW'] > 50 * 3600, 'TOW'] -= 3600 * 24 * 7
 
@@ -122,7 +123,16 @@ if __name__ == "__main__":
 
     # df = load_df('sat_raw_calc_data_60h.txt', 30)#, time_correction_minus=True)
 
-    df = load_df('sat_raw_calc_data.txt', 30)  # , time_correction_minus=True)
+    df = load_df('sat_raw_calc_data.txt', 5*60)#, time_correction_minus=True)
+
+    # df = load_df('sat_raw_calc_data_1_big.txt', 0*10*60, time_correction_minus=True)  # , time_correction_minus=True)
+
+    df.alm_x = df.alm_x1
+    df.alm_y = df.alm_y1
+    df.alm_z = df.alm_z1
+    df.eph_x = df.eph_x1
+    df.eph_y = df.eph_y1
+    df.eph_z = df.eph_z1
 
     folder_path = 'satellites_xyz'
     if not os.path.exists(folder_path):
@@ -139,23 +149,23 @@ if __name__ == "__main__":
 
         # FLAG_01_CORRECTION = True
 
-        sat['alm'] = sat.apply(
+        sat['alm_ecef'] = sat.apply(
             lambda row: (row['alm_x'], row['alm_y'], row['alm_z'])
             , axis=1)
         # sat = sat.drop(columns=['alm_x', 'alm_y', 'alm_z'])
-        sat['alm_ecef'] = sat.apply(lambda row: eci2ecef(row['TOW'], *row['alm']), axis=1)
+        # sat['alm_ecef'] = sat.apply(lambda row: eci2ecef(row['time'], *row['alm']), axis=1)
         sat['alm_lla'] = sat.apply(lambda row: pm.ecef2geodetic(*row['alm_ecef']), axis=1)
         # print(f'sv{svId}: alm calculated')
 
-        sat['eph'] = sat.apply(lambda row: (row['eph_x'], row['eph_y'], row['eph_z']), axis=1)
+        sat['eph_ecef'] = sat.apply(lambda row: (row['eph_x'], row['eph_y'], row['eph_z']), axis=1)
         # sat = sat.drop(columns=['eph_x', 'eph_y', 'eph_z'])
-        sat['eph_ecef'] = sat.apply(lambda row: eci2ecef(row['TOW'], *row['eph']), axis=1)
+        # sat['eph_ecef'] = sat.apply(lambda row: eci2ecef(row['time'], *row['eph']), axis=1)
         sat['eph_lla'] = sat.apply(lambda row: pm.ecef2geodetic(*row['eph_ecef']), axis=1)
         # print(f'sv{svId}: eph calculated')
 
         sat['dist'] = sat.apply(calc_dist, axis=1)
         # sat['ubx_ecef'] = sat.apply(calc_ubx_ecef, axis=1)
-        sat['ubx'] = sat.apply(calc_ubx_eci, axis=1)
+        # sat['ubx'] = sat.apply(calc_ubx_eci, axis=1)
         # sat['ubx'] = sat.apply(lambda row: ecef2eci(row['TOW'], *row['ubx_ecef']), axis=1)
         # print(f'sv{svId}: ubx calculated')
         # sat['ubx'] = sat.apply(calc_ubx_eci, axis=1)
@@ -248,6 +258,10 @@ if __name__ == "__main__":
 
             # axs[i].plot(htime, sat.eph_lla1.apply(lambda x: x[i]), label='eph1', linestyle='--', linewidth=2, color='orange',
             #         zorder=3)
+            # plot_axs(i, 0, sat.alm.apply(lambda x: x[i]), sat.eph.apply(lambda x: x[i]),
+            #          sat.ubx.apply(lambda x: x[i]),
+            #          'XYZ'[i] + ' ИСК, км')
+
 
             plot_axs(i, 1, sat.alm_ecef.apply(lambda x: x[i]), sat.eph_ecef.apply(lambda x: x[i]),
                      sat.ubx_ecef.apply(lambda x: x[i]),
