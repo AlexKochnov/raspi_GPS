@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 # from matplotlib import pyplot as plt
 from serial import Serial
 
+import NMEAUnpacker
 import UBXUnpacker
 from GPSStorage import GPSStorage
 from UBXUtils import *
@@ -15,8 +16,36 @@ import numpy as np, pandas as pd
 # import matplotlib.pyplot as plt
 
 # TODO: убрать современем
-from pynmeagps import NMEAReader
+from pynmeagps import NMEAReader, NMEAMessage
 from pyubx2 import UBXReader
+
+
+def calc_nmea_cs(cmd):
+    if cmd[0] == '$':
+        cmd = cmd[1:]
+    if '*' in cmd:
+        cmd = cmd.split('*')[0]
+    checksum = 0
+    for sym in cmd:
+        checksum ^= ord(sym)
+    return format(checksum, '02X')
+
+def tune_baudRate(port, baudrate, timeout):
+    ##          b'\xb5b\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00\x80%\x00\x00\x07\x00\x03\x00\x00\x00\x00\x00\x92\xb5' ## выдан датчиком
+    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00\x80%\x00\x00\x07\x00\x03\x00\x00\x00\x00\x00'
+    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00' + struct.pack('I',
+    #                                                                             9600) + b'\x07\x00\x03\x00\x00\x00\x00\x00'
+    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00' + struct.pack('I', 19200) + b'\x00\x00\x00\x00\x00\x00\x00\x00'
+    # CFG_PRT = (b'\x06\x00' + b'\x14\x00' + b'\x01' + b'\x00' + b'\x00\x00' + b'\x00\x00\x00\x00' +
+    cmd = f'$PUBX,41,1,0007,0003,{baudrate},0'
+    cmd = cmd + '*' + calc_nmea_cs(cmd) + '\r\n'
+    cmd = cmd.encode('utf-8')
+
+    for bR in [9600]: #[4800, 9600, 19200, 38400, 57600, 115200]:#, 230400, 460800]:
+        print(f'try connect and change with baudrate: {bR}')
+        with Serial(port, bR, timeout=timeout) as stream:
+            stream.write(cmd)
+    pass
 
 
 class GPSReader:
@@ -29,19 +58,17 @@ class GPSReader:
 
     # TODO: modify to command class
     PoolQ = [
-        # POOLMessages.RST,
-        # POOLMessages.GLO,
-        # POOLMessages.RATE_GET,
-        # POOLMessages.RATE_SET,
         POOLMessages.EPH,
-        # POOLMessages.RAWX,
         POOLMessages.ALM,
+
+        # POOLMessages.RST,
+
+        # POOLMessages.CFG_PRT(1),
+
         # POOLMessages.GNSS_check,
         # POOLMessages.MON_GNSS,
         # POOLMessages.GLO,
         # POOLMessages.ON_ALL,
-        # POOLMessages.RST,
-        # b'\x06\x04\x04\x00\xFF\xFF\x00\x00' # CFG-RST
     ]
 
     Pool_step = 200
@@ -50,7 +77,8 @@ class GPSReader:
     counter = 0
     counetr2 = 0
 
-    def __init__(self, port="/dev/ttyS0", baudrate=9600, timeout=1):  # timeout влияет на буфер, 0.1 мало
+    def __init__(self, port="/dev/ttyS0", baudrate=115200, timeout=1):  # timeout влияет на буфер, 0.1 мало
+        # tune_baudRate(port, baudrate, timeout)
         self.stream = Serial(port, baudrate, timeout=timeout)
         self.tune()
 
@@ -66,14 +94,17 @@ class GPSReader:
             return self.read_next_message()
 
     def read_next_message(self):
-        hdr1 = self.stream.read(1)
-        if hdr1 == b'\xb5':
-            return self.parse_ubx()
-        elif hdr1 == b'$':
-            self.parse_nmea()
-        else:
-            if self.print_noises:
-                print(hdr1)
+        try:
+            hdr1 = self.stream.read(1)
+            if hdr1 == b'\xb5':
+                return self.parse_ubx()
+            elif hdr1 == b'$':
+                return self.parse_nmea()
+            else:
+                if self.print_noises:
+                    print(hdr1)
+        except Exception as e:
+            print(e)
 
     def tune(self):
         for message in MSG2set:
@@ -91,7 +122,7 @@ class GPSReader:
                 with open(GPSReader.parsed_logger, 'a') as logger:
                     logger.write('------------------------------RESET------------------------------\n')
             self.counetr2 += 1
-            print(f'\tPool: {cmd}')
+            print(f'\t ---------- Pool: {cmd}')
             self.send(b'\xb5b' + cmd + calc_checksum(cmd))
 
     def read_UBX(self) -> [None] * 6 or [bytes] * 6:
@@ -118,8 +149,8 @@ class GPSReader:
         self.__save_raw__(raw_message)
         if not check_cks(raw_message):
             return
-        msg_class = UBXUnpacker.Message.byte_find(clsid, msgid)
-        if msg_class != UBXUnpacker.Message:
+        msg_class = UBXUnpacker.UbxMessage.byte_find(clsid, msgid)
+        if msg_class != UBXUnpacker.UbxMessage:
             parsed = msg_class(plb, datetime.now(tz=Constants.tz_moscow))
         else:
             parsed = UBXReader.parse(raw_message)
@@ -128,9 +159,14 @@ class GPSReader:
         return parsed
 
     def parse_nmea(self):
-        raw_message = b'$' + self.stream.readline()
+        raw_message = self.stream.readline()
         self.__save_raw__(raw_message)
-        parsed = NMEAReader.parse(raw_message)
+        nmea_type = NMEAUnpacker.NmeaMessage.get_nmea_type(raw_message.decode('utf-8'))
+        msg_class = NMEAUnpacker.NmeaMessage.find(nmea_type)
+        if msg_class != NMEAUnpacker.NmeaMessage:
+            parsed = msg_class(raw_message.decode('utf-8'))
+        else:
+            parsed = NMEAReader.parse(b'$' + raw_message)
         self.__save_parsed__(parsed)
         return parsed
 
@@ -164,120 +200,7 @@ if __name__ == "__main__":
     with open(GPSReader.parsed_logger, 'a') as logger:
         logger.write('------------------------------Start------------------------------\n')
 
-    # counter = 0
-
-    # while True:
     for counter, parsed_data in enumerate(Reader):
-        # counter += 1
         Storage.update(parsed_data)
-        # print(counter)
-
-        # Storage.update(Reader.next())
-
-        # parsed = Reader.next()
-        # if not parsed:
-        #     continue
-        # Storage.update(parsed)
-        # for (gnssId, svId), sat in Storage.satellites.items():
-        #     if sat.eph and sat.alm and True:
-        #         time_stamp = Storage.iTOW / 1000
-        #         time = np.arange(time_stamp, time_stamp + 36000, 60)
-        #         alm = []
-        #         eph = []
-        #         for t in time:
-        #             alm.append(calc_sat_alm(sat.alm, t, Storage.week))
-        #             eph.append(calc_sat_eph(sat.eph, t, Storage.week))
-        #         pass
-        #
-        #         alm = np.array(alm)
-        #         eph = np.array(eph)
-        #         time = (np.array(time) - time_stamp) / 3600
-        #         a = 0
-        #         # with open('alm.txt', 'w') as alm_file:
-        #         #     alm_file.write(json.dumps(alm))
-        #         #
-        #         # with open('eph.txt', 'w') as eph_file:
-        #         #     eph_file.write(json.dumps(eph))
-        #
-        ##         fig, axs = plt.subplots(4, 1, figsize=(8, 8))
-        #         fig, axs = plt.subplots(3, 1, figsize=(8, 8))
-        #
-        #
-        #         def plot_axs(i, y1, y2, ylabel):
-        #             y3 = (y2 - y1)
-        #             y2 = y2 * 1e-6
-        #             y1 = y1 * 1e-6
-        #             axs[i].plot(time, y1, label='alm', linestyle='-', linewidth=2)
-        #             axs[i].plot(time, y2, label='eph', linestyle='--', linewidth=2)
-        #             axs[i].legend(loc='upper left')
-        #             axs[i].set_ylabel(ylabel)
-        #
-        #             axs2 = axs[i].twinx()
-        #             axs2.plot(time, y3, label='e-a', linewidth=1.5, color='gray')
-        #             axs2.set_ylabel(ylabel.replace('км', 'м'))
-        #             axs2.legend(loc='upper right')
-        #
-        #
-        #         plot_axs(0, alm[:, 0], eph[:, 0], 'X, км')
-        #         plot_axs(1, alm[:, 1], eph[:, 1], 'Y, км')
-        #         plot_axs(2, alm[:, 2], eph[:, 2], 'Z, км')
-        ##         plot_axs(3, alm[:, 3] *1e6, eph[:, 3]*1e6, 'Z, км')
-        #         plt.show()
-        #         a = 0
-        # plot_axs(1, sat.alm_y / 1000, sat.eph_y / 1000, 'Y, км')
-        # plot_axs(2, sat.alm_z / 1000, sat.eph_z / 1000, 'Z, км')
-
-        # plt.clf()
-        # plt.plot(time, alm[:, 0] / 10**6, label='X, alm', color='b', linestyle='--', linewidth=2)
-        # plt.plot(time, alm[:, 1] / 10**6, label='Y, alm', color='g', linestyle='--', linewidth=2)
-        # plt.plot(time, alm[:, 2] / 10**6, label='Z, alm', color='r', linestyle='--', linewidth=2)
-        # plt.plot(time, eph[:, 0] / 10**6, label='X, eph', color='b', linestyle='-', linewidth=1)
-        # plt.plot(time, eph[:, 1] / 10**6, label='Y, eph', color='g', linestyle='-', linewidth=1)
-        # plt.plot(time, eph[:, 2] / 10**6, label='Z, eph', color='r', linestyle='-', linewidth=1)
-        # plt.xlabel("Время от настоящего, ч")
-        # plt.ylabel("Координаты спутника, км")
-        # plt.legend(loc='upper left')
-        #
-        # plt.twinx()
-        # plt.plot(time, (alm[:, 0] - eph[:, 0]), label='Xalm - Xeph', color='c', linestyle='-', linewidth=1)
-        # plt.plot(time, (alm[:, 1] - eph[:, 1]), label='Yalm - Yeph', color='m', linestyle='-', linewidth=1)
-        # plt.plot(time, (alm[:, 2] - eph[:, 2]), label='Zalm - Zeph', color='y', linestyle='-', linewidth=1)
-        # plt.ylabel("Разница координат, м")
-        # plt.legend(loc='upper right')
-        # plt.savefig('position.png', dpi=1000)
-        #
-        # b = 0
-        #
-        # plt.clf()
-        # plt.plot(time, alm[:, 3], label='Vx, alm', color='b', linestyle='--', linewidth=2)
-        # plt.plot(time, alm[:, 4], label='Vy, alm', color='g', linestyle='--', linewidth=2)
-        # plt.plot(time, alm[:, 5], label='Vz, alm', color='r', linestyle='--', linewidth=2)
-        # plt.plot(time, eph[:, 3], label='Vx, eph', color='b', linestyle='-', linewidth=1)
-        # plt.plot(time, eph[:, 4], label='Vy, eph', color='g', linestyle='-', linewidth=1)
-        # plt.plot(time, eph[:, 5], label='Vz, eph', color='r', linestyle='-', linewidth=1)
-        # plt.xlabel("Время от настоящего, ч")
-        # plt.ylabel("Скорости спутника, м/c")
-        # plt.legend(loc='upper left')
-        #
-        # plt.twinx()
-        # # plt.plot(time, (alm[:, 3] - eph[:, 3]), label='Vx_alm - Vx_eph', color='c', linestyle='-', linewidth=1)
-        # # plt.plot(time, (alm[:, 4] - eph[:, 4]), label='Vy_alm - Vy_eph', color='m', linestyle='-', linewidth=1)
-        # plt.plot(time, (alm[:, 5] - eph[:, 5]), label='Vz_alm - Vz_eph', color='y', linestyle='-', linewidth=1)
-        # plt.ylabel("Разница скоростей, м/c")
-        # plt.legend(loc='upper right')
-        # plt.savefig('speed.png', dpi=1000)
-
-        # plt.plot(time, alm[:, 0:3], colors=('b--', 'g--', 'r--'))
-        # plt.plot(time, eph[:, 0:3], colors=('b', 'g', 'r'))
-        # plt.legend(('Xa', 'Ya', 'Za', 'Xe', 'Ye', 'Ze'))
-        # plt.savefig('position.png', dpi=1000)
-
-        # print(parsed)
-        # if not isinstance(parsed, list) or not isinstance(parsed, tuple):
-        #     GPSDataPrinter.print(parsed)
-        # else:
-        #     type, data = parsed
-        #     Storage.update(type, data)
-        #     GPSDataPrinter.print(type, data)
 
     pass

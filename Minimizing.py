@@ -1,13 +1,13 @@
 import warnings
 
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import minimize, least_squares
 from numpy.linalg import norm
 import Constants
 
 TimeCoefficient = 1e1  # 1 -> 1 sec, 1e3 -> 1 ms, 1e6 -> 1 mk s
 
-warnings.simplefilter('error', RuntimeWarning)
+# warnings.simplefilter('error', RuntimeWarning)
 
 
 def calc_rho(satellite, xyzt):
@@ -124,42 +124,42 @@ def GradientDescent(func, jac, x0, eps, lin_d=1):
     return x1
 
 
-
 def apply_func(satellites, func):
     def result_function(xyzt):
         return sum(
             [
                 func(*xyzt, *sat.eph_coord, sat.rawx.prMes)
-                for sat in satellites]
+                for sat in satellites
+            ]
         )
 
     return result_function
 
 
-def func(x, y, z, t, xi, yi, zi, rhoi):
-    c = Constants.c
-    res = (c * t - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ^ 2) ** (1 / 2)) ** 2
+def func(x, y, z, cdt, xi, yi, zi, rhoi):
+    # c = Constants.c
+    res = (cdt - rhoi + np.sqrt((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2)) ** 2
     return res
 
 
-def jac(x, y, z, t, xi, yi, zi, rhoi):
+def jac(x, y, z, cdt, xi, yi, zi, rhoi):
     c = Constants.c
     res = \
-        [((2 * x - 2 * xi) * (c * t - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2))) / (
+        [((2 * x - 2 * xi) * (cdt - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2))) / (
                 (x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2),
-         ((2 * y - 2 * yi) * (c * t - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2))) / (
+         ((2 * y - 2 * yi) * (cdt - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2))) / (
                  (x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2),
-         ((2 * z - 2 * zi) * (c * t - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2))) / (
+         ((2 * z - 2 * zi) * (cdt - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2))) / (
                  (x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2),
-         2 * c * (c * t - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2))]
+         2 * (cdt - rhoi + ((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2) ** (1 / 2))]
     return np.array(res)
 
 
-def hess(x, y, z, t, xi, yi, zi, rhoi):
-    c = Constants.c
+def hess(x, y, z, cdt, xi, yi, zi, rhoi):
+    # c = Constants.c
 
     RHO2 = (x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2
-    DRHO = (c * t - rhoi + RHO2 ** 0.5)
+    DRHO = (cdt - rhoi + RHO2 ** 0.5)
     D2X = (2 * x - 2 * xi)
     D2Y = (2 * y - 2 * yi)
     D2Z = (2 * z - 2 * zi)
@@ -170,75 +170,76 @@ def hess(x, y, z, t, xi, yi, zi, rhoi):
                 (2 * DRHO) / RHO2 ** (1 / 2) + D2X ** 2 / (2 * RHO2) - (D2X ** 2 * DRHO) / (2 * RHO2 ** (3 / 2)),
                 (D2X * D2Y) / (2 * RHO2) - (D2X * D2Y * DRHO) / (2 * RHO2 ** (3 / 2)),
                 (D2X * D2Z) / (2 * RHO2) - (D2X * D2Z * DRHO) / (2 * RHO2 ** (3 / 2)),
-                (c * D2X) / RHO2 ** (1 / 2),
+                (D2X) / RHO2 ** (1 / 2),
             ],
             [
                 (D2X * D2Y) / (2 * RHO2) - (D2X * D2Y * DRHO) / (2 * RHO2 ** (3 / 2)),
                 (2 * DRHO) / RHO2 ** (1 / 2) + D2Y ** 2 / (2 * RHO2) - (D2Y ** 2 * DRHO) / (2 * RHO2 ** (3 / 2)),
                 (D2Y * D2Z) / (2 * RHO2) - (D2Y * D2Z * DRHO) / (2 * RHO2 ** (3 / 2)),
-                (c * D2Y) / RHO2 ** (1 / 2),
+                (D2Y) / RHO2 ** (1 / 2),
             ],
             [
                 (D2X * D2Z) / (2 * RHO2) - (D2X * D2Z * DRHO) / (2 * RHO2 ** (3 / 2)),
                 (D2Y * D2Z) / (2 * RHO2) - (D2Y * D2Z * DRHO) / (2 * RHO2 ** (3 / 2)),
                 (2 * DRHO) / RHO2 ** (1 / 2) + D2Z ** 2 / (2 * RHO2) - (D2Z ** 2 * DRHO) / (2 * RHO2 ** (3 / 2)),
-                (c * D2Z) / RHO2 ** (1 / 2)
+                (D2Z) / RHO2 ** (1 / 2)
             ],
             [
-                (c * D2X) / RHO2 ** (1 / 2),
-                (c * D2Y) / RHO2 ** (1 / 2),
-                (c * D2Z) / RHO2 ** (1 / 2),
-                2 * c ** 2
+                (D2X) / RHO2 ** (1 / 2),
+                (D2Y) / RHO2 ** (1 / 2),
+                (D2Z) / RHO2 ** (1 / 2),
+                2,
             ]
         ]
 
     return np.array(res)
 
-def inv_hess(x, y, z, t, xi, yi, zi, rhoi):
-    c = Constants.c
-
-    RHO2 = (x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2
-    DRHO = (c * t - rhoi + RHO2 ** 0.5)
-    D2X = (2 * x - 2 * xi)
-    D2Y = (2 * y - 2 * yi)
-    D2Z = (2 * z - 2 * zi)
-    try:
-        res = \
-            [
-                [(RHO2 ** (1 / 2) * (D2Y ** 2 + D2Z ** 2 - 4 * RHO2)) / (
-                            2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)),
-                 -(D2X * D2Y * RHO2 ** (1 / 2)) / (
-                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)),
-                 -(D2X * D2Z * RHO2 ** (1 / 2)) / (
-                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)),
-                 (D2X * RHO2) / (DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c)],
-                [-(D2X * D2Y * RHO2 ** (1 / 2)) / (
-                            2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), (
-                             RHO2 ** (1 / 2) * (D2X ** 2 + D2Z ** 2 - 4 * RHO2)) / (
-                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), -(
-                            D2Y * D2Z * RHO2 ** (1 / 2)) / (
-                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), (D2Y * RHO2) / (
-                             DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c)],
-                [-(D2X * D2Z * RHO2 ** (1 / 2)) / (
-                            2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), -(
-                            D2Y * D2Z * RHO2 ** (1 / 2)) / (
-                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), (
-                             RHO2 ** (1 / 2) * (D2X ** 2 + D2Y ** 2 - 4 * RHO2)) / (
-                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), (D2Z * RHO2) / (
-                             DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c)],
-                [(D2X * RHO2) / (DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c), (
-                            D2Y * RHO2) / (
-                             DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c), (
-                             D2Z * RHO2) / (
-                             DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c), -(
-                            D2X ** 2 * RHO2 ** (
-                                1 / 2) - D2Y ** 2 * DRHO - D2Z ** 2 * DRHO - D2X ** 2 * DRHO + D2Y ** 2 * RHO2 ** (
-                                        1 / 2) + D2Z ** 2 * RHO2 ** (1 / 2) + 4 * DRHO * RHO2) / (2 * c * (
-                            DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c))]
-            ]
-    except Exception as e:
-        print(e)
-    return res
+# def inv_hess(x, y, z, t, xi, yi, zi, rhoi):
+#     c = Constants.c
+#
+#     RHO2 = (x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2
+#     DRHO = (c * t - rhoi + RHO2 ** 0.5)
+#     D2X = (2 * x - 2 * xi)
+#     D2Y = (2 * y - 2 * yi)
+#     D2Z = (2 * z - 2 * zi)
+#     try:
+#         res = \
+#             [
+#                 [(RHO2 ** (1 / 2) * (D2Y ** 2 + D2Z ** 2 - 4 * RHO2)) / (
+#                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)),
+#                  -(D2X * D2Y * RHO2 ** (1 / 2)) / (
+#                              2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)),
+#                  -(D2X * D2Z * RHO2 ** (1 / 2)) / (
+#                              2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)),
+#                  (D2X * RHO2) / (DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c)],
+#                 [-(D2X * D2Y * RHO2 ** (1 / 2)) / (
+#                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), (
+#                              RHO2 ** (1 / 2) * (D2X ** 2 + D2Z ** 2 - 4 * RHO2)) / (
+#                              2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), -(
+#                             D2Y * D2Z * RHO2 ** (1 / 2)) / (
+#                              2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), (D2Y * RHO2) / (
+#                              DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c)],
+#                 [-(D2X * D2Z * RHO2 ** (1 / 2)) / (
+#                             2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), -(
+#                             D2Y * D2Z * RHO2 ** (1 / 2)) / (
+#                              2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), (
+#                              RHO2 ** (1 / 2) * (D2X ** 2 + D2Y ** 2 - 4 * RHO2)) / (
+#                              2 * (DRHO * D2X ** 2 + DRHO * D2Y ** 2 + DRHO * D2Z ** 2 - 4 * DRHO * RHO2)), (D2Z * RHO2) / (
+#                              DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c)],
+#                 [(D2X * RHO2) / (DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c), (
+#                             D2Y * RHO2) / (
+#                              DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c), (
+#                              D2Z * RHO2) / (
+#                              DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c), -(
+#                             D2X ** 2 * RHO2 ** (
+#                                 1 / 2) - D2Y ** 2 * DRHO - D2Z ** 2 * DRHO - D2X ** 2 * DRHO + D2Y ** 2 * RHO2 ** (
+#                                         1 / 2) + D2Z ** 2 * RHO2 ** (1 / 2) + 4 * DRHO * RHO2) / (2 * c * (
+#                             DRHO * c * D2X ** 2 + DRHO * c * D2Y ** 2 + DRHO * c * D2Z ** 2 - 4 * DRHO * RHO2 * c))]
+#             ]
+#     except Exception as e:
+#         res = [0, 0, 0, 0]
+#         print(e)
+#     return res
 
 def Newton(func, jac, hess, x0, jtol, xtol):
     k = 0
@@ -253,14 +254,63 @@ def Newton(func, jac, hess, x0, jtol, xtol):
     return x0, k, norm(dx)
 
 
-def solve_navigation_task(satellites):
+def solve_navigation_task(satellites) -> list[float]:
     solve, iter, xtol = Newton(
         func=apply_func(satellites, func),
         jac=apply_func(satellites, jac),
         hess=apply_func(satellites, hess),
+        # inv_hess=apply_func(satellites, inv_hess),
         x0=np.array([0, 0, 0, 0]),
         jtol=0,
         xtol=1e-7
     )
     return solve
 
+
+def solve_navigation_task_SLSQP(satellites, bounds=[]):
+    return minimize(
+        # get_minimize_function(satellites),
+        apply_func(satellites, func),
+        np.array([0, 0, 0, 0]),
+        method='SLSQP',
+        bounds=bounds,
+        # jac=get_minimize_derivative(satellites),
+        # jac=apply_func(satellites, jac),
+        options={'disp': True, 'maxiter': 100},
+        tol=1e-10,
+    )
+
+
+def solve_navigation_task_LevMar(satellites):
+
+    def residuals(params, xi, yi, zi, rhoi):
+        x, y, z, cdt = params
+        res = cdt - rhoi + np.sqrt((x - xi)**2 + (y - yi)**2 + (z - zi)**2)
+        # res = 0
+        # for sat in satellites:
+        #     res += norm(cdt - sat.rawx.prMes + np.sqrt((x - sat.eph_coord[0])**2 + (y - sat.eph_coord[1])**2 + (z - sat.eph_coord[2])**2))
+        return res
+
+    xi, yi, zi, rhoi = [], [], [], []
+    for sat in satellites:
+        xi.append(sat.eph_coord[0])
+        yi.append(sat.eph_coord[1])
+        zi.append(sat.eph_coord[2])
+        rhoi.append(sat.rawx.prMes)
+
+    initial_params = np.array([0.0, 0.0, 0.0, 0.0])
+    # initial_params = np.array([2e6, 2e6, 4e6, 0])
+
+    # bounds = ([None, None, None, None], [None, None, None, None])
+
+    result = least_squares(residuals,
+                           initial_params,
+                           # x0=initial_params,
+                           args=(np.array(xi), np.array(yi), np.array(zi), np.array(rhoi)),
+                           # args=(np.array([0])),
+                           # bounds=bounds,
+                           method='lm',
+                           xtol=1e-8
+                           )
+
+    return result

@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     # df = load_df('sat_raw_calc_data_60h.txt', 30)#, time_correction_minus=True)
 
-    df = load_df('sat_raw_calc_data.txt', 5*60)#, time_correction_minus=True)
+    df = load_df('sat_raw_calc_data3.txt', 5*60)#, time_correction_minus=True)
 
     # df = load_df('sat_raw_calc_data_1_big.txt', 0*10*60, time_correction_minus=True)  # , time_correction_minus=True)
 

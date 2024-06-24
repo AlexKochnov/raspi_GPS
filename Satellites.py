@@ -21,6 +21,15 @@ class SatelliteBlock:
         return str(self)
 
 
+class SVSTATUS(SatelliteBlock):
+    def __init__(self, status, azim, elev, cno, lck):
+        self.status = status
+        self.azim = azim
+        self.elev = elev
+        self.cno = cno
+        self.lck = lck
+
+
 class SAT(SatelliteBlock):
     def __init__(self, cno, elev, azim, prRes, flags):
         self.cno = cno
@@ -31,6 +40,9 @@ class SAT(SatelliteBlock):
         self.qualityInd = get_bytes_from_flag(flags, 0, 1, 2)
         self.svUsed = get_bytes_from_flag(flags, 3)
         self.health = get_bytes_from_flag(flags, 4, 5)
+        self.diffCorr = get_bytes_from_flag(flags, 6)
+        self.smoothed = get_bytes_from_flag(flags, 7)
+        self.orbitSource = get_bytes_from_flag(flags, 8, 9, 10)
         self.ephAvail = get_bytes_from_flag(flags, 11)
         self.almAvail = get_bytes_from_flag(flags, 12)
 
@@ -123,6 +135,7 @@ class Satellite:
     orb: ORB = None
     svsi: SVSI = None
     rawx: RAWX = None
+    svstatus: SVSTATUS = None
     alm: list = None
     eph: list = None
     alm_coord: list = None
@@ -137,5 +150,13 @@ class Satellite:
 
     def __repr__(self):
         return str(self)
+
+    def check_eph(self):
+        if (self.orb is not None and
+                self.orb.health == 1 and self.orb.visibility > 1 and
+                0 < self.orb.ephUsability < 31 and self.orb.ephSource == 1 and
+                self.eph is not None and self.eph_coord is not None):
+            return True
+        return False
 
 

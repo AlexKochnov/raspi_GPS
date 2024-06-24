@@ -26,6 +26,7 @@ class POOLMessages:
     RAWX = b'\x02\x15' + b'\x00\x00'
     RATE_GET = b'\x06\x08' + b'\x00\x00'
     RATE_SET = b'\x06\x08' + b'\x06\x00' + b'\x00\x04' + b'\x01\x00' + b'\x00\x00'
+
     MON_GNSS = b'\x0A\x28' + b'\x00\x00'
     GNSS_check = b'\x06\x3E' + b'\x00\x00' # cfg gnss get
     GLO = b'\x06\x3E' + b'\x0C\x00' + b'\x00\x20\x20\x02' + b'\x06\x20\x20\x00' + b'\x00\x01\x00\x00'  # Glonas
@@ -33,6 +34,12 @@ class POOLMessages:
              b'\x06\x20\x20\x00' + b'\x00\x10\x00\x00' + \
              b'\x01\x20\x20\x00' + b'\x00\x01\x00\x00' + \
              b'\x00\x20\x20\x00' + b'\x00\x10\x00\x01'  # GPS
+
+    CFG_PRT_GET = b'\x06\x00' + b'\x00\x00'
+
+    @staticmethod
+    def CFG_PRT(port: int):
+        return b'\x06\x00' + b'\x01\x00' + struct.pack('B', port)
 
 
 MSG2pool = [
@@ -80,8 +87,15 @@ def check_rate(msgClass: hex, msgID: hex) -> bytes:
     cmd = b'\x06\x01' + b'\x02\x00' + msgClass.to_bytes() + msgID.to_bytes()
     return b'\xb5b' + cmd + calc_checksum(cmd)
 
+def cmd2msg(cmd: bytes):
+    return b'\xb5b' + cmd + calc_checksum(cmd)
+
+# CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00' + struct.pack('I', 115200) + b'\x00\x00\x00\x00\x00\x00\x00\x00'
+
+
 
 MSG2set = [
+
     # set_rate(msgClass=0x02, msgID=0x13, rateUART1=1),  # RXM-SFRBX
 
     set_rate(msgClass=0xF0, msgID=0x00, rateUART1=0),  # GGA
@@ -94,6 +108,8 @@ MSG2set = [
     set_rate(msgClass=0xF0, msgID=0x41, rateUART1=0),  # TXT
     set_rate(msgClass=0xF0, msgID=0x0D, rateUART1=0),  # GNS
 
+    set_rate(msgClass=0xF1, msgID=0x03, rateUART1=1),  # PUBX SVSTATUS
+
     # set_rate(msgClass=0xF0, msgID=0x00, rateUART1=1),  # GGA
     # set_rate(msgClass=0xF0, msgID=0x02, rateUART1=1),  # GSA
     # set_rate(msgClass=0xF0, msgID=0x03, rateUART1=1),  # GSV
@@ -103,27 +119,34 @@ MSG2set = [
     # set_rate(msgClass=0x01, msgID=0x01, rateUART1=1),  # NAV-POSECEF
     # set_rate(msgClass=0x01, msgID=0x11, rateUART1=1),  # NAV-VELECEF
     set_rate(msgClass=0x01, msgID=0x20, rateUART1=1),  # NAV-TIMEGPS
-    set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
+    set_rate(msgClass=0x01, msgID=0x34, rateUART1=1),  # NAV-ORB
     set_rate(msgClass=0x01, msgID=0x35, rateUART1=1),  # NAV-SAT
-    set_rate(msgClass=0x02, msgID=0x15, rateUART1=1), # RXM-RAWX
+    set_rate(msgClass=0x01, msgID=0x31, rateUART1=1),  # NAV-DGPS
+    set_rate(msgClass=0x01, msgID=0x30, rateUART1=1),  # NAV-SVINFO
 
-    set_rate(msgClass=0x01, msgID=0x01, rateUART1=1),  # NAV-POSECEF
+    set_rate(msgClass=0x02, msgID=0x15, rateUART1=1),  # RXM-RAWX
+    set_rate(msgClass=0x02, msgID=0x20, rateUART1=1),  # RXM-SVSI
+    set_rate(msgClass=0x02, msgID=0x14, rateUART1=1),  # RXM-MEASX
+
+    set_rate(msgClass=0x01, msgID=0x01, rateUART1=0),  # NAV-POSECEF
     set_rate(msgClass=0x01, msgID=0x11, rateUART1=0),  # NAV-VELECEF
     # set_rate(msgClass=0x01, msgID=0x20, rateUART1=0),  # NAV-TIMEGPS
     # set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
     # set_rate(msgClass=0x01, msgID=0x35, rateUART1=0),  # NAV-SAT
 
     # # #
-    set_rate(msgClass=0x02, msgID=0x15, rateUART1=1),  # RXM-RAWX
+    # set_rate(msgClass=0x02, msgID=0x15, rateUART1=1),  # RXM-RAWX
     set_rate(msgClass=0x02, msgID=0x13, rateUART1=0),  # RXM-SFRBX
-    set_rate(msgClass=0x02, msgID=0x20, rateUART1=0),  # RXM-SVSI
+    # set_rate(msgClass=0x02, msgID=0x20, rateUART1=0),  # RXM-SVSI
     set_rate(msgClass=0x02, msgID=0x61, rateUART1=0),  # RXM-IMES
 
 
     set_rate(msgClass=0x0A, msgID=0x07, rateUART1=0),  # mon rxbuf
-    set_rate(msgClass=0x0A, msgID=0x08, rateUART1=0),  # mon txbuf
+    set_rate(msgClass=0x0A, msgID=0x08, rateUART1=1),  # mon txbuf
+    set_rate(msgClass=0x0A, msgID=0x32, rateUART1=0),  # mon txbuf
 
-    check_rate(0x02, 0x15)
+    # check_rate(0x02, 0x15)
+
 
 
     # set_rate(msgClass=0x10, msgID=0x14, rateUART1=1),  # ESF-ALG

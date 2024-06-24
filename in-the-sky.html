@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+            <meta http-equiv="x-ua-compatible" content="ie=edge">
+            <meta name="description" content="A world map of the positions of satellites above the Earth's surface, and a planetarium view showing where they appear in the night sky."/>
+            <meta name="keywords"
+                  content="astronomy news, tonight's sky, telescope, binoculars, stars, planet, mercury, venus, mars, jupiter, saturn, uranus, neptune"/>
+            <meta name="generator" content="Dominic Ford"/>
+            <meta name="author" content="Dominic Ford"/>
+            <meta name="theme-color" content="#001080"/>
+
+            <title id="title1">
+                Live World Map of Satellite Positions - In-The-Sky.org            </title>
+
+
+            <!-- Global site tag (gtag.js) - Google Analytics -->
+                            <script async src="https://www.googletagmanager.com/gtag/js?id=UA-22395429-3"></script>
+                <script>
+                    window.dataLayer = window.dataLayer || [];
+
+                    function gtag() {
+                        dataLayer.push(arguments);
+                    }
+
+                    gtag('js', new Date());
+                    gtag('config', 'UA-22395429-3');
+                </script>
+
+            <script src="https://in-the-sky.org/vendor/jquery/dist/jquery.min.js" type="text/javascript"></script>
+
+            <script src="https://in-the-sky.org/vendor/tether/dist/js/tether.min.js"></script>
+            <link rel="stylesheet" href="https://in-the-sky.org/vendor/bootstrap/dist/css/bootstrap.min.css">
+            <script src="https://in-the-sky.org/vendor/bootstrap/dist/js/bootstrap.min.js"></script>
+
+            <script src="https://in-the-sky.org/vendor/jquery-ui/jquery-ui.min.js" type="text/javascript"></script>
+            <link rel="stylesheet" type="text/css"
+                  href="https://in-the-sky.org/vendor/jquery-ui/themes/ui-lightness/jquery-ui.min.css"/>
+            <style type="text/css">
+                .ui-slider-horizontal .ui-state-default {
+                    background: url(https://in-the-sky.org//images/sliderarrow.png) no-repeat;
+                    width: 9px;
+                    height: 20px;
+                    border: 0 none;
+                    margin-left: -4px;
+                }
+
+                .ui-slider-vertical .ui-state-default {
+                    background: url(https://in-the-sky.org//images/slidervarrow.png) no-repeat;
+                    width: 20px;
+                    height: 9px;
+                    border: 0 none;
+                    margin-left: -4px;
+                }
+            </style>
+
+            <link
+                    href='https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,600,600italic&amp;subset=latin,greek'
+                    rel='stylesheet' type='text/css'/>
+            <link rel="stylesheet" href="https://in-the-sky.org/vendor/font-awesome/css/font-awesome.min.css">
+
+            <link rel="stylesheet" type="text/css"
+                  href="https://in-the-sky.org/css/style-0.css" media="all"/>
+            <link rel="stylesheet" type="text/css" href="https://in-the-sky.org/css/style-print.css" media="print"/>
+
+
+            <script type="text/javascript">
+                window.server = "https://in-the-sky.org/";
+                window.server_json = "https://in-the-sky.org/";
+                window.server_htv = "https://hilltopviews.org.uk/";
+                window.server_htv_json = "https://hilltopviews.org.uk/";
+                window.server_htv_ajax = [
+                    "https://tiles00.hilltopviews.org.uk/", "https://tiles00.hilltopviews.org.uk/",
+                    "https://tiles00.hilltopviews.org.uk/", "https://tiles01.hilltopviews.org.uk/",
+                    "https://tiles01.hilltopviews.org.uk/", "https://tiles01.hilltopviews.org.uk/",
+                    "https://tiles01.hilltopviews.org.uk/", "https://tiles01.hilltopviews.org.uk/"];
+                window.skin = "0";
+            </script>
+
+            <script type="text/javascript" src="https://in-the-sky.org/js/inthesky2024a.min.js"></script>
+
+            <meta property="og:title"
+                  content="Live World Map of Satellite Positions"/>
+            <meta property="og:url"
+                  content="https://in-the-sky.org//satmap_worldmap.php?year=2024&month=4&day=12"/>
+            <meta property="og:description"
+                  content="A world map of the positions of satellites above the Earth's surface, and a planetarium view showing where they appear in the night sky."/>
+            <meta property="og:type" content="article"/>
+            <meta property="og:site_name" content="In-The-Sky.org"/>
+
+            <meta name="twitter:card"
+                  content="summary_large_image"/>
+            <meta name="twitter:site" content="@intheskyorg"/>
+            <meta name="twitter:creator" content="@dcf21"/>
+            <meta name="twitter:title"
+                  content="Live World Map of Satellite Positions"/>
+            <meta name="twitter:description"
+                  content="A world map of the positions of satellites above the Earth's surface, and a planetarium view showing where they appear in the night sky."/>
+
+                            <link rel="image_src" href="https://in-the-sky.org//screenshots/satmap.png"
+                      title="Live World Map of Satellite Positions"/>
+                <meta property="og:image" content="https://in-the-sky.org//screenshots/satmap.png"/>
+                <meta name="twitter:image" content="https://in-the-sky.org//screenshots/satmap.png"/>
+
+            <script type='application/ld+json'>
+            {
+              "@context": "http://www.schema.org",
+              "@type": "Article",
+              "inLanguage": "en-US",
+              "name": "In-The-Sky.org",
+              "url": "https://in-the-sky.org//satmap_worldmap.php?year=2024&amp;month=4&amp;day=12",
+              "mainEntityOfPage": "https://in-the-sky.org//satmap_worldmap.php?year=2024&amp;month=4&amp;day=12",
+              "thumbnailUrl": "https://in-the-sky.org//screenshots/satmap.png",
+              "image": {
+                "@type": "ImageObject",
+                "url": "https://in-the-sky.org//screenshots/satmap.png"
+              },
+              "headline": "Live World Map of Satellite Positions",
+              "alternativeHeadline": "A world map of the positions of satellites above the Earth's surface, and a planetarium view showing where they appear in the night sky.",
+              "description": "A world map of the positions of satellites above the Earth's surface, and a planetarium view showing where they appear in the night sky.",
+              "author": {
+                "@type": "Person",
+                "name": "Dominic Ford"
+              },
+              "editor": {
+                "@type": "Person",
+                "name": "Dominic Ford"
+              },
+              "genre": "astronomy",
+              "keywords": "astronomy space night sky",
+              "publisher": {
+                "@type": "Organization",
+                "name": "In-The-Sky.org",
+                "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://in-the-sky.org/images/site_logo.png"
+                },
+                "address": {
+                   "@type": "PostalAddress",
+                   "streetAddress": "c/o Dominic Ford, Institute of Astronomy, University of Cambridge, Madingley Road, Cambridge CB3 0HA United Kingdom",
+                   "addressLocality": "Cambridge",
+                   "addressRegion": " Cambridgeshire",
+                   "postalCode": "CB3 0HA",
+                   "addressCountry": "United Kingdom"
+                }
+              },
+              "datePublished": "2018-08-01T00:00:00+0000","dateCreated": "2018-08-01T00:00:00+0000","dateModified": "2018-08-01T00:00:00+0000",              "sameAs": ["https://www.facebook.com/intheskyorg/", "https://twitter.com/intheskyorg"]
+            }
+
+
+
+            </script>
+
+            <style media="screen" type="text/css">
+                            </style>
+                    </head>
+
+
+        <body><div class="contentwrapper">
+
+        <div class="bannerback">
+            <div class="container banner">
+                <div class="col-xs-12">
+                    <div class="banner_txt_left" id="top">
+                        <p class="toptitleA">
+                            <a class="blkprint" href="https://in-the-sky.org/index.php">In-The-Sky.org</a>
+                        </p>
+                        <p class="toptitleB">
+                            <a class="blkprint" href="https://in-the-sky.org/index.php">Guides&nbsp;to&nbsp;the&nbsp;night&nbsp;sky</a>
+                        </p>
+                    </div>
+                    <div class="banner_txt_location blkprint">
+                        <a href="https://in-the-sky.org/location.php">Location:
+                            Berlin (52.52&deg;N; 13.41&deg;E)</a>
+                    </div>
+                    <div class="banner_txt_right">
+                        <p class="toptitleC blkprint" id="title2">Live World Map of Satellite Positions</p>
+                    </div>
+                </div>
+                <div class="col-xs-12">
+                            <table>
+            <tr>
+                <td class="snugtop" style="white-space:nowrap;">
+                    <p class="smtext" style="padding:12px 0 6px 0;">
+                        <span class="chevron_holder"><a class='chevron' href='https://in-the-sky.org/'>Home</a></span><span class="chevron_holder"><span class="chevronsep">&nbsp;</span><a class='chevron' href='https://in-the-sky.org/satmap_worldmap.php'>Spacecraft</a></span>                    </p></td>
+                            </tr>
+        </table>
+                        </div>
+                <div id="bannerppl" class="noprint"></div>
+            </div>
+            <div id="bannerfull"></div>
+        </div>
+
+        <nav id="navbar-header" class="navbar navbar-dark bg-inverse navbar-fixed-top">
+            <div class="container">
+                <button class="navbar-toggler hidden-md-up" type="button"
+                        data-toggle="collapse" data-target="#collapsing-navbar">
+                    <i class="fa fa-bars" aria-hidden="true"></i>
+                </button>
+                <div class="collapse in" id="collapsing-navbar">
+
+                    <a class="navbar-brand" style="padding-right:25px;" href="https://in-the-sky.org/">
+                        <i class="fa fa-home" aria-hidden="true"></i>
+                    </a>
+
+                    <ul class="nav navbar-nav">
+                        <li class="nav-item dropdown ">
+                            <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button"
+                               aria-haspopup="true" aria-expanded="false">
+                                News
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="Preview">
+                                <a class="dropdown-item" href="https://in-the-sky.org/newsindex.php?feed=thesky">
+                                    Upcoming events
+                                </a>
+                                <div class="dropdown-submenu">
+                                    <a class="dropdown-item dropdown-toggle" href="#">By topic</a>
+                                    <ul class="dropdown-menu">
+                                        <li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=appulses'>Appulses</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=asteroids'>Asteroids</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=comets'>Comets</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=conjunctions'>Conjunctions</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=deepsky'>The Deep Sky</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=dwarfplanets'>The Dwarf Planets</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=earth'>The Earth</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=eclipses'>Eclipses</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=innerplanets'>The Inner Planets</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=meteors'>Meteor Showers</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=moon'>The Moon</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=novae'>Novae &amp; Supernovae</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=occultations'>Lunar Occultations</a></li><li><a class='dropdown-item' href='https://in-the-sky.org/newsindex.php?feed=outerplanets'>The Outer Planets</a></li>                                    </ul>
+                                </div>
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/comets.php">
+                                    Current comets
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/newsmap.php">
+                                    News planetarium
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/newscal.php">
+                                    Event calendar
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/eclipses.php">
+                                    Eclipses
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/search.php?s=&amp;searchtype=News">
+                                    News search
+                                </a>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown ">
+                            <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button"
+                               aria-haspopup="true" aria-expanded="false">
+                                Charts
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="Preview">
+                                <a class="dropdown-item" href="https://in-the-sky.org/skymap.php">
+                                    Planetarium
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/skymap2.php">
+                                    All-sky charts
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/skymap3.php">
+                                    Sky rotation diagram
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/staratlas.php">
+                                    Star atlas
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/solarsystem.php">
+                                    The solar system
+                                </a>
+                                <a class="dropdown-item" href="https://moon.in-the-sky.org/">
+                                    3D Moon map
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/findercharts.php">
+                                    Object-finder charts
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/risesetcharts.php">
+                                    Rising &amp; setting times
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/twilightmap.php">
+                                    Live twilight map
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/timezone_map.php">
+                                    World timezone map
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/earthinspace.php">
+                                    The Earth in space
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/ngc3d.php">
+                                    The Universe in 3D
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/jupiter.php">
+                                    The moons of Jupiter
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/weather.php">
+                                    Weather forecast
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/graphs.php">
+                                    Custom graphs
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/charts.php">
+                                    More...
+                                </a>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown active ">
+                            <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button"
+                               aria-haspopup="true" aria-expanded="false">
+                                Spacecraft
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="Preview">
+                                <a class="dropdown-item" href="https://in-the-sky.org/satmap_worldmap.php">
+                                    World map of satellite positions
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/satmap_radar.php">
+                                    Satellites in your sky
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/satmap_globe.php">
+                                    3D satellite map
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/satmap_planetarium.php">
+                                    Planetarium of satellites
+                                </a>
+                                <a class="dropdown-item"
+                                   href="https://in-the-sky.org/search.php?s=&amp;searchtype=Spacecraft&amp;satorder=0">
+                                    Catalog of spacecraft (SATCAT)
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/satmap_worldmap.php?gps=1">
+                                    GPS satellite positions
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/satpasses.php">
+                                    Find bright satellite passes
+                                </a>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown ">
+                            <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button"
+                               aria-haspopup="true" aria-expanded="false">
+                                Objects
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="Preview">
+                                <p class="dropdown-menu-heading">Your sky</p>
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/planets.php">
+                                    Planets
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/comets.php">
+                                    Comets
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/asteroids.php">
+                                    Asteroids
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/deepsky.php">
+                                    Deep sky objects
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/whatsup.php">
+                                    Sky diagram
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/whatsup_times.php">
+                                    Rising / setting times
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <p class="dropdown-menu-heading">Object catalogs</p>
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/catalogue.php?cat=Messier">
+                                    Messier objects
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/catalogue.php?cat=NGC">
+                                    Browse catalogs
+                                </a>
+                                <a class="dropdown-item"
+                                   href="https://in-the-sky.org/search.php?s=&amp;searchtype=Objects&amp;magmax=4">
+                                    Object search
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/data.php">
+                                    More...
+                                </a>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown ">
+                            <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button"
+                               aria-haspopup="true" aria-expanded="false">
+                                Data Tables
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="Preview">
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/constellations_list.php">
+                                    List of the constellations
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/sunrise.php">
+                                    Sunrise &amp; sunset times
+                                </a>
+                                <a class="dropdown-item"
+                                   href="https://in-the-sky.org/ephemeris.php?objtxt=Sun&amp;irs=1">
+                                    Twilight times
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/ephemeris.php">
+                                    Ephemerides
+                                </a>
+                                <a class="dropdown-item"
+                                   href="https://in-the-sky.org/whatsup_times.php">
+                                    Rising / setting times
+                                </a>
+                                <a class="dropdown-item"
+                                   href="https://in-the-sky.org/article.php?term=phases_of_the_moon">
+                                    Phases of the Moon
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/time.php">
+                                    Timezone conversion
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/timezone.php">
+                                    When do the clocks change?
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/ephemerides.php">
+                                    More...
+                                </a>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown ">
+                            <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button"
+                               aria-haspopup="true" aria-expanded="false">
+                                Resources
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="Preview">
+                                <a class="dropdown-item" href="https://in-the-sky.org/data/constellations_map.php">
+                                    Map of the constellations
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/article.php">
+                                    Articles
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/planisphere/index.php">
+                                    Make a planisphere
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/astrolabe/index.php">
+                                    Make a medieval astrolabe
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/precession/index.php">
+                                    Precession of the equinoxes
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/software.php">
+                                    Open-source software
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/misc/pubs.php">
+                                    Cambridge pub map
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/about.php">
+                                    About In-The-Sky.org
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/about_privacy.php">
+                                    Privacy policy
+                                </a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/misc/misc.php">
+                                    More...
+                                </a>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown ">
+                            <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button"
+                               aria-haspopup="true" aria-expanded="false">
+                                External Links
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="Preview">
+                                <a class="dropdown-item" href="https://sciencedemos.org.uk/">Science Demos</a>
+                                <a class="dropdown-item" href="https://hilltopviews.org.uk/">Hill Top Views</a>
+                                <a class="dropdown-item" href="http://www.pyxplot.org.uk/">Pyxplot</a>
+                                <a class="dropdown-item" href="https://jsplot.dcford.org.uk/">JSPlot</a>
+                                <a class="dropdown-item" href="https://britastro.org/observations/search.php?library=0&sort_order=0&status=0&format=1">Astrophotography Archive</a>
+                                <a class="dropdown-item" href="https://photos.dcford.org.uk/">Photo Gallery</a>
+                                <a class="dropdown-item" href="https://in-the-sky.org/links.php">More...</a>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <script type="application/javascript">
+            $('.dropdown-menu a.dropdown-toggle').on('click', function (e) {
+                if (!$(this).next().hasClass('show_dcf')) {
+                    $(this).parents('.dropdown-menu').first().find('.show_dcf').removeClass('show_dcf');
+                }
+                var $subMenu = $(this).next('.dropdown-menu');
+                $subMenu.toggleClass('show_dcf');
+
+
+                $(this).parents('div.dropdown.show_dcf').on('hidden.bs.dropdown', function (e) {
+                    $('.dropdown-submenu .show_dcf').removeClass('show_dcf');
+                });
+
+                return false;
+            });
+
+            if ($(window).width() < 768) $("#collapsing-navbar").collapse("hide");
+
+            $(function () {
+                setInterval(function () {
+                    if ($(window).width() > 768) {
+                        if (!window.is_large) $("#collapsing-navbar").collapse("show");
+                        window.is_large = true;
+                    } else {
+                        window.is_large = false;
+
+                    }
+                }, 500);
+            });
+        </script>
+
+        <div class="bannerfade noprint"></div>
+
+        <div class="mainpage container-fluid"><div class="row"><div class="col-xl-10b"><div class="mainpane">
+    <p class="widetitle">Live Map of Satellite Positions</p>
+    <div class="bydcf">by Dominic Ford</div>
+
+
+    <div class="sat_map_worldmap" data-meta='{"placename":"Berlin","gotoyearmin":2021,"tzOffset":{"start":1451649600,"step_size":1800,"tzOffset":[[1,-1,""],[4105,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[7392,3600,"CET"],[10080,7200,"CEST"],[7392,3600,"CET"],[10080,7200,"CEST"],[7392,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[7392,3600,"CET"],[10080,7200,"CEST"],[7392,3600,"CET"],[10080,7200,"CEST"],[7392,3600,"CET"],[10080,7200,"CEST"],[7392,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[7392,3600,"CET"],[10080,7200,"CEST"],[7392,3600,"CET"],[10080,7200,"CEST"],[7392,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[7056,3600,"CET"],[10416,7200,"CEST"],[3120,3600,"CET"]]},"latitude":52.52437,"longitude":13.41053,"varShow":2,"dispNow":false,"gotoUtc":1712950261}'>
+                <!--[if lt IE 9]>
+        <div class="alert alert-warning">
+            <b>
+                Warning:
+            </b>
+            You appear to be using an old web browser which may not be compatible with the interactive elements of
+            this website. This page is compatible with most modern web browsers, including Chrome, Firefox, Safari
+            and Internet Explorer 9+, but not with older versions of Internet Explorer.
+        </div>
+        <![endif]-->
+
+        <div class="tabselect_holder" style="padding-top:18px;">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link link-worldmap active"
+                       href="#">World map</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link link-radar "
+                       href="#">Satellites above your horizon</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link link-globe "
+                       href="#">3D globe</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link link-planetarium "
+                       href="#">Planetarium view</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link link-passes "
+                       href="#">Search overhead passes</a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="form-item-holder" style="overflow:visible;">
+            <form method="get" action="javascript:void(0);">
+                <div class="form-item" style="min-height:95px;">
+                    <p class="formlabel">Date</p>
+                    <select class="slt day" name="day"><option value="1" >1</option><option value="2" >2</option><option value="3" >3</option><option value="4" >4</option><option value="5" >5</option><option value="6" >6</option><option value="7" >7</option><option value="8" >8</option><option value="9" >9</option><option value="10" >10</option><option value="11" >11</option><option value="12"  selected="selected">12</option><option value="13" >13</option><option value="14" >14</option><option value="15" >15</option><option value="16" >16</option><option value="17" >17</option><option value="18" >18</option><option value="19" >19</option><option value="20" >20</option><option value="21" >21</option><option value="22" >22</option><option value="23" >23</option><option value="24" >24</option><option value="25" >25</option><option value="26" >26</option><option value="27" >27</option><option value="28" >28</option><option value="29" >29</option><option value="30" >30</option><option value="31" >31</option></select><select class="slt month" name="month"><option value="1" >Jan</option><option value="2" >Feb</option><option value="3" >Mar</option><option value="4"  selected="selected">Apr</option><option value="5" >May</option><option value="6" >Jun</option><option value="7" >Jul</option><option value="8" >Aug</option><option value="9" >Sep</option><option value="10" >Oct</option><option value="11" >Nov</option><option value="12" >Dec</option></select><input name="year" class="year" style="max-width:80px;"
+                             type="number" step="1"
+                             min="2021" max="2026"
+                             value="2024"/>
+                </div>
+                <div class="form-item" style="min-height:95px;">
+                    <p class="formlabel">Time</p>
+                    <select class="slt hour" name="hour"><option value="0" >00</option><option value="1" >01</option><option value="2" >02</option><option value="3" >03</option><option value="4" >04</option><option value="5" >05</option><option value="6" >06</option><option value="7" >07</option><option value="8" >08</option><option value="9" >09</option><option value="10" >10</option><option value="11" >11</option><option value="12" >12</option><option value="13" >13</option><option value="14" >14</option><option value="15" >15</option><option value="16" >16</option><option value="17" >17</option><option value="18" >18</option><option value="19" >19</option><option value="20" >20</option><option value="21"  selected="selected">21</option><option value="22" >22</option><option value="23" >23</option></select>&nbsp;<b>:</b>&nbsp;<select class="slt min" name="min"><option value="0" >00</option><option value="1" >01</option><option value="2" >02</option><option value="3" >03</option><option value="4" >04</option><option value="5" >05</option><option value="6" >06</option><option value="7" >07</option><option value="8" >08</option><option value="9" >09</option><option value="10" >10</option><option value="11" >11</option><option value="12" >12</option><option value="13" >13</option><option value="14" >14</option><option value="15" >15</option><option value="16" >16</option><option value="17" >17</option><option value="18" >18</option><option value="19" >19</option><option value="20" >20</option><option value="21" >21</option><option value="22" >22</option><option value="23" >23</option><option value="24" >24</option><option value="25" >25</option><option value="26" >26</option><option value="27" >27</option><option value="28" >28</option><option value="29" >29</option><option value="30" >30</option><option value="31"  selected="selected">31</option><option value="32" >32</option><option value="33" >33</option><option value="34" >34</option><option value="35" >35</option><option value="36" >36</option><option value="37" >37</option><option value="38" >38</option><option value="39" >39</option><option value="40" >40</option><option value="41" >41</option><option value="42" >42</option><option value="43" >43</option><option value="44" >44</option><option value="45" >45</option><option value="46" >46</option><option value="47" >47</option><option value="48" >48</option><option value="49" >49</option><option value="50" >50</option><option value="51" >51</option><option value="52" >52</option><option value="53" >53</option><option value="54" >54</option><option value="55" >55</option><option value="56" >56</option><option value="57" >57</option><option value="58" >58</option><option value="59" >59</option></select>                </div>
+                <div class="form-item" style="min-height:95px;">
+                    <p class="formlabel">Time slider</p>
+                    <div
+                            style="text-align:center;width:340px;height:40px;position:relative;left:0;top:0;margin-bottom:4px;">
+                        <canvas class="Tslidescale" width="340" height="26"
+                                style="position:absolute;top:0;left:-2px;z-index:1;"></canvas>
+                        <div class="Tslider" style="position:absolute;top:26px;left:8px;width:324px;z-index:4;"></div>
+                    </div>
+                </div>
+                <div class="form-item" style="min-height:95px; min-width:216px;">
+                    <p class="formlabel">Showing Time</p>
+                    <span class="clock" style="margin-left:4px; display:inline-block; font-weight:bold;">--</span>
+                </div>
+                <div class="form-item-notitle" style="padding:0 8px;min-height:95px;">
+                    <input class="btn btn-success btn-sm goto_now" style="cursor:pointer;margin:6px;" type="button"
+                           value="Reset time to now"/>
+                </div>
+                <div class="form-item-notitle" style="padding:0 8px;min-height:95px;">
+                    <label>
+                        <input class="chk fr" type="checkbox" name="show" value="fr"/> Freeze&nbsp;motion
+                    </label>
+                    <br />
+                    <label>
+                        <input class="chk sl" type="checkbox"
+                               name="show" value="sl"
+                             checked="checked"                                /> Show&nbsp;labels
+                    </label>
+                                        <br />
+                        <label>
+                            <input class="chk st" type="checkbox" name="show"
+                                   value="st" checked="checked"
+                            /> Show&nbsp;tracks
+                        </label>
+                                                        </div>
+                                                    <div class="form-item" style="min-height:95px;padding:0 20px;">
+                        <p class="formlabel">Search</p>
+                        <input class="mapsearchbox searchbox txt" type="text" name="s" value=""/>
+                        <input class="btn btn-success btn-sm searchclick" type="button" value="Search..."/>
+                    </div>
+                                <div class="form-item-notitle" style="min-height:95px; padding-top:26px;">
+                    <div class="btn-group" style="margin:8px;">
+                        <button type="button" class="btn btn-success btn-sm dropdown-toggle" data-toggle="dropdown"
+                                aria-haspopup="true"
+                                aria-expanded="false">
+                            Color&nbsp;satellites&nbsp;by
+                        </button>
+                        <div class="dropdown-menu colselect" style="padding:12px;font-size:13px;">
+                            <p class="formlabel">Color satellites by</p>
+                            <label>
+                                <input class="chk colsatby1" type="radio" name="colsatby" value="1" checked="checked"/>
+                                Brightness
+                            </label>
+                            <br/>
+                            <label>
+                                <input class="chk colsatby2" type="radio" name="colsatby" value="2"/>
+                                Altitude
+                            </label>
+                            <br/>
+                            <label>
+                                <input class="chk colsatby3" type="radio" name="colsatby" value="3"/>
+                                Launch&nbsp;date
+                            </label>
+                            <p class="formlabel" style="margin-top:20px;">Scale</p>
+                            <table><tr><td><div style="display:inline-block; background-image:url(https://in-the-sky.org/images/satellite.png); background-repeat:no-repeat; text-indent:-9999; width:30px;height:30px;background-position:-0px 0"></div></td><td class='colsat0' style='white-space:nowrap;'></td></tr><tr><td><div style="display:inline-block; background-image:url(https://in-the-sky.org/images/satellite.png); background-repeat:no-repeat; text-indent:-9999; width:30px;height:30px;background-position:-68px 0"></div></td><td class='colsat2' style='white-space:nowrap;'></td></tr><tr><td><div style="display:inline-block; background-image:url(https://in-the-sky.org/images/satellite.png); background-repeat:no-repeat; text-indent:-9999; width:30px;height:30px;background-position:-136px 0"></div></td><td class='colsat4' style='white-space:nowrap;'></td></tr><tr><td><div style="display:inline-block; background-image:url(https://in-the-sky.org/images/satellite.png); background-repeat:no-repeat; text-indent:-9999; width:30px;height:30px;background-position:-204px 0"></div></td><td class='colsat6' style='white-space:nowrap;'></td></tr><tr><td><div style="display:inline-block; background-image:url(https://in-the-sky.org/images/satellite.png); background-repeat:no-repeat; text-indent:-9999; width:30px;height:30px;background-position:-272px 0"></div></td><td class='colsat8' style='white-space:nowrap;'></td></tr><tr><td><div style="display:inline-block; background-image:url(https://in-the-sky.org/images/satellite.png); background-repeat:no-repeat; text-indent:-9999; width:30px;height:30px;background-position:-340px 0"></div></td><td class='colsat10' style='white-space:nowrap;'></td></tr><tr><td><div style="display:inline-block; background-image:url(https://in-the-sky.org/images/satellite.png); background-repeat:no-repeat; text-indent:-9999; width:30px;height:30px;background-position:-408px 0"></div></td><td class='colsat12' style='white-space:nowrap;'></td></tr></table>                        </div>
+                    </div>
+                </div>
+                <div class="form-item" style="min-height:95px; white-space:nowrap; font-size:13px;">
+                    <p class="formlabel">Selection</p>
+                    Showing <span class="spacecraft_count" style="font-weight: bold;">--</span> spacecraft.
+                    <br />
+                    Select satellites groups below to change selection.
+                    <br />
+                    Click on satellites to see full details.
+                </div>
+                            </form>
+        </div>
+
+        <div style="clear:both;"></div>
+
+        <div class="cpu_time_holder" style="clear:both; padding:12px 0; display:none;">
+            <div class="alert alert-info" role="alert">
+                Try reducing the number of spacecraft selected if the map is slow to respond.
+
+                <span class="cpu_time_truncation_holder">
+                    The number of spacecraft shown below has been reduced to
+                    <span class="cpu_time_truncation_count">--</span>
+                    to improve performance.
+                </span>
+
+                You currently have <span class="spacecraft_count">--</span> spacecraft selected, taking
+                <span class="cpu_time_canvas">--</span> seconds per frame to calculate.
+            </div>
+        </div>
+
+
+        <div class="tabtarget" style="overflow:hidden;">
+                    <div class="topographic_map" id="htv_map"
+             style="text-align: center;"
+             data-meta='{"id":"htv_map","latitude":52.52437,"longitude":13.41053,"field_of_view":250,"vsc":1,"fog":0,"tod":0.5,"ele":0.5,"tiling_scheme":"a","projection":"mercator","mutable":1,"mutable_zoom":1,"exportable":0,"enable_crosshair":0,"max_aspect":1,"show_distances":0,"enableClickingOnHills":0,"label_types":{"towns":1,"hills":0,"stations":0,"countries_administrative":1,"regions_administrative":1}}'>
+            <div class="position_relative"
+                 style="border: 1px solid #ccc; display:inline-block; margin: 8px 0; background-color: #404040; color: #f0f0f0;">
+
+                <div class="holder" style="overflow: hidden;">
+                    <canvas class="img_topography"
+                            style="position:absolute;top:0;left:0;z-index:0;background:black;filter:blur(0.2px);"></canvas>
+                    <canvas class="img_labels0" style="position:absolute;top:0;left:0;z-index:1;"></canvas>
+                    <canvas class="img_labels1" style="position:absolute;top:0;left:0;z-index:1;"></canvas>
+                    <canvas class="img_annotation" style="position:absolute;top:0;left:0;z-index:2;"></canvas>
+                    <div class="annotation-hover hover-info-item"
+                         style="position:absolute;top:0;left:0;display:none;text-align:left;z-index:85;"></div>
+                    <canvas class="img_scalebar" style="position:absolute;top:0;left:0;z-index:3;"></canvas>
+                    <canvas class="img_fore" style="position:absolute;top:0;left:0;z-index:88;"></canvas>
+                    <div class="hover-info hover-info-item"
+                         style="position:absolute;top:0;left:0;display:none;z-index:85;"></div>
+
+                                        <img class="crosshair" src="https://in-the-sky.org/images/crosshair.gif"
+                         style="position:absolute;width:36px;z-index:79;pointer-events: none;display:none; -webkit-filter: blur(0.3px); -moz-filter: blur(0.3px); -o-filter: blur(0.3px); -ms-filter: blur(0.3px); filter: blur(0.3px);"/>
+
+                                        <div class="information_holder"
+                         style="display: none; position: absolute; top:12px; right: 12px; z-index:89; width:180px; background: rgba(255,255,255,0.85); border: 1px solid #888; border-radius: 4px; padding: 8px; color: #000; text-align:left;">
+                        <img class="close_button" style="position:absolute;top:-10px;right:-10px;cursor:pointer;"
+                             src="https://in-the-sky.org/images/closeButton.png" title="Close" alt="Close"/>
+                        <div class="information_contents"></div>
+                    </div>
+
+                                    </div>
+                <div style="position:absolute;top:20px;left:30px;z-index:90">
+                                            <button type="button" class="btn btn-secondary zoom-in" style="padding:3px 8px;"
+                                title="Zoom in"
+                                aria-label="Zoom in">
+                            <i class="fa fa-search-plus" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="btn btn-secondary zoom-out" style="padding:3px 8px;"
+                                title="Zoom out"
+                                aria-label="Zoom out">
+                            <i class="fa fa-search-minus" aria-hidden="true"></i>
+                        </button>
+                                                        </div>
+
+                <p class="copyright" style="text-align: right; margin: 5px 10px; max-width: none; font-size: 12px; line-height: 18px;">
+                    Mapping provided by <a href="https://hilltopviews.org.uk">https://hilltopviews.org.uk</a>
+                </p>
+            </div>
+        </div>
+                </div>
+
+
+        <div style="clear:both;padding:12px 0;">
+            <div class="warning_canvas alert alert-info" role="alert">
+            </div>
+        </div>
+
+
+        <h4>Select satellites</h4>
+        <div class="form-item-holder" style="overflow:visible;">
+            <form method="get" action="javascript:void(0);">
+                <div class="satselect" style="padding:12px;white-space: nowrap;">
+                </div>
+            </form>
+        </div>
+
+            </div>
+
+        <div class="newsbody"><h2 style="margin-bottom:4px;">Share</h2></div>
+
+        <!-- Facebook -->
+        <div style="display: inline-block; margin: 16px 10px; vertical-align: top;">
+            <a href="https://facebook.com/intheskyorg">
+                <div class="its-img its-img-fb" style="vertical-align:middle; margin: 0 8px;"></div>
+            </a>
+        </div>
+
+        <!-- Pocket -->
+        <div style="display: inline-block; margin: 16px 10px; vertical-align: top;">
+            <a data-pocket-label="pocket" data-pocket-count="horizontal" class="pocket-btn" data-lang="en"></a>
+            <script type="text/javascript">!function (d, i) {
+                    if (!d.getElementById(i)) {
+                        var j = d.createElement("script");
+                        j.id = i;
+                        j.src = "https://widgets.getpocket.com/v1/j/btn.js?v=1";
+                        var w = d.getElementById(i);
+                        d.body.appendChild(j);
+                    }
+                }(document, "pocket-btn-js");</script>
+        </div>
+
+        <div style='clear:both;'></div></div></div>            <div class="col-xl-2b tallright noprint">
+                        <div class="tallright">
+
+            <div class="blkprint centerblock">
+
+                <div class="sidebaritem" style="text-align:right;">
+                    <form method="get" action="https://in-the-sky.org/search.php">
+                        <p class="smtextright" style="margin:4px;">
+                            <input class="txt" style="width:100%;" type="text" name="s" value=""/>
+                        </p>
+
+                        <p class="smtextright" style="margin:4px;">
+                            <input class="btn btn-secondary btn-sm" type="submit" value="Search site..."/>
+                        </p>
+                    </form>
+                </div>
+                <div class="sidebaritem sidebarbox">
+                    <p class="sidebarheading">
+                        <b>Berlin</b>
+                    </p>
+                    <table style="margin-top:-3px;">
+                        <tr>
+                            <td class="snugtop">
+                                <p class="medtext">
+                                    <b>Latitude: </b><br/>
+                                    <b>Longitude:</b><br/>
+                                    <b>Timezone: </b><br/>
+                                </p>
+                            </td>
+                            <td class="snugtop">
+                                <p class="medtext">
+                                    52.52&deg;N<br/>
+                                    13.41&deg;E<br/>
+                                    CEST<br/>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                    <form method="get" action="https://in-the-sky.org/location.php">
+                        <p class="centretext noprint">
+                            <input class="btn btn-secondary btn-sm" type="submit" value="Change location..."/>
+                        </p>
+                    </form>
+                </div>
+                <div class="sidebaritem sidebarbox">
+                    <p class="sidebarheading">
+                        <b>Color scheme</b>
+                    </p>
+                    <form method="get" action="https://in-the-sky.org//satmap_worldmap.php?year=2024&month=4&day=12">
+                                                        <input type="hidden"
+                                       name="year"
+                                       value="2024"/>
+                                                            <input type="hidden"
+                                       name="month"
+                                       value="4"/>
+                                                            <input type="hidden"
+                                       name="day"
+                                       value="12"/>
+                                                    <p class="medtext" style="margin:6px;">
+                            <label><input type="radio" name="skin" value="0"
+                                    checked='checked' />
+                                Light
+                            </label><br/>
+                            <label><input type="radio" name="skin" value="1"
+                                     />
+                                Night mode
+                            </label>
+                        </p>
+                        <input type="submit" class="btn btn-secondary btn-sm" value="Update"/>
+                    </form>
+                </div>
+
+                            </div>
+
+                    <div>
+            <div class="tallright1 centerblock">
+                <div class="tallright2">
+                    <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+                    <!-- DFAN responsive -->
+                    <ins class="adsbygoogle"
+                         style="display:block"
+                         data-ad-client="ca-pub-0140009944980327"
+                         data-ad-slot="5756012127"
+                         data-ad-format="auto"></ins>
+                    <script>
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    </script>
+                </div>
+            </div>
+        </div>
+                </div>
+                    </div>
+            </div>
+
+            <div class="row">
+                <div class="col-xl-12 wideright">
+                    <hr/>
+                            <div>
+            <div class="tallright2">
+                <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+                <!-- DFAN responsive -->
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="ca-pub-0140009944980327"
+                     data-ad-slot="5756012127"
+                     data-ad-format="auto"></ins>
+                <script>
+                    (adsbygoogle = window.adsbygoogle || []).push({});
+                </script>
+            </div>
+        </div>
+                        </div>
+            </div>
+            </div>
+            <div class="footer">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <p class="copyright">
+                            <span style="font-size:15px;">
+                            &copy; <a href="https://in-the-sky.org/about.php" rel="nofollow">Dominic
+                                    Ford</a> 2011&ndash;2024.
+                            </span>
+                            </p>
+
+                            <p class="copyright">
+                                For more information including contact details,
+                                <a href="https://in-the-sky.org/about.php#copyright" rel="nofollow">click here</a>.<br/>
+                                Our privacy policy is
+                                <a href="https://in-the-sky.org/about_privacy.php" rel="nofollow">here</a>.<br/>
+                                Last updated: 21 Jun 2024, 18:35 UTC<br/>
+                                Website designed by
+                                <span class="its-img its-img-email"
+                                      style="height:14px;width:162px;vertical-align:middle;"></span>.<br/>
+                            </p>
+                        </div>
+                        <div class="noprint col-md-7">
+                            <div style="display:inline-block;padding:16px;">
+                                <b>Site hosted&nbsp;by</b><br/>
+                                <a href="https://www.mythic-beasts.com/">
+                                    <div class="its-img its-img-mythic" style="vertical-align:middle;"></div>
+                                </a>
+                            </div>
+                            <div class="noprint" style="display:inline-block;padding:16px;">
+                                                                <a href="https://validator.w3.org/nu/?doc=in-the-sky.org%2Fsatmap_worldmap.php%3Fyear%3D2024%26month%3D4%26day%3D12" rel="nofollow">
+                                    <div class="its-img its-img-vhtml" style="vertical-align:middle;"></div>
+                                </a>
+                                <a href="http://jigsaw.w3.org/css-validator/validator?uri=in-the-sky.org%2Fsatmap_worldmap.php%3Fyear%3D2024%26month%3D4%26day%3D12"
+                                   rel="nofollow">
+                                    <div class="its-img its-img-vcss" style="vertical-align:middle;"></div>
+                                </a>
+                                                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </body></html>

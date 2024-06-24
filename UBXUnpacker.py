@@ -11,7 +11,7 @@ from Satellites import GNSS
 from UBXUtils import flag_to_int, get_bytes_from_flag
 
 
-class Message(metaclass=ABCMeta):
+class UbxMessage(metaclass=ABCMeta):
     receiving_time: datetime = None
     format: str = None
     header: (int, int) = None
@@ -21,18 +21,18 @@ class Message(metaclass=ABCMeta):
 
     @staticmethod
     def get_subclasses():
-        return Message.__subclasses__()
+        return UbxMessage.__subclasses__()
 
     @staticmethod
     def find(header: (int, int)) -> type:
-        for subclass in Message.__subclasses__():
+        for subclass in UbxMessage.__subclasses__():
             if subclass.header == header:
                 return subclass
-        return Message
+        return UbxMessage
 
     @staticmethod
     def byte_find(clsid: bytes, msgid: bytes) -> type:
-        return Message.find((int.from_bytes(clsid), int.from_bytes(msgid)))
+        return UbxMessage.find((int.from_bytes(clsid), int.from_bytes(msgid)))
 
     def __str__(self):
         return f'{type(self).__name__}: {str(self.__dict__)}'
@@ -62,7 +62,7 @@ def twosComp2dec(binaryStr: str) -> int:
     return intNumber
 
 
-class RXM_RAWX(Message):
+class RXM_RAWX(UbxMessage):
     format = '<dHbBs3B'
     header = (0x02, 0x15)
     attr = 'rawx'
@@ -81,10 +81,9 @@ class RXM_RAWX(Message):
             struct.unpack('<ddfBBBBHBssssB', msg[32 * i: 32 * (i + 1)])
             self.rawx[(gnssId, svId)] =\
                 RAWX(prMes, cpMes, doMes, freqId, locktime, cno, prStedv, cpStedv, doStedv, trkStat)
-        a = 0
 
 
-class NAV_SAT(Message):
+class NAV_SAT(UbxMessage):
     format = '<LBBBB'
     header = (0x01, 0x35)
     attr = 'sat'
@@ -99,7 +98,7 @@ class NAV_SAT(Message):
             self.sat[(gnssId, svId)] = SAT(cno, elev, azim, prRes, flags)
 
 
-class NAV_ORB(Message):
+class NAV_ORB(UbxMessage):
     format = '<LBBBB'
     header = (0x01, 0x34)
     attr = 'orb'
@@ -114,7 +113,7 @@ class NAV_ORB(Message):
             self.orb[(gnssId, svId)] = ORB(svFlag, eph, alm, otherOrb)
 
 
-class NAV_TIMEGPS(Message):
+class NAV_TIMEGPS(UbxMessage):
     format = '<LlhbsL'
     header = (0x01, 0x20)
 
@@ -130,7 +129,7 @@ class NAV_TIMEGPS(Message):
         }
 
 
-class NAV_POSECEF(Message):
+class NAV_POSECEF(UbxMessage):
     format = '<LlllL'
     header = (0x01, 0x01)
 
@@ -140,7 +139,7 @@ class NAV_POSECEF(Message):
         # self.LLA = ecef2lla(self.ecefX/100, self.ecefY/100, self.ecefZ/100)
 
 
-class NAV_VELECEF(Message):
+class NAV_VELECEF(UbxMessage):
     format = '<LlllL'
     header = (0x01, 0x11)
 
@@ -149,7 +148,7 @@ class NAV_VELECEF(Message):
         self.iTOW, self.ecefVX, self.ecefVY, self.ecefVZ, self.sAcc = struct.unpack(self.format, msg)
 
 
-class RXM_SVSI(Message):
+class RXM_SVSI(UbxMessage):
     format = '<LhBB'
     header = (0x02, 0x20)
     attr = 'svsi'
@@ -164,7 +163,7 @@ class RXM_SVSI(Message):
             self.svsi[(GNSS.GPS, svId)] = SVSI(sv_flag, azim, elev, age_flag)
 
 
-class AID_EPH(Message):
+class AID_EPH(UbxMessage):
     format = '<LL'
     header = (0x0B, 0x31)
 
@@ -182,7 +181,7 @@ class AID_EPH(Message):
                     sqrtA, M0, W0, w, Tgd, af2, af1, af0, health, accuracy, self.receiving_time]
 
 
-class AID_ALM(Message):
+class AID_ALM(UbxMessage):
     format = '<LL'
     header = (0x0B, 0x30)
 
@@ -199,7 +198,7 @@ class AID_ALM(Message):
                     self.receiving_time]
 
 
-class RXM_SFRBX(Message):
+class RXM_SFRBX(UbxMessage):
     format = '<BBBBBBBB'
     header = (0x02, 0x13)
 
@@ -232,24 +231,24 @@ class RXM_SFRBX(Message):
             # [week, accuracy, health, IODC, Tgd, Toc, af2, af1, af0]\
             data = GPSParser.parse(subframe, 1)
             h = ['week', 'accuracy', 'health', 'IODC', 'Tgd', 'Toc', 'af2', 'af1', 'af0']
-            print(tabulate([data], headers=h))
+            # print(tabulate([data], headers=h))
             print('\n')
             # case 2:
             # [IODE1, Crs, dn, M0, Cuc, e, Cus, sqrtA, Toe] \
             data = GPSParser.parse(subframe, 2)
             h = ['IODE1', 'Crs', 'dn', 'M0', 'Cuc', 'e', 'Cus', 'sqrtA', 'Toe']
-            print(tabulate([data], headers=h))
+            # print(tabulate([data], headers=h))
             print('\n')
             # case 3:
             # [Cic, W0, Cis, i0, Crc, w, Wdot, IODE2, IDOT]
             data = GPSParser.parse(subframe, 3)
             h = ['Cic', 'W0', 'Cis', 'i0', 'Crc', 'w', 'Wdot', 'IODE2', 'IDOT']
-            print(tabulate([data], headers=h))
+            # print(tabulate([data], headers=h))
             print('\n')
             # case 5:
             h = ['SV_ID', 'Data_ID', 'Toa', 'e', 'delta_i', 'Wdot', 'sqrtA', 'W0', 'w', 'M0', 'af0', 'af1', 'health']
             data = GPSParser.parse(subframe, 5)
-            print(tabulate([data], headers=h))
+            # print(tabulate([data], headers=h))
             print('\n')
             # case _:
             #     data = None
