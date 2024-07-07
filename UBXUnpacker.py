@@ -198,6 +198,10 @@ class AID_ALM(UbxMessage):
                     self.receiving_time]
 
 
+
+
+
+
 class RXM_SFRBX(UbxMessage):
     format = '<BBBBBBBB'
     header = (0x02, 0x13)

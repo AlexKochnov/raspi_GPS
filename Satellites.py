@@ -35,7 +35,7 @@ class SAT(SatelliteBlock):
         self.cno = cno
         self.elev = elev
         self.azim = azim
-        self.prRes = prRes
+        self.prRes = prRes * 0.1
         flags = flag_to_int(flags)
         self.qualityInd = get_bytes_from_flag(flags, 0, 1, 2)
         self.svUsed = get_bytes_from_flag(flags, 3)

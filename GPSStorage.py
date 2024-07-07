@@ -130,14 +130,14 @@ class GPSStorage:
                     if satellite.check_eph() and satellite.rawx]
                     # if satellite.eph is not None and satellite.rawx and satellite.eph_coord is not None]
                     # and satellite.rawx.prValid and satellite.rawx.cpValid]# is not None and satellite.sat.qualityInd > 3]
-        if good_eph:
-            a = 0
-        Flag = False
-
-        if Flag:
-            # with open(self.calc_log_file + '5', 'rb') as logger:
-            with open('5_calculation579460.000205107.log', 'rb') as logger:
-                good_eph = pickle.load(logger)
+        # if good_eph:
+        #     a = 0
+        # Flag = False
+        #
+        # if Flag:
+        #     # with open(self.calc_log_file + '5', 'rb') as logger:
+        #     with open('5_calculation579460.000205107.log', 'rb') as logger:
+        #         good_eph = pickle.load(logger)
         # good_eph.sort(key=lambda satellite: satellite.sat.qualityInd, reverse=True)
         good_eph_count = min(self.max_sat_using, len(good_eph))
         good_eph = good_eph[:good_eph_count]
@@ -149,17 +149,17 @@ class GPSStorage:
         print('serialized good eph:')
         print(serialized_good_eph)
 
-        serialized_Storage = pickle.dumps(self)
-        with open(f'storages/storage{self.TOW}.log', 'wb') as logger:
-            logger.write(serialized_Storage)
-        print('Serialized Storage:')
-        print(serialized_Storage)
+        # serialized_Storage = pickle.dumps(self)
+        # with open(f'storages/storage{self.TOW}.log', 'wb') as logger:
+        #     logger.write(serialized_Storage)
+        # print('Serialized Storage:')
+        # print(serialized_Storage)
 
-        if not Flag:
-            with open(f'calculations/calculation{self.TOW}.log', 'wb') as logger:
-                logger.write(serialized_good_eph)
-            with open('parsed.log', 'a') as logger:
-                logger.write(f'Serialized good eph [{len(good_eph)}]: {serialized_good_eph}\n')
+        # if not Flag:
+        #     with open(f'calculations/calculation{self.TOW}.log', 'wb') as logger:
+        #         logger.write(serialized_good_eph)
+        #     with open('parsed.log', 'a') as logger:
+        #         logger.write(f'Serialized good eph [{len(good_eph)}]: {serialized_good_eph}\n')
 
         solve = Minimizing.solve_navigation_task(good_eph)
         ecef = solve[:3]

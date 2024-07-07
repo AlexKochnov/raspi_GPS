@@ -1,7 +1,9 @@
 # from UBXUnpacker import *
 # from pyubx2 import UBXMessage, SET
 import struct
+from serial import Serial
 
+import Constants
 
 
 def calc_checksum(cmd: bytes) -> bytes:
@@ -37,9 +39,53 @@ class POOLMessages:
 
     CFG_PRT_GET = b'\x06\x00' + b'\x00\x00'
 
+    CFG_ESRC = b'\x06\x60' + b'\x00\x00'
+    CFG_GNSS = b'\x06\x3E' + b'\x00\x00'
+    TIM_SMEAS = b'\x0D\x13' + b'\x00\x00'
+
+
     @staticmethod
     def CFG_PRT(port: int):
         return b'\x06\x00' + b'\x01\x00' + struct.pack('B', port)
+
+
+
+def calc_nmea_cs(cmd):
+    if cmd[0] == '$':
+        cmd = cmd[1:]
+    if '*' in cmd:
+        cmd = cmd.split('*')[0]
+    checksum = 0
+    for sym in cmd:
+        checksum ^= ord(sym)
+    return format(checksum, '02X')
+
+
+def reset_module(port, baudRate, timeout):
+    with Serial(port, baudRate, timeout=timeout) as stream:
+        cmd = POOLMessages.RST
+        cmd = b'\xb5b' + cmd + calc_checksum(cmd)
+        stream.write(cmd)
+
+
+def tune_baudRate(port, baudrate, timeout):
+    ##          b'\xb5b\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00\x80%\x00\x00\x07\x00\x03\x00\x00\x00\x00\x00\x92\xb5' ## выдан датчиком
+    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00\x80%\x00\x00\x07\x00\x03\x00\x00\x00\x00\x00'
+    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00' + struct.pack('I',
+    #                                                                             9600) + b'\x07\x00\x03\x00\x00\x00\x00\x00'
+    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00' + struct.pack('I', 19200) + b'\x00\x00\x00\x00\x00\x00\x00\x00'
+    # CFG_PRT = (b'\x06\x00' + b'\x14\x00' + b'\x01' + b'\x00' + b'\x00\x00' + b'\x00\x00\x00\x00' +
+    cmd = f'$PUBX,41,1,0007,0003,{baudrate},0'
+    cmd = cmd + '*' + calc_nmea_cs(cmd) + '\r\n'
+    cmd = cmd.encode('utf-8')
+
+    # for bR in [Constants.BaudRate]: #[4800, 9600, 19200, 38400, 57600, 115200]:#, 230400, 460800]:
+    #     print(f'try connect and change with baudrate: {bR}')
+    with Serial(port, Constants.BaseBaudRate, timeout=timeout) as stream:
+        stream.write(cmd)
+    pass
+
+
 
 
 MSG2pool = [
@@ -125,7 +171,7 @@ MSG2set = [
     set_rate(msgClass=0x01, msgID=0x30, rateUART1=1),  # NAV-SVINFO
 
     set_rate(msgClass=0x02, msgID=0x15, rateUART1=1),  # RXM-RAWX
-    set_rate(msgClass=0x02, msgID=0x20, rateUART1=1),  # RXM-SVSI
+    set_rate(msgClass=0x02, msgID=0x20, rateUART1=1),  # RXM-SVSI ## рекомендуется замена на NAV-ORB
     set_rate(msgClass=0x02, msgID=0x14, rateUART1=1),  # RXM-MEASX
 
     set_rate(msgClass=0x01, msgID=0x01, rateUART1=0),  # NAV-POSECEF
@@ -133,6 +179,10 @@ MSG2set = [
     # set_rate(msgClass=0x01, msgID=0x20, rateUART1=0),  # NAV-TIMEGPS
     # set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
     # set_rate(msgClass=0x01, msgID=0x35, rateUART1=0),  # NAV-SAT
+
+    set_rate(msgClass=0x06, msgID=0x60, rateUART1=0),  # CFG-ESRC # синхронизация времени
+    set_rate(msgClass=0x06, msgID=0x3E, rateUART1=0),  # CFG-GNSS
+    set_rate(msgClass=0x0D, msgID=0x13, rateUART1=0),  # TIM-SMEAS
 
     # # #
     # set_rate(msgClass=0x02, msgID=0x15, rateUART1=1),  # RXM-RAWX

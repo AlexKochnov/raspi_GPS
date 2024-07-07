@@ -1,9 +1,12 @@
 import math
 from math import sin, cos, tan
 from datetime import datetime, timedelta
+from time import sleep
 
 # from matplotlib import pyplot as plt
 from serial import Serial
+
+import argparse
 
 import NMEAUnpacker
 import UBXUnpacker
@@ -20,34 +23,6 @@ from pynmeagps import NMEAReader, NMEAMessage
 from pyubx2 import UBXReader
 
 
-def calc_nmea_cs(cmd):
-    if cmd[0] == '$':
-        cmd = cmd[1:]
-    if '*' in cmd:
-        cmd = cmd.split('*')[0]
-    checksum = 0
-    for sym in cmd:
-        checksum ^= ord(sym)
-    return format(checksum, '02X')
-
-def tune_baudRate(port, baudrate, timeout):
-    ##          b'\xb5b\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00\x80%\x00\x00\x07\x00\x03\x00\x00\x00\x00\x00\x92\xb5' ## выдан датчиком
-    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00\x80%\x00\x00\x07\x00\x03\x00\x00\x00\x00\x00'
-    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\xc0\x08\x00\x00' + struct.pack('I',
-    #                                                                             9600) + b'\x07\x00\x03\x00\x00\x00\x00\x00'
-    # CFG_PRT = b'\x06\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00' + struct.pack('I', 19200) + b'\x00\x00\x00\x00\x00\x00\x00\x00'
-    # CFG_PRT = (b'\x06\x00' + b'\x14\x00' + b'\x01' + b'\x00' + b'\x00\x00' + b'\x00\x00\x00\x00' +
-    cmd = f'$PUBX,41,1,0007,0003,{baudrate},0'
-    cmd = cmd + '*' + calc_nmea_cs(cmd) + '\r\n'
-    cmd = cmd.encode('utf-8')
-
-    for bR in [9600]: #[4800, 9600, 19200, 38400, 57600, 115200]:#, 230400, 460800]:
-        print(f'try connect and change with baudrate: {bR}')
-        with Serial(port, bR, timeout=timeout) as stream:
-            stream.write(cmd)
-    pass
-
-
 class GPSReader:
     print_noises = True
     print_parsed = True
@@ -60,6 +35,10 @@ class GPSReader:
     PoolQ = [
         POOLMessages.EPH,
         POOLMessages.ALM,
+
+        # POOLMessages.CFG_ESRC,
+        # POOLMessages.CFG_GNSS,
+        # POOLMessages.TIM_SMEAS,
 
         # POOLMessages.RST,
 
@@ -77,8 +56,26 @@ class GPSReader:
     counter = 0
     counetr2 = 0
 
-    def __init__(self, port="/dev/ttyS0", baudrate=115200, timeout=1):  # timeout влияет на буфер, 0.1 мало
-        # tune_baudRate(port, baudrate, timeout)
+    @staticmethod
+    def reset_module(port=Constants.SerialPort, baudrate=Constants.BaudRate, timeout=1):
+        reset_module(port, baudrate, timeout)
+        sleep(0.1)
+        tune_baudRate(port, baudrate, timeout)
+        sleep(0.1)
+
+    @staticmethod
+    def tune_baudRate_module(port=Constants.SerialPort, baudrate=Constants.BaudRate, timeout=1):
+        tune_baudRate(port, baudrate, timeout)
+        sleep(0.1)
+
+    def __init__(self, port=Constants.SerialPort, baudrate=Constants.BaudRate, timeout=1):#, reset: bool=False):  # timeout влияет на буфер, 0.1 мало
+        # reset = True
+        # if reset:
+        #     reset_module(port, baudrate, timeout)
+        #     sleep(0.1)
+        #     tune_baudRate(port, baudrate, timeout)
+        #     sleep(0.1)
+        self.tune_baudRate_module(port, baudrate, timeout)
         self.stream = Serial(port, baudrate, timeout=timeout)
         self.tune()
 
@@ -193,14 +190,27 @@ class GPSDataPrinter:
 
 
 if __name__ == "__main__":
-    Reader = GPSReader()
-    Storage = GPSStorage()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--reset', action='store_true',
+                        help='Reset the module with CFG-RST and config baudRate to 115200')
+    args = parser.parse_args()
+    if args.reset:
+        GPSReader.reset_module()
 
-    start_year = datetime(2023, 1, 1)
+    # start_year = datetime(2023, 1, 1)
     with open(GPSReader.parsed_logger, 'a') as logger:
         logger.write('------------------------------Start------------------------------\n')
+
+    Reader = GPSReader()
+    Storage = GPSStorage()
 
     for counter, parsed_data in enumerate(Reader):
         Storage.update(parsed_data)
 
     pass
+
+
+
+
+
+
