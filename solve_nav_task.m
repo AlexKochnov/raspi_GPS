@@ -1,6 +1,6 @@
 % clc
 % clear all
-close all
+% close all
 
 
 %% Константы
@@ -126,8 +126,8 @@ if false
         hold on
         % SV1s = [5, 2, 4, 10, 14, 24,];
         % SV2s = [13, 3, 6, 15, 17, 32,];
-        SV1s = [2  2  2  5  5  5  8 15 16 16];
-        SV2s = [8 14 22 13 15 20 27 23 26 27];
+        % SV1s = [2  2  2  5  5  5  8 15 16 16];
+        % SV2s = [8 14 22 13 15 20 27 23 26 27];
 
         % delays = table([], [], [], VariableNames ={'from', 'to', 'ddt'});
         delays = cell(32, 32);
