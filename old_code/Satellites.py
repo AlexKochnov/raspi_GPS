@@ -2,6 +2,8 @@ from enum import Enum
 
 from UBXUtils import flag_to_int, get_bytes_from_flag
 
+# class GNSS:
+#     pass
 
 class GNSS(Enum):
     GPS = 0
@@ -67,8 +69,6 @@ class SVSI(SatelliteBlock):
     def __init__(self, sv_flag, azim, elev, age_flag):
         self.azim = azim
         self.elev = elev
-        sv_flag = flag_to_int(sv_flag)
-        age_flag = flag_to_int(age_flag)
         self.ura = get_bytes_from_flag(sv_flag, 0, 1, 2, 3)
         self.healthy = get_bytes_from_flag(sv_flag, 4)
         self.ephVal = get_bytes_from_flag(sv_flag, 5)

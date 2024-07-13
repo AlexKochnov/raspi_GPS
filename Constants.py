@@ -1,16 +1,7 @@
 from datetime import datetime, timedelta
 from pytz import timezone
+from Settings import *
 
-"""
-    Settings
-"""
-BaudRate = 115200
-BaseBaudRate = 9600
-SerialPort = "/dev/ttyS0"
-
-"""
-    Parameters
-"""
 tz_moscow = timezone('Europe/Moscow')
 tz_utc = timezone('utc')
 

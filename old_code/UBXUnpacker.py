@@ -16,6 +16,7 @@ class UbxMessage(metaclass=ABCMeta):
     format: str = None
     header: (int, int) = None
 
+
     def __init__(self, receiving_time: datetime = None):
         self.receiving_time = receiving_time or datetime.now()
 

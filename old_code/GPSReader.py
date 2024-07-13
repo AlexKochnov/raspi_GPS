@@ -20,7 +20,6 @@ import numpy as np, pandas as pd
 
 # TODO: убрать современем
 from pynmeagps import NMEAReader, NMEAMessage
-from pyubx2 import UBXReader
 
 
 class GPSReader:
@@ -68,7 +67,7 @@ class GPSReader:
         tune_baudRate(port, baudrate, timeout)
         sleep(0.1)
 
-    def __init__(self, port=Constants.SerialPort, baudrate=Constants.BaudRate, timeout=1):#, reset: bool=False):  # timeout влияет на буфер, 0.1 мало
+    def __init__(self, port=Constants.SerialPort, baudrate=9600, timeout=1):#, reset: bool=False):  # timeout влияет на буфер, 0.1 мало
         # reset = True
         # if reset:
         #     reset_module(port, baudrate, timeout)

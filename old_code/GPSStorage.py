@@ -15,6 +15,7 @@ import SatellitesCoordinateCalculator as SCC
 from Transformations import *
 
 
+
 class GPSStorage:
     min_sat_using = 4
     max_sat_using = 8

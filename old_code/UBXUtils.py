@@ -164,6 +164,12 @@ MSG2set = [
 
     # set_rate(msgClass=0x01, msgID=0x01, rateUART1=1),  # NAV-POSECEF
     # set_rate(msgClass=0x01, msgID=0x11, rateUART1=1),  # NAV-VELECEF
+    # set_rate(msgClass=0x01, msgID=0x20, rateUART1=0),  # NAV-TIMEGPS
+    # set_rate(msgClass=0x01, msgID=0x34, rateUART1=0),  # NAV-ORB
+    # set_rate(msgClass=0x01, msgID=0x35, rateUART1=0),  # NAV-SAT
+    # set_rate(msgClass=0x01, msgID=0x31, rateUART1=0),  # NAV-DGPS
+    # set_rate(msgClass=0x01, msgID=0x30, rateUART1=0),  # NAV-SVINFO
+
     set_rate(msgClass=0x01, msgID=0x20, rateUART1=1),  # NAV-TIMEGPS
     set_rate(msgClass=0x01, msgID=0x34, rateUART1=1),  # NAV-ORB
     set_rate(msgClass=0x01, msgID=0x35, rateUART1=1),  # NAV-SAT
@@ -193,7 +199,7 @@ MSG2set = [
 
     set_rate(msgClass=0x0A, msgID=0x07, rateUART1=0),  # mon rxbuf
     set_rate(msgClass=0x0A, msgID=0x08, rateUART1=1),  # mon txbuf
-    set_rate(msgClass=0x0A, msgID=0x32, rateUART1=0),  # mon txbuf
+    # set_rate(msgClass=0x0A, msgID=0x32, rateUART1=0),  # mon txbuf
 
     # check_rate(0x02, 0x15)
 
