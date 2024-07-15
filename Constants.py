@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 from pytz import timezone
+
+import Transformations
 from Settings import *
 
 tz_moscow = timezone('Europe/Moscow')
@@ -27,6 +29,7 @@ b = a - alpha * a
 # TODO: delete
 # Moscow:
 LLA = [55.690555555555555, 37.858333333333334, 140]
-ECEF = (2842100.6406425796, 4164888.83911829, 3893127.006272498)  # 2800, 4200, 3900 км
+# ECEF = (2842100.6406425796, 4164888.83911829, 3893127.006272498)  # 2800, 4200, 3900 км
 # import pymap3d as pm
 # ECEF = pm.geodetic2ecef(*LLA)
+ECEF = Transformations.lla2ecef(*LLA)

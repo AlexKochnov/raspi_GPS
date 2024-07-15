@@ -16,19 +16,19 @@ from pyubx2 import UBXReader
 
 
 class Reader:
-    storage: Storage = Storage()
+    # storage: Storage = Storage()
     read_counter = 0
     pool_counter = 0
 
     TOW = None
+    stream = None
 
     def __init__(self, port=Settings.SerialPort, baudRate=Settings.BaudRate, timeout=1):
-        self.stream = Serial(port, baudRate, timeout=timeout)
+        self.port = port
+        self.baudRate = baudRate
+        self.timeout = timeout
+
         self.tune_module(baudRate)
-        a=0
-        # baudRate = 9600
-        # self.tune_module(port, baudRate, timeout)
-        # self.stream = Serial(port, baudRate, timeout=timeout)
 
     def __iter__(self):
         while True:
@@ -45,49 +45,32 @@ class Reader:
             self.pool_next()
         return self.read_next_message()
 
-    @staticmethod
-    def tune_baudRate_module(FromBaudRate, ToBaudRate, port=Settings.SerialPort, timeout=1):
-        cmd = tune_baudRate_message(baudRate=ToBaudRate)
-        with Serial(port, FromBaudRate, timeout=timeout) as stream:
-            stream.write(cmd)
-        sleep(0.1)
-
-    def tune_module2(self, port, baudRate, timeout):
-        cmd = tune_baudRate_message(baudRate=Settings.BaseBaudRate)
-        with Serial(port, baudRate, timeout=timeout) as stream:
-            stream.write(cmd)
-        sleep(0.1)
-        with Serial(port, Settings.BaseBaudRate, timeout=timeout) as stream:
-            for message in Messages.tune_messages:
-                print(f'\tTune: {message}')
-                stream.write(message)
-        self.tune_baudRate_module(Settings.BaseBaudRate, baudRate, port, timeout)
+    def new_stream(self, baudrate=None):
+        if not baudrate:
+            baudrate = self.baudRate
+        if self.stream:
+            self.stream.close()
+        sleep(0.3)
+        self.stream = Serial(port=self.port, baudrate=baudrate, timeout=self.timeout)
 
     def tune_module(self, baudRate):
-        self.stream.baudrate = baudRate
-        print('115200, s67', self.stream.read(50))
+        self.new_stream(baudRate)
         self.stream.write(tune_baudRate_message(baudRate=Settings.BaseBaudRate))
-        sleep(1)
-        self.stream.baudrate = Settings.BaseBaudRate
-        print('9600, s71', self.stream.read(50))
+        sleep(0.1)
+        self.new_stream(Settings.BaseBaudRate)
         for message in Messages.tune_messages:
             print(f'\tTune: {message}')
             self.stream.write(message)
-        sleep(1)
-        self.stream.baudrate = baudRate
-        print('115200, s76', self.stream.read(50))
-
-
-    def tune(self):
-        for message in Messages.tune_messages:
-            print(f'\tTune: {message}')
-            self.stream.send(message)
+        self.stream.write(tune_baudRate_message(baudRate=Settings.BaudRate))
+        sleep(0.1)
+        self.new_stream(baudRate)
 
     def pool_next(self):
         if not Messages.pool_messages:
             return
         cmd = Messages.pool_messages[self.pool_counter % len(Messages.pool_messages)]
-        self.send(cmd)
+        self.pool_counter += 1
+        self.send(b'\xb5b' + cmd + UBXMessages.calc_ubx_checksum(cmd))
         print(f'\t#Pool: {cmd}')
 
     def read_next_message(self):
@@ -162,6 +145,7 @@ class Reader:
 
 
 if __name__ == '__main__':
+
     reader = Reader()
     storage = Storage()
 

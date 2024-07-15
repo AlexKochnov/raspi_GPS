@@ -1,10 +1,10 @@
 from math import pi, sqrt, sin, atan2, cos
-from datetime import datetime
+import pandas as pd
 
 import Constants
 
 
-def check_time(time, *args, **kwargs):
+def check_time(time):
     half_week = 302400.0
     if time > half_week:
         time -= 2 * half_week
@@ -13,43 +13,28 @@ def check_time(time, *args, **kwargs):
     return time
 
 
-def calc_sat_alm(ALM: list or None, time, N, K=1):
+def calc_sat_alm(ALM: pd.DataFrame or None, time, N):
     if ALM is None or time is None or N is None:
         return None
-    # SV_ID, week, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health, Data_ID, receiving_time = ALM
-    SV_ID = ALM[0]  # ID спутника
-    N0a = ALM[1]  # номер недели передаваемых данных
-    Toa = ALM[2]  # опорное время внутри недели N, на которую передаются данные альманах
-    e = ALM[3]  # эксцентриситет
-    di = ALM[4] * pi  # rad, поправка к наклонению
-    OmegaDot = ALM[5] * pi  # rad/s, скорость прецессии орбиты
-    sqrtA = ALM[6]  # корень из большей полуоси
-    Omega0 = ALM[7] * pi  # rad Угол восходящего узла на момент начала недели N
-    omega = ALM[8] * pi  # rad аргумент перигея
-    M0 = ALM[9] * pi  # rad средняя аномалия на эпоху Toa
-    af0 = ALM[10]  #
-    af1 = ALM[11]  #
-    health = ALM[12]  #
-    Data_ID = ALM[13]  #
-    receiving_time: datetime = ALM[14]  # время принятия сигнала
-
-    CORRECTION_FACTOR = K#1.1
-    # print(CORRECTION_FACTOR)
-
-    OmegaEarthDot = Constants.OmegaEarthDot * CORRECTION_FACTOR
-
-    # mu = 3.9860044 * 1e14  # m^3/s^2 гравитационная постоянная для земли WGS-84
-    # OmegaEarthDot = 7.2921151467 * 10e-5  # rad/s скорость вращения земли WGS-84
+    N0a = ALM.week
+    Toa = ALM.Toa  # опорное время внутри недели N, на которую передаются данные альманах
+    e = ALM.e  # эксцентриситет
+    di = ALM.delta_i * pi  # rad, поправка к наклонению
+    OmegaDot = ALM.Wdot * pi  # rad/s, скорость прецессии орбиты
+    sqrtA = ALM.sqrtA  # корень из большей полуоси
+    Omega0 = ALM.W0 * pi  # rad Угол восходящего узла на момент начала недели N
+    omega = ALM.w * pi  # rad аргумент перигея
+    M0 = ALM.M0 * pi  # rad средняя аномалия на эпоху Toa
+    # af0 = ALM.af0
+    # af1 = ALM.af1
 
     i0 = 0.30 * pi  # rad
-
     a = sqrtA ** 2  # большая полуось
     n0 = sqrt(Constants.mu / a ** 3)  # rad/s вычисленное среднее перемещение
 
     # TODO: добавить поправки генераторов
     tk = (N - N0a) * 604800 + time - Toa  # + 3600 * 6
     tk = check_time(tk)
-    # print(tk)
 
     Mk = M0 + n0 * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
@@ -63,8 +48,7 @@ def calc_sat_alm(ALM: list or None, time, N, K=1):
     # r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
     r_k = a * (1 - e * cos(Ek))
     ik = i0 + di
-    Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toa
-    # print(Omega_k % pi)
+    Omega_k = Omega0 + (OmegaDot - Constants.OmegaEarthDot) * tk - Constants.OmegaEarthDot * Toa
     p = a * (1 - e * e)
     Vr = sqrt(Constants.mu / p) * e * sin(nu_k)
     Vn = sqrt(Constants.mu / p) * (1 + e * cos(nu_k))
@@ -89,45 +73,34 @@ def calc_sat_alm(ALM: list or None, time, N, K=1):
     # return (X, Y, Z, Vx, Vy, Vz)
 
 
-def calc_sat_eph(EPH: list or None, time, N, K=1, flag=True):
+def calc_sat_eph(EPH: pd.DataFrame or None, time, N):
     if EPH is None or time is None or N is None:
         return None
-    SV_ID = EPH[0]
-    Noe = EPH[1]
-    Toe = EPH[2]
-    Toc = EPH[3]
-    IODE1 = EPH[4]
-    IODE2 = EPH[5]
-    IODC = EPH[6]
-    IDOT = EPH[7] * pi
-    OmegaDot = EPH[8] * pi
-    Crs = EPH[9]
-    Crc = EPH[10]
-    Cus = EPH[11]
-    Cuc = EPH[12]
-    Cis = EPH[13]
-    Cic = EPH[14]
-    dn = EPH[15] * pi
-    i0 = EPH[16] * pi
-    e = EPH[17]
-    sqrtA = EPH[18]
-    M0 = EPH[19] * pi
-    Omega0 = EPH[20] * pi
-    omega = EPH[21] * pi
-    Tgd = EPH[22]
-    af2 = EPH[23]
-    af1 = EPH[24]
-    af0 = EPH[25]
-    health = EPH[26]
-    accuracy = EPH[27]
-    receiving_time = EPH[28]
-
-    # CORRECTION_FACTOR = 1
-    CORRECTION_FACTOR = K#1.1
-    # print(CORRECTION_FACTOR)
-
-
-    OmegaEarthDot = Constants.OmegaEarthDot * CORRECTION_FACTOR
+    # Noe = EPH.week
+    Toe = EPH.Toe
+    # Toc = EPH.Toc
+    # IODE1 = EPH.IODE1
+    # IODE2 = EPH.IODE2
+    # IODC = EPH.IODC
+    IDOT = EPH.IDOT * pi
+    OmegaDot = EPH.Wdot * pi
+    Crs = EPH.Crs
+    Crc = EPH.Crc
+    Cus = EPH.Cus
+    Cuc = EPH.Cuc
+    Cis = EPH.Cis
+    Cic = EPH.Cic
+    dn = EPH.dn * pi
+    i0 = EPH.i0 * pi
+    e = EPH.e
+    sqrtA = EPH.sqrtA
+    M0 = EPH.M0 * pi
+    Omega0 = EPH.W0 * pi
+    omega = EPH.w * pi
+    # Tgd = EPH.Tgd
+    # af2 = EPH.af2
+    # af1 = EPH.af1
+    # af0 = EPH.af0
 
     a = sqrtA ** 2  # большая полуось
     n0 = sqrt(Constants.mu / a ** 3)  # rad/s вычисленное среднее перемещение
@@ -157,8 +130,7 @@ def calc_sat_eph(EPH: list or None, time, N, K=1, flag=True):
     # r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
     r_k = a * (1 - e * cos(Ek))
     ik = i0 + IDOT * tk
-    Omega_k = Omega0 + (OmegaDot - OmegaEarthDot) * tk - OmegaEarthDot * Toe
-    # print(Omega_k % pi)
+    Omega_k = Omega0 + (OmegaDot - Constants.OmegaEarthDot) * tk - Constants.OmegaEarthDot * Toe
     du_k = Cuc * cos(2 * Phi_k) + Cus * sin(2 * Phi_k)
     dr_k = Crc * cos(2 * Phi_k) + Crs * sin(2 * Phi_k)
     di_k = Cic * cos(2 * Phi_k) + Cis * sin(2 * Phi_k)

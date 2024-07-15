@@ -31,7 +31,7 @@ class POOLMessages:
         return b'\x06\x00' + b'\x01\x00' + struct.pack('B', port)
 
 
-pool_messages = [tune_baudRate_message(9600), POOLMessages.EPH, POOLMessages.ALM, ]
+pool_messages = [POOLMessages.EPH, POOLMessages.ALM, ]
 
 
 def set_rate(msgClass: hex, msgID: hex, rateUART1: int) -> bytes:
@@ -77,13 +77,16 @@ class MSG(Enum):
     RXM_RAWX = 0x02, 0x15
     RXM_SVSI = 0x02, 0x20
     RXM_MEASX = 0x02, 0x14
+    RXM_SFRBX = 0x02, 0x13
 
     MON_RXBUF = 0x0A, 0x07
     MON_TXBUF = 0x0A, 0x08
 
+
 ALL = set(MSG)
 ON_LIST = {MSG.NAV_SAT, MSG.NAV_ORB, MSG.NAV_SVINFO, MSG.NAV_TIMEGPS, MSG.NAV_POSECEF,
-           MSG.RXM_RAWX, MSG.RXM_SVSI,
-           MSG.NMEA_RMC}
+           MSG.RXM_RAWX, MSG.RXM_SVSI, MSG.RXM_MEASX,
+           MSG.NMEA_RMC,
+           MSG.MON_RXBUF, MSG.MON_TXBUF}
 
 tune_messages = list(map(ON, ON_LIST)) + list(map(OFF, ALL - ON_LIST))

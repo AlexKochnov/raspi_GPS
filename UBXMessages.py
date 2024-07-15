@@ -242,6 +242,55 @@ class RXM_SVSI(UbxMessage):
             }
 
 
+class RXM_MEASX(UbxMessage):
+    format = '<B3sLLL4sLHHH2sHBs8s'
+    header = (0x02, 0x14)
+
+    data: dict = {}
+    satellites: dict = {}
+
+    def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
+        super().__init__(receiving_TOW)
+        version, _, gpsTOW, gloTOW, bdsTOW, _, qzssTOW, gpsTOWacc , gloTOWacc, bdsTOWacc, _, qzssTOWacc, numSV, flags, _\
+            = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
+        msg = msg[struct.calcsize(self.format):]
+        flags = flag_to_int(flags)
+        self.data = {
+            'gpsTOW': gpsTOW,
+            'gloTOW': gloTOW,
+            'bdsTOW': bdsTOW,
+            'qzssTOW': qzssTOW,
+            'gpsTOWacc': gpsTOWacc * 2**(-4),
+            'gloTOWacc': gloTOWacc * 2**(-4),
+            'bdsTOWacc': bdsTOWacc * 2**(-4),
+            'qzssTOWacc': qzssTOWacc * 2**(-4),
+            'towSet': get_bytes_from_flag(flags, 0, 1),
+        }
+        for i in range(numSV):
+            gnssId, svId, cno, mpathIndic, dopplerMS, dopplerHz, wholeChips, fracChips, codePhase, intCodePhase, \
+                pseuRangeRMSErr, _ = struct.unpack('<BBBBllHHLBB2s', msg[+ i * 24: 24 * (i + 1)])
+            self.satellites[(svId, GNSS(gnssId))] = {
+                'cno': cno,
+                'mpathIndic': mpathIndic,
+                'dopplerMS': dopplerMS * 0.04,
+                'dopplerHz': dopplerHz * 0.2,
+                'wholeChips': wholeChips,
+                'fracChips': fracChips,
+                'codePhase': codePhase * 2**(-21),
+                'intCodePhase': intCodePhase,
+                'pseuRangeRMSErr': pseuRangeRMSErr,
+            }
+
+
+
+class RXM_SFRBX(UbxMessage):
+    format = ''
+    header = (0x02, 0x13)
+
+    def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
+        msg
+        pass
+
 class NAV_TIMEGPS(UbxMessage):
     format = '<LlhbsL'
     header = (0x01, 0x20)

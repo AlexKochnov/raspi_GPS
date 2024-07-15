@@ -3,6 +3,7 @@ from math import sin, cos, tan
 from datetime import datetime, timedelta
 from time import sleep
 
+from pyubx2 import UBXReader
 # from matplotlib import pyplot as plt
 from serial import Serial
 

@@ -2,7 +2,10 @@ BaudRate = 115200
 BaseBaudRate = 9600
 SerialPort = "/dev/ttyS0"
 
-ReaderPoolStep = 200
+MinimizingSatellitesCount = 8
+MinimumMinimizingSatellitesCount = 4
+
+ReaderPoolStep = 100
 ReaderPoolStart = 15
 
 SaveRawFlag = True
