@@ -1,10 +1,12 @@
 import struct
 from datetime import datetime
 from abc import ABCMeta
+
+import Constants
+from Constants import BASE_TIME_STAMP
 from UtilsMessages import GNSS
 
 
-BASE_TIME_STAMP = datetime.now
 # BASE_TIME_STAMP = lambda : -1
 
 def calc_ubx_checksum(cmd: bytes) -> bytes:
@@ -52,15 +54,15 @@ def get_bytes_from_flag(flags: int, *pattern) -> int:
 
 
 class UbxMessage(metaclass=ABCMeta):
-    receiving_TOW: int or datetime = None
+    receiving_stamp: int or datetime = None
     format: str = None
     header: (int, int) = None
 
     data: dict
     satellites: dict = None
 
-    def __init__(self, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
-        self.receiving_TOW = receiving_TOW
+    def __init__(self, receiving_stamp: int or datetime = BASE_TIME_STAMP()):
+        self.receiving_stamp = receiving_stamp[1] * Constants.week_seconds + receiving_stamp[0]
 
     @staticmethod
     def get_subclasses():
@@ -284,12 +286,36 @@ class RXM_MEASX(UbxMessage):
 
 
 class RXM_SFRBX(UbxMessage):
-    format = ''
+    format = '<BBBBBBBB'
     header = (0x02, 0x13)
 
-    def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
-        msg
-        pass
+    # @staticmethod
+    # def ParseSfGPS(msg: bytes, numWords):
+    #     sf = struct.unpack('4s' * numWords, msg[:40])
+    #     res = ''
+    #     for word in sf:
+    #         # word = bytes([word[2], word[1], word[0], word[3]])
+    #         res += f'{int(word.hex(), 16):032b}'[2:]
+    #     return res
+
+    def __init__(self, msg: bytes, receiving_time: datetime = None):
+        super().__init__(receiving_time)
+        gnssID, svId, _, freqId, numWords, chn, version, _ = \
+            struct.unpack(self.format, msg[:struct.calcsize(self.format)])
+        if version == 0x02:
+            self.chn = None
+        msg = msg[struct.calcsize(self.format):]
+        if gnssID == 0:
+            m = []
+            r = []
+            for i in range(10):
+                m1 = msg[i*4 :4*(i+1)]
+                r1 = '{0:024b}'.format((int.from_bytes(m1) >> 6) & 0xFFFFFF)
+                m.append(m1)
+                r.append(r1)
+            a = 0
+
+
 
 class NAV_TIMEGPS(UbxMessage):
     format = '<LlhbsL'

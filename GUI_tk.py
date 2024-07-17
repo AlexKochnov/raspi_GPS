@@ -154,14 +154,15 @@ class AdditionalWindow(tk.Toplevel):
 
     def get_data(self, type):
         if type == 1:
-            table = self.storage.almanac_data
+            table = self.storage.almanac_parameters
             return table
         elif type == 2:
-            table = self.storage.ephemeris_data
+            table = self.storage.ephemeris_parameters
             return table
         elif type == 3:
-            table = self.storage.navigation_data.copy()
-            table.drop(columns=['NAV_ORB_TOW', 'NAV_SAT_TOW', 'RXM_RAWX_TOW', 'RXM_SVSI_TOW', 'anoAopUsability'],
+            table = self.storage.navigation_parameters.copy()
+            table.drop(columns=
+                       ['NAV_ORB_stamp', 'NAV_SAT_stamp', 'RXM_RAWX_stamp', 'RXM_SVSI_stamp', 'RXM_MEASX_stamp'],
                        inplace=True)
             round_columns = ['nav_score', 'prRes', 'prMes', 'cpMes', 'doMes']
             table[round_columns] = table[round_columns].round(2)

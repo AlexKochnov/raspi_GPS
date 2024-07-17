@@ -242,13 +242,13 @@ class AdditionalWindow(QMainWindow):
         match type:
             case 1:
                 self.title = 'Данные альманах'
-                self.df = storage.almanac_data
+                self.df = storage.almanac_parameters
             case 2:
                 self.title = 'Данные эфемерид'
-                self.df = storage.ephemeris_data
+                self.df = storage.ephemeris_parameters
             case 3:
                 self.title = 'Общие данные'
-                self.df = storage.navigation_data
+                self.df = storage.navigation_parameters
         self.initUI()
 
     def initUI(self):
