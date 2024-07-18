@@ -164,7 +164,7 @@ class Storage:
                     + [f'{"SQP"}_{name}' for name in self.solves_columns]
         )
 
-        type_stamp = object # object
+        type_stamp = object  # object
         for name in ['NAV_ORB_stamp', 'NAV_SAT_stamp', 'RXM_RAWX_stamp', 'RXM_SVSI_stamp', 'RXM_MEASX_stamp',
                      'receiving_stamp']:
             self.navigation_parameters[name].astype(type_stamp)
@@ -189,6 +189,7 @@ class Storage:
             return
         if isinstance(message, UBXMessages.UbxMessage):
             self.update_UBX(message)
+        self.ADD_1_TABLES()
         if self.iTOW:
             self.TOW = self.iTOW // 1000
         if self.iTOW != self.last_iTOW:
@@ -252,6 +253,31 @@ class Storage:
         calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.stamp)
         calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.stamp)
 
+    def ADD_1_TABLES(self):
+        self.navigation_parameters1 = self.navigation_parameters[['svId', 'gnssId', 'receiving_stamp', 'health', 'cno',
+                                                                  'ephUsability', 'ephSource', 'almUsability',
+                                                                  'almSource', 'prRes', 'qualityInd', 'svUsed', 'prMes',
+                                                                  'ura', 'almAge', 'ephAge', 'orbitSource', 'ephAvail',
+                                                                  'almAvail', 'mpathIndic', 'pseuRangeRMSErr']]
+        self.ephemeris_parameters1 = self.ephemeris_parameters[['svId', 'gnssId', 'receiving_stamp', 'exist',
+                                                                'is_old', 'week', 'Toe', 'Toc', 'Wdot',
+                                                                'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0', 'w', 'Tgd',
+                                                                'health', 'accuracy']]
+        self.almanac_parameters1 = self.almanac_parameters[['svId',  'gnssId',  'receiving_stamp',  'exist',  'is_old',
+                                                            'week',  'Toa',  'e',  'delta_i',  'Wdot',  'sqrtA',  'W0',
+                                                            'w',  'M0',  'af0',  'af1',  'health',  'Data_ID']]
+        self.ephemeris_data1 = self.ephemeris_data.copy()
+        self.ephemeris_data1[['lat',  'lon',  'alt']] = self.ephemeris_data1[['lat',  'lon',  'alt']].round(1)
+        self.almanac_data1 = self.almanac_data.copy()
+        self.almanac_data1[['lat', 'lon', 'alt']] = self.almanac_data1[['lat', 'lon', 'alt']].round(1)
+        self.ephemeris_solves1 = self.ephemeris_solves.copy()
+        self.ephemeris_solves1.drop(columns=['LM_cdt', 'SQP_cdt'], inplace=True)
+        self.ephemeris_solves1.rename(columns={'sat_count': 'sats', 'LM_success': 'LM_f', 'SQP_success': 'SQP_f',
+                                               'LM_calc_time': 'LM_time', 'SQP_calc_time': 'SQP_time'}, inplace=True)
+        self.almanac_solves1 = self.almanac_solves.copy()
+        self.almanac_solves1.drop(columns=['LM_cdt', 'SQP_cdt'], inplace=True)
+        self.almanac_solves1.rename(columns={'sat_count': 'sats', 'LM_success': 'LM_f', 'SQP_success': 'SQP_f',
+                                               'LM_calc_time': 'LM_time', 'SQP_calc_time': 'SQP_time'}, inplace=True)
 
 ## Для calc_navigation_task
 def calc_nav_score(nav_row):

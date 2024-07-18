@@ -127,38 +127,35 @@ class App:
         self.current_table_name = title
 
     def show_navigation_data(self):
-        table = self.storage.navigation_parameters.copy()
-        self.show_table(table, "Навигационные данные")
+        self.show_table(self.storage.navigation_parameters1, "Навигационные данные")
 
     def show_ephemeris_parameters(self):
-        self.show_table(self.storage.ephemeris_parameters, "Параметры эфемерид")
+        self.show_table(self.storage.ephemeris_parameters1, "Параметры эфемерид")
 
     def show_almanac_parameters(self):
-        self.show_table(self.storage.almanac_parameters, "Параметры альманах")
+        self.show_table(self.storage.almanac_parameters1, "Параметры альманах")
 
     def show_ephemeris_data(self):
-        self.show_table(self.storage.ephemeris_data, "Данные эфемерид")
+        self.show_table(self.storage.ephemeris_data1, "Данные эфемерид")
 
     def show_ephemeris_solves(self):
-        table = self.storage.ephemeris_solves.tail(self.max_solves)
-        self.show_table(table, "Результаты по эфемеридам")
+        self.show_table(self.storage.ephemeris_solves1, "Результаты по эфемеридам")
 
     def show_almanac_data(self):
-        self.show_table(self.storage.almanac_data, "Данные альманах")
+        self.show_table(self.storage.almanac_data1, "Данные альманах")
 
     def show_almanac_solves(self):
-        table = self.storage.almanac_solves.tail(self.max_solves)
-        self.show_table(table, "Результаты по альманах")
+        self.show_table(self.storage.almanac_solves1, "Результаты по альманах")
 
     def update_current_table(self):
         table_map = {
-            "Навигационные данные": self.storage.navigation_parameters,
-            "Параметры эфемерид": self.storage.ephemeris_parameters,
-            "Параметры альманах": self.storage.almanac_parameters,
-            "Данные эфемерид": self.storage.ephemeris_data,
-            "Результаты по эфемеридам": self.storage.ephemeris_solves,
-            "Данные альманах": self.storage.almanac_data,
-            "Результаты по альманах": self.storage.almanac_solves,
+            "Навигационные данные": self.storage.navigation_parameters1,
+            "Параметры эфемерид": self.storage.ephemeris_parameters1,
+            "Параметры альманах": self.storage.almanac_parameters1,
+            "Данные эфемерид": self.storage.ephemeris_data1,
+            "Результаты по эфемеридам": self.storage.ephemeris_solves1,
+            "Данные альманах": self.storage.almanac_data1,
+            "Результаты по альманах": self.storage.almanac_solves1,
         }
         if self.current_table_name in table_map:
             table = table_map[self.current_table_name]
