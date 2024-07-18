@@ -4,7 +4,7 @@ from datetime import datetime
 from abc import ABCMeta
 
 import Constants
-from Constants import BASE_TIME_STAMP
+from TimeStamp import BASE_TIME_STAMP, TimeStamp
 from UtilsMessages import GNSS
 
 
@@ -62,8 +62,9 @@ class UbxMessage(metaclass=ABCMeta):
     data: dict
     satellites: dict = None
 
-    def __init__(self, receiving_stamp: int or datetime = BASE_TIME_STAMP()):
-        self.receiving_stamp = receiving_stamp[1] * Constants.week_seconds + receiving_stamp[0]
+    def __init__(self, receiving_stamp: int or datetime or TimeStamp = BASE_TIME_STAMP()):
+        self.receiving_stamp = receiving_stamp
+        # self.receiving_stamp = receiving_stamp[1] * Constants.week_seconds + receiving_stamp[0]
 
 
     @staticmethod

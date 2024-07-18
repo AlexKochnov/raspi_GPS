@@ -11,6 +11,7 @@ import Transformations
 # from Messages import *
 # import Messages
 import UBXMessages
+from TimeStamp import TimeStamp
 from UtilsMessages import GNSS
 import SatellitesCoordinateCalculator as SCC
 
@@ -65,7 +66,7 @@ def get_row(table, svId, gnssId):
     return table[(table.svId == svId) & (table.gnssId == gnssId)]
 
 
-def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp):
+def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp):
     sats = data_table.copy()
     sats = sats[(sats.nav_score > 0) & (sats.coord_score > 0) &
                 (stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
@@ -74,7 +75,7 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     sats = sats.sort_values(by='score', ascending=False).head(Settings.MinimizingSatellitesCount)
     # data = [(row.X, row.Y, row.Z, row.prMes) for row in sats.iterrows()]
     data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
-    SOLVE = {'week': stamp // Constants.week_seconds, 'TOW': stamp % Constants.week_seconds, 'sat_count': len(data)}
+    SOLVE = {'week': stamp.week, 'TOW': stamp.TOW, 'sat_count': len(data)}
     if len(data) >= Settings.MinimumMinimizingSatellitesCount:
         for name, func in [('LM', Minimizing.solve_navigation_task_LevMar),
                            ('SQP', Minimizing.solve_navigation_task_SLSQP)]:
@@ -90,7 +91,6 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
             solve = {f'{name}_{key}': value for key, value in solve.items()}
             SOLVE |= solve
     solve_table.loc[len(solve_table)] = SOLVE
-
 
 
 class Storage:
@@ -113,6 +113,7 @@ class Storage:
     TOW: int = None
     iTOW: int = None
     last_iTOW: int = None
+    stamp: TimeStamp = None
 
     other_data = dict()
 
@@ -156,11 +157,11 @@ class Storage:
         )
         self.ephemeris_solves = pd.DataFrame(
             columns=['week', 'TOW', 'sat_count'] + [f'{"LM"}_{name}' for name in self.solves_columns]
-                                                 + [f'{"SQP"}_{name}' for name in self.solves_columns]
+                    + [f'{"SQP"}_{name}' for name in self.solves_columns]
         )
         self.almanac_solves = pd.DataFrame(
             columns=['week', 'TOW', 'sat_count'] + [f'{"LM"}_{name}' for name in self.solves_columns]
-                                                 + [f'{"SQP"}_{name}' for name in self.solves_columns]
+                    + [f'{"SQP"}_{name}' for name in self.solves_columns]
         )
 
         # ## Поменять типа ячеек времени на datetime
@@ -189,7 +190,7 @@ class Storage:
                 setattr(self, attr, data[attr])
 
     def update_UBX(self, message):
-        self.stamp = message.receiving_stamp
+        self.stamp: TimeStamp = message.receiving_stamp
         if isinstance(message, UBXMessages.AID_ALM | UBXMessages.AID_EPH):
             table = self.almanac_parameters if isinstance(message, UBXMessages.AID_ALM) else self.ephemeris_parameters
             if message.data:
@@ -221,13 +222,13 @@ class Storage:
 
     def calc_navigation_task(self):
 
-
         nav_cols = ['svId', 'gnssId', 'pr_stamp', 'pseuRangeRMSErr', 'prMes', 'prRes', 'nav_score', 'alm_score',
                     'eph_score']
         coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'real_rho', 'Dt']
         nav_data = pd.DataFrame(self.navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
         eph_coord_data = pd.DataFrame(
-            self.ephemeris_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_sat_eph), axis=1).to_list(),
+            self.ephemeris_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_sat_eph),
+                                            axis=1).to_list(),
             columns=coord_cols)
         alm_coord_data = pd.DataFrame(
             self.almanac_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_sat_alm), axis=1).to_list(),
@@ -239,27 +240,31 @@ class Storage:
         calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.stamp)
         calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.stamp)
 
+
 ## Для calc_navigation_task
 def calc_nav_score(nav_row):
     quality = 2 if nav_row.qualityInd > 4 else (1 if nav_row.qualityInd == 4 else 0)
     score = (nav_row.health == 1) * (nav_row.visibility >= 2) * quality * (nav_row.prValid == True)
     if score:
         score *= nav_row.cno / (0.1 * abs(nav_row.prRes) + 1) / (nav_row.ura + 1) * (
-                    10 / nav_row.pseuRangeRMSErr) * (2 if nav_row.qualityInd > 4 else 1)
+                10 / nav_row.pseuRangeRMSErr) * (2 if nav_row.qualityInd > 4 else 1)
     return score
+
 
 def calc_eph_score(nav_row):
     return 100 / (5 + nav_row.ephAge) if (nav_row.ephSource == 1) * (nav_row.ephVal == True) else 0
 
+
 def calc_alm_score(nav_row):
     return 100 / (5 + nav_row.almAge) if (nav_row.almSource == 1) * (nav_row.almVal == True) else 0
 
-def calc_coords(param_row, stamp, coord_func):
+
+def calc_coords(param_row, stamp: TimeStamp, coord_func):
     # if param_row[['Wdot', 'e', 'sqrtA', 'M0', 'W0', 'w']].isna().any():
     if param_row.isna().any():
         xyz = None
     else:
-        xyz = coord_func(param_row, stamp % Constants.week_seconds, stamp // Constants.week_seconds)
+        xyz = coord_func(param_row, stamp.TOW, stamp.week)
     if xyz:
         lla = Transformations.ecef2lla(*xyz)
     else:
@@ -267,6 +272,7 @@ def calc_coords(param_row, stamp, coord_func):
         lla = (np.nan, np.nan, np.nan)
     rho = np.linalg.norm(np.array(xyz) - np.array(Constants.ECEF))
     return param_row.svId, param_row.gnssId, stamp, *xyz, *lla, rho, rho / Constants.c
+
 
 def calc_nav(nav_row):
     return (nav_row.svId, nav_row.gnssId, nav_row.receiving_stamp, nav_row.pseuRangeRMSErr, nav_row.prMes,

@@ -149,7 +149,7 @@ class Reader:
 
 if __name__ == '__main__':
 
-    reader = Reader()
+    reader = Reader("COM3")
     storage = Storage()
 
     for parsed in reader:

@@ -1,23 +1,8 @@
-import math
-from datetime import datetime, timedelta
+from datetime import datetime
+
 from pytz import timezone
 
 import Transformations
-from Settings import *
-
-
-def DT2TOW(timestamp: datetime, step=1):
-    # timestamp = datetime(2024, 7, 12, 14, 18, 4, 956055, tzinfo=Constants.tz_moscow)
-    dt = (timestamp - gps_epoch).total_seconds() + leapS
-    TOW = dt % week_seconds
-    week = int(dt // week_seconds)
-    TOW = math.floor(TOW / step) * step
-    return TOW, week
-
-
-def get_now_TOW():
-    return DT2TOW(datetime.now(tz=tz_utc), STEP)
-
 
 tz_moscow = timezone('Europe/Moscow')
 tz_utc = timezone('utc')
@@ -26,7 +11,6 @@ gps_epoch = datetime(1980, 1, 6, 0, 0, 0, tzinfo=tz_utc)
 week_seconds = 7 * 24 * 3600
 leapS = 18
 STEP = 1
-BASE_TIME_STAMP = get_now_TOW
 
 GPSAltitude = 20200
 

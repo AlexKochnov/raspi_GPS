@@ -1,4 +1,5 @@
 import warnings
+from datetime import datetime
 
 import numpy as np
 from scipy.optimize import minimize, least_squares, differential_evolution
@@ -30,7 +31,8 @@ def solve_navigation_task_SLSQP(satellites, bounds=None):
     L = 50e6
     if bounds is None:
         bounds = [(-L, L), (-L, L), (-L, L), (-L, L)]
-    return minimize(
+    # t1 = datetime.now(tz=Constants.tz_utc)
+    result = minimize(
         # get_minimize_function(satellites),
         apply_func(satellites, func),
         np.array([0, 0, 0, 0]),
@@ -41,10 +43,14 @@ def solve_navigation_task_SLSQP(satellites, bounds=None):
         options={'disp': True, 'maxiter': 100},
         tol=1e-8,
     )
+    # t2 = datetime.now(tz=Constants.tz_utc)
+    # print((t2-t1).total_seconds())
+    return result
 
 
 def solve_navigation_task_LevMar(satellites):
 
+    @jit(nopython=True)
     def residuals(params, xi, yi, zi, rhoi):
         x, y, z, cdt = params
         res = cdt - rhoi + np.sqrt((x - xi)**2 + (y - yi)**2 + (z - zi)**2)
