@@ -14,7 +14,8 @@ class App:
         self.root.title("GPS Data Interface")
 
         self.messages = []
-        self.max_messages = 200
+        self.max_messages = 500
+        self.max_solves = 40
 
         self.storage = None
         self.reader = None
@@ -32,6 +33,7 @@ class App:
 
         self.port_entry = tk.Entry(self.menu_frame, width=15)
         self.port_entry.pack(side=tk.LEFT, padx=5)
+        self.port_entry.bind('<Return>', lambda event: self.connect())
 
         self.connect_button = tk.Button(self.menu_frame, text="Подключиться", command=self.connect)
         self.connect_button.pack(side=tk.LEFT, padx=5)
@@ -67,6 +69,8 @@ class App:
             self.reader = Reader(port)
             self.storage = Storage()
             self.start_reading_thread()
+            self.connect_button.config(state=tk.DISABLED)
+            self.port_entry.config(state=tk.DISABLED)
         except Exception as e:
             messagebox.showwarning("Ошибка подключения", f"Не удалось подключиться к {port}: {e}")
 
@@ -81,13 +85,16 @@ class App:
             self.root.after(0, self.process_data, parsed)
 
     def process_data(self, parsed):
-        if len(self.messages) >= self.max_messages:
-            self.messages = self.messages[100:]
-            self.chat_display.delete(1.0, 100.0)
+        # if len(self.messages) >= self.max_messages:
+        #     self.messages = self.messages[self.max_messages//2:]
+        #     self.chat_display.delete(1.0, float(f'{self.max_messages//2}.0'))
 
         self.messages.append(parsed)
+        scrolled_to_bottom = self.is_scrolled_to_bottom(self.chat_display)
         self.chat_display.insert(tk.END, str(parsed) + "\n")
-        self.chat_display.yview(tk.END)
+        # self.chat_display.yview(tk.END)
+        if scrolled_to_bottom:
+            self.chat_display.yview(tk.END)
 
         if self.storage.update(parsed):
             if self.current_table is not None:
@@ -120,7 +127,8 @@ class App:
         self.current_table_name = title
 
     def show_navigation_data(self):
-        self.show_table(self.storage.navigation_parameters, "Навигационные данные")
+        table = self.storage.navigation_parameters.copy()
+        self.show_table(table, "Навигационные данные")
 
     def show_ephemeris_parameters(self):
         self.show_table(self.storage.ephemeris_parameters, "Параметры эфемерид")
@@ -132,13 +140,15 @@ class App:
         self.show_table(self.storage.ephemeris_data, "Данные эфемерид")
 
     def show_ephemeris_solves(self):
-        self.show_table(self.storage.ephemeris_solves, "Результаты по эфемеридам")
+        table = self.storage.ephemeris_solves.tail(self.max_solves)
+        self.show_table(table, "Результаты по эфемеридам")
 
     def show_almanac_data(self):
         self.show_table(self.storage.almanac_data, "Данные альманах")
 
     def show_almanac_solves(self):
-        self.show_table(self.storage.almanac_solves, "Результаты по альманах")
+        table = self.storage.almanac_solves.tail(self.max_solves)
+        self.show_table(table, "Результаты по альманах")
 
     def update_current_table(self):
         table_map = {
@@ -169,7 +179,10 @@ class App:
 
             if len(new_lines) > len(current_lines):
                 new_rows = '\n'.join(new_lines[len(current_lines):])
+                scrolled_to_bottom = self.is_scrolled_to_bottom(table_display)
                 table_display.insert(tk.END, '\n' + new_rows)
+                if scrolled_to_bottom:
+                    table_display.yview(tk.END)
 
     def update_table_cells(self, table):
         table_display = self.table_display
@@ -177,13 +190,27 @@ class App:
         new_content = table.to_string(index=False)
 
         if current_content.strip() != new_content.strip():
+            scrolled_to_bottom = self.is_scrolled_to_bottom(table_display)
             table_display.delete("1.0", tk.END)
             table_display.insert(tk.END, new_content)
             # table_display.yview(tk.END)
             # table_display.xview_moveto(1.0)
+            if scrolled_to_bottom:
+                table_display.yview(tk.END)
 
     def is_scrolled_to_bottom(self, widget):
         return widget.yview()[1] == 1.0
+
+    # def truncate_table_content(self, table):
+    #     if len(table) > self.max_messages:
+    #         return table.tail(self.max_messages)
+    #     return table
+
+    # def handle_row_limit(self, table_display):
+    #     lines = table_display.get("1.0", tk.END).strip().split('\n')
+    #     if len(lines) > self.max_messages:
+    #         table_display.delete("1.0", f"{self.max_messages//2}.0")
+
 
 if __name__ == "__main__":
     root = tk.Tk()
