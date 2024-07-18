@@ -20,7 +20,7 @@ def apply_func(satellites, func):
     return result_function
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def func(x, y, z, cdt, xi, yi, zi, rhoi):
     # c = Constants.c
     res = (cdt - rhoi + np.sqrt((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2)) ** 2
@@ -50,7 +50,7 @@ def solve_navigation_task_SLSQP(satellites, bounds=None):
 
 def solve_navigation_task_LevMar(satellites):
 
-    @jit(nopython=True)
+    # @jit(nopython=True)
     def residuals(params, xi, yi, zi, rhoi):
         x, y, z, cdt = params
         res = cdt - rhoi + np.sqrt((x - xi)**2 + (y - yi)**2 + (z - zi)**2)

@@ -35,6 +35,10 @@ class TimeStamp:
 
     def __str__(self):
         return f'<TS: {self.week}.{self.TOW}>'
+
+    def __repr__(self):
+        return str(self)
+
     @staticmethod
     def DT2TOW(timestamp: datetime, step=1):
         dt = (timestamp - gps_epoch).total_seconds() + leapS

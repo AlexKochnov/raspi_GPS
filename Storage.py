@@ -164,6 +164,15 @@ class Storage:
                     + [f'{"SQP"}_{name}' for name in self.solves_columns]
         )
 
+        type_stamp = object # object
+        for name in ['NAV_ORB_stamp', 'NAV_SAT_stamp', 'RXM_RAWX_stamp', 'RXM_SVSI_stamp', 'RXM_MEASX_stamp',
+                     'receiving_stamp']:
+            self.navigation_parameters[name].astype(type_stamp)
+        self.almanac_parameters['receiving_stamp'].astype(type_stamp)
+        self.ephemeris_parameters['receiving_stamp'].astype(type_stamp)
+        for name in ['xyz_stamp', 'pr_stamp']:
+            self.ephemeris_data[name].astype(type_stamp)
+            self.almanac_data[name].astype(type_stamp)
         # ## Поменять типа ячеек времени на datetime
         # for name in ['NAV_ORB_stamp', 'NAV_SAT_TOW', 'RXM_RAWX_TOW', 'RXM_SVSI_TOW', 'RXM_MEASX_TOW', 'receiving_TOW']:
         #     self.navigation_data[name] = pd.to_datetime(self.navigation_data[name])
@@ -182,6 +191,9 @@ class Storage:
             self.update_UBX(message)
         if self.iTOW:
             self.TOW = self.iTOW // 1000
+        if self.iTOW != self.last_iTOW:
+            self.last_iTOW = self.iTOW
+            return True
         return False
 
     def update_param(self, data, *attrs):

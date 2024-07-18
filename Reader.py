@@ -15,6 +15,8 @@ from Storage import Storage
 # TODO: delete
 from pyubx2 import UBXReader
 
+from TimeStamp import TimeStamp
+
 
 class Reader:
     # storage: Storage = Storage()
@@ -24,7 +26,7 @@ class Reader:
     TOW = None
     stream = None
 
-    def __init__(self, port=Settings.SerialPort, baudRate=Settings.BaudRate, timeout=1):
+    def __init__(self, port=Settings.SerialPort, baudRate=Settings.BaudRate, timeout=Settings.timeout):
         self.port = port
         self.baudRate = baudRate
         self.timeout = timeout
@@ -103,7 +105,7 @@ class Reader:
             return
         msg_class = UBXMessages.UbxMessage.byte_find(clsid, msgid)
         if msg_class != UBXMessages.UbxMessage:
-            parsed = msg_class(plb)#, self.TOW or -1)
+            parsed = msg_class(plb, TimeStamp())#, self.TOW or -1)
         else:
             parsed = UBXReader.parse(raw_message)
         Save.save_raw(parsed)
@@ -154,3 +156,4 @@ if __name__ == '__main__':
 
     for parsed in reader:
         storage.update(parsed)
+
