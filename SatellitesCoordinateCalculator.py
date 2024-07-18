@@ -1,4 +1,6 @@
 from math import pi, sqrt, sin, atan2, cos
+
+import numpy as np
 import pandas as pd
 
 import Constants
@@ -14,17 +16,18 @@ def check_time(time):
 
 
 def calc_sat_alm(ALM: pd.DataFrame or None, time, N):
-    if ALM is None or time is None or N is None:
+    if (ALM is None or time is None or N is None):# or
+            #ALM[['week', 'Toa', 'Wdot', 'e', 'sqrtA', 'M0', 'W0', 'w']].isna().any()):
         return None
-    N0a = ALM.week
-    Toa = ALM.Toa  # опорное время внутри недели N, на которую передаются данные альманах
-    e = ALM.e  # эксцентриситет
-    di = ALM.delta_i * pi  # rad, поправка к наклонению
-    OmegaDot = ALM.Wdot * pi  # rad/s, скорость прецессии орбиты
-    sqrtA = ALM.sqrtA  # корень из большей полуоси
-    Omega0 = ALM.W0 * pi  # rad Угол восходящего узла на момент начала недели N
-    omega = ALM.w * pi  # rad аргумент перигея
-    M0 = ALM.M0 * pi  # rad средняя аномалия на эпоху Toa
+    N0a = ALM['week']
+    Toa = ALM['Toa']  # опорное время внутри недели N, на которую передаются данные альманах
+    e = ALM['e']  # эксцентриситет
+    di = ALM['delta_i'] * pi  # rad, поправка к наклонению
+    OmegaDot = ALM['Wdot'] * pi  # rad/s, скорость прецессии орбиты
+    sqrtA = ALM['sqrtA']  # корень из большей полуоси
+    Omega0 = ALM['W0'] * pi  # rad Угол восходящего узла на момент начала недели N
+    omega = ALM['w'] * pi  # rad аргумент перигея
+    M0 = ALM['M0'] * pi  # rad средняя аномалия на эпоху Toa
     # af0 = ALM.af0
     # af1 = ALM.af1
 
@@ -74,29 +77,29 @@ def calc_sat_alm(ALM: pd.DataFrame or None, time, N):
 
 
 def calc_sat_eph(EPH: pd.DataFrame or None, time, N):
-    if EPH is None or time is None or N is None:
+    if (EPH is None or time is None or N is None): # or (EPH[['Toe', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc', 'Cis','Cis', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0','w']].isna().any())):
         return None
     # Noe = EPH.week
-    Toe = EPH.Toe
     # Toc = EPH.Toc
     # IODE1 = EPH.IODE1
     # IODE2 = EPH.IODE2
     # IODC = EPH.IODC
-    IDOT = EPH.IDOT * pi
-    OmegaDot = EPH.Wdot * pi
-    Crs = EPH.Crs
-    Crc = EPH.Crc
-    Cus = EPH.Cus
-    Cuc = EPH.Cuc
-    Cis = EPH.Cis
-    Cic = EPH.Cic
-    dn = EPH.dn * pi
-    i0 = EPH.i0 * pi
-    e = EPH.e
-    sqrtA = EPH.sqrtA
-    M0 = EPH.M0 * pi
-    Omega0 = EPH.W0 * pi
-    omega = EPH.w * pi
+    Toe = EPH['Toe']
+    IDOT = EPH['IDOT'] * pi
+    OmegaDot = EPH['Wdot'] * pi
+    Crs = EPH['Crs']
+    Crc = EPH['Crc']
+    Cus = EPH['Cus']
+    Cuc = EPH['Cuc']
+    Cis = EPH['Cis']
+    Cic = EPH['Cic']
+    dn = EPH['dn'] * pi
+    i0 = EPH['i0'] * pi
+    e = EPH['e']
+    sqrtA = EPH['sqrtA']
+    M0 = EPH['M0'] * pi
+    Omega0 = EPH['W0'] * pi
+    omega = EPH['w'] * pi
     # Tgd = EPH.Tgd
     # af2 = EPH.af2
     # af1 = EPH.af1

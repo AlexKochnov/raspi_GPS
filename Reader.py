@@ -1,6 +1,7 @@
 import struct
 from time import sleep
 from serial import Serial
+import traceback
 
 import Constants
 import Save
@@ -87,6 +88,8 @@ class Reader:
                     print(hdr1)
         except Exception as e:
             print(e)
+            print(traceback.format_exc())
+            a=0
 
     def parse_ubx(self):
         hdr, clsid, msgid, lenb, plb, cks = self.read_ubx()

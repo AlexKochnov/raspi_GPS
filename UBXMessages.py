@@ -1,4 +1,5 @@
 import struct
+import traceback
 from datetime import datetime
 from abc import ABCMeta
 
@@ -63,6 +64,7 @@ class UbxMessage(metaclass=ABCMeta):
 
     def __init__(self, receiving_stamp: int or datetime = BASE_TIME_STAMP()):
         self.receiving_stamp = receiving_stamp[1] * Constants.week_seconds + receiving_stamp[0]
+
 
     @staticmethod
     def get_subclasses():
@@ -298,8 +300,8 @@ class RXM_SFRBX(UbxMessage):
     #         res += f'{int(word.hex(), 16):032b}'[2:]
     #     return res
 
-    def __init__(self, msg: bytes, receiving_time: datetime = None):
-        super().__init__(receiving_time)
+    def __init__(self, msg: bytes, receiving_stamp: int or datetime = BASE_TIME_STAMP()):
+        super().__init__(receiving_stamp)
         gnssID, svId, _, freqId, numWords, chn, version, _ = \
             struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         if version == 0x02:

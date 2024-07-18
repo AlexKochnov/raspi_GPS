@@ -4,6 +4,7 @@ import numpy as np
 from scipy.optimize import minimize, least_squares, differential_evolution
 from numpy.linalg import norm
 import Constants
+from numba import jit
 
 
 def apply_func(satellites, func):
@@ -18,6 +19,7 @@ def apply_func(satellites, func):
     return result_function
 
 
+@jit(nopython=True)
 def func(x, y, z, cdt, xi, yi, zi, rhoi):
     # c = Constants.c
     res = (cdt - rhoi + np.sqrt((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2)) ** 2
@@ -25,8 +27,9 @@ def func(x, y, z, cdt, xi, yi, zi, rhoi):
 
 
 def solve_navigation_task_SLSQP(satellites, bounds=None):
+    L = 50e6
     if bounds is None:
-        bounds = [(None, None), (None, None), (None, None), (None, None)]
+        bounds = [(-L, L), (-L, L), (-L, L), (-L, L)]
     return minimize(
         # get_minimize_function(satellites),
         apply_func(satellites, func),
@@ -36,7 +39,7 @@ def solve_navigation_task_SLSQP(satellites, bounds=None):
         # jac=get_minimize_derivative(satellites),
         # jac=apply_func(satellites, jac),
         options={'disp': True, 'maxiter': 100},
-        tol=1e-10,
+        tol=1e-8,
     )
 
 

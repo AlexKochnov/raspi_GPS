@@ -47,7 +47,7 @@ def update_table(table, datas):
         for key, value in data.items():
             table.loc[table.index[(table.svId == stamp[0]) & (table.gnssId == stamp[1])], key] = value
     t2 = datetime.now(tz=Constants.tz_utc)
-    print(f'\t\tupdate: {t2-t}')
+    print(f'\t\tupdate: {t2 - t}')
 
 
 def apply_func_set(table, func):
@@ -61,81 +61,35 @@ def custom_min(*args):
     return np.nan
 
 
-def calc_nav_score(nav_row):
-    quality = 2 if nav_row.qualityInd > 4 else (1 if nav_row.qualityInd == 4 else 0)
-    score = (nav_row.health == 1) * (nav_row.visibility >= 2) * quality * (nav_row.prValid == True)
-    if score:
-        score *= nav_row.cno / (0.1 * abs(nav_row.prRes) + 1) / (nav_row.ura + 1) * (10 / nav_row.pseuRangeRMSErr)
-    return score
-
-
-def calc_eph_score(nav_row):
-    # TODO: usability_for_time (here and alm_func)
-
-    # using_time = (datetime.now() - nav.NAV_ORB_TOW).total_seconds() / 60 # for EPH table
-    # usability_for_time = ((nav.almUsability - 1) * 15 > using_time) # но если unknown?
-    score = (nav_row.ephSource == 1) * (nav_row.ephVal == True)
-    if score:
-        score *= 100 / (5 + nav_row.ephAge)
-    return score
-
-
-def calc_alm_score(nav_row):
-    # using_time = (datetime.now() - nav.NAV_ORB_TOW).total_seconds() / 60 # for EPH table
-    # usability_for_time = ((nav.ephUsability - 1) * 15 > using_time) # но если unknown?
-    score = (nav_row.almSource == 1) * (nav_row.almVal == True)
-    if score:
-        score *= 100 / (5 + nav_row.almAge)
-    return score
-
-
-def prepare_navigation_data(nav_row, param_row, stamp, coord_func, score_func):
-    xyz = coord_func(param_row.iloc[0], stamp % Constants.week_seconds, stamp // Constants.week_seconds)
-    if xyz:
-        lla = Transformations.ecef2lla(*xyz)
-    else:
-        xyz = (np.nan, np.nan, np.nan)
-        lla = (np.nan, np.nan, np.nan)
-    rho = np.linalg.norm(np.array(xyz) - np.array(Constants.ECEF))
-    result = {
-        'xyz_stamp': stamp, 'X': xyz[0], 'Y': xyz[1], 'Z': xyz[2], 'lat': lla[0], 'lon': lla[1], 'alt': lla[2],
-        'pr_stamp': nav_row['receiving_stamp'], 'pseuRangeRMSErr': nav_row['pseuRangeRMSErr'],
-        'prMes': nav_row['prMes'], 'prRes': nav_row['prRes'],
-        'real_rho': rho, 'Dt': rho / Constants.c,
-        'coord_score': score_func(nav_row=nav_row.iloc[0]),
-        'nav_score': calc_nav_score(nav_row=nav_row.iloc[0])
-    }
-    return result
-
-
 def get_row(table, svId, gnssId):
     return table[(table.svId == svId) & (table.gnssId == gnssId)]
+
 
 def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp):
     sats = data_table.copy()
     sats = sats[(sats.nav_score > 0) & (sats.coord_score > 0) &
                 (stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
+    sats = sats.dropna()
     sats['score'] = sats.coord_score + sats.nav_score
     sats = sats.sort_values(by='score', ascending=False).head(Settings.MinimizingSatellitesCount)
-    data = [(row.X, row.Y, row.Z, row.prMes) for row in sats.iterrows()]
+    # data = [(row.X, row.Y, row.Z, row.prMes) for row in sats.iterrows()]
+    data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
     SOLVE = {'week': stamp // Constants.week_seconds, 'TOW': stamp % Constants.week_seconds, 'sat_count': len(data)}
     if len(data) >= Settings.MinimumMinimizingSatellitesCount:
         for name, func in [('LM', Minimizing.solve_navigation_task_LevMar),
-                           'SQP', Minimizing.solve_navigation_task_SLSQP]:
+                           ('SQP', Minimizing.solve_navigation_task_SLSQP)]:
+            t = datetime.now(tz=Constants.tz_utc)
             res = func(data)
             solve = {
-                'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3]/Constants.c,
-                'fval': sum(res.fval) if isinstance(res.fval, list | tuple) else res.fval,
-                'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF))
+                'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
+                'fval': sum(res.fun) if name == 'LM' else res.fun,
+                'success': res.success,
+                'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
+                'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
             }
-            solve = {f'{key}_{name}' for key, value in solve.items()}
+            solve = {f'{name}_{key}': value for key, value in solve.items()}
             SOLVE |= solve
-    # else:
-    #     SOLVE |= {f'{name}_{'LM'}': np.nan for name in Storage.solves_columns}
-    #     SOLVE |= {f'{name}_{'SQP'}': np.nan for name in Storage.solves_columns}
     solve_table.loc[len(solve_table)] = SOLVE
-
-
 
 
 
@@ -153,7 +107,7 @@ class Storage:
                    'Cic', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0', 'w', 'Tgd', 'af2', 'af1', 'af0', 'health', 'accuracy']
     ALM_columns = ['week', 'Toa', 'e', 'delta_i', 'Wdot', 'sqrtA', 'W0', 'w', 'M0', 'af0', 'af1', 'health', 'Data_ID']
     # TODO: delete error
-    solves_columns = ['X', 'Y', 'Z', 'cdt', 'dt', 'fval', 'error']
+    solves_columns = ['X', 'Y', 'Z', 'cdt', 'dt', 'fval', 'success', 'error', 'calc_time']
 
     week: int = None
     TOW: int = None
@@ -201,10 +155,12 @@ class Storage:
                      'real_rho', 'Dt', 'coord_score', 'nav_score']
         )
         self.ephemeris_solves = pd.DataFrame(
-            columns=['week', 'TOW', 'sat_count'] + [f'{name}_{type}' for name in self.solves_columns for type in ['SQP', 'LM']]
+            columns=['week', 'TOW', 'sat_count'] + [f'{"LM"}_{name}' for name in self.solves_columns]
+                                                 + [f'{"SQP"}_{name}' for name in self.solves_columns]
         )
         self.almanac_solves = pd.DataFrame(
-            columns=['week', 'TOW', 'sat_count'] + [f'{name}_{type}' for name in self.solves_columns for type in ['SQP', 'LM']]
+            columns=['week', 'TOW', 'sat_count'] + [f'{"LM"}_{name}' for name in self.solves_columns]
+                                                 + [f'{"SQP"}_{name}' for name in self.solves_columns]
         )
 
         # ## Поменять типа ячеек времени на datetime
@@ -264,25 +220,54 @@ class Storage:
             self.other_data[message.__class__.__name__.lower()] = message.data
 
     def calc_navigation_task(self):
-        t1 = datetime.now()
-        apply_func_set(table=self.ephemeris_data,
-                       func=lambda row: prepare_navigation_data(
-                           nav_row=get_row(self.navigation_parameters, row.svId, row.gnssId),
-                           param_row=get_row(self.ephemeris_parameters, row.svId, row.gnssId),
-                           stamp=self.stamp, coord_func=SCC.calc_sat_eph, score_func=calc_eph_score
-                       )
-                       )
-        t2 = datetime.now()
+
+
+        nav_cols = ['svId', 'gnssId', 'pr_stamp', 'pseuRangeRMSErr', 'prMes', 'prRes', 'nav_score', 'alm_score',
+                    'eph_score']
+        coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'real_rho', 'Dt']
+        nav_data = pd.DataFrame(self.navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
+        eph_coord_data = pd.DataFrame(
+            self.ephemeris_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_sat_eph), axis=1).to_list(),
+            columns=coord_cols)
+        alm_coord_data = pd.DataFrame(
+            self.almanac_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_sat_alm), axis=1).to_list(),
+            columns=coord_cols)
+        self.ephemeris_data = pd.merge(eph_coord_data, nav_data, on=['svId', 'gnssId']). \
+            drop(columns=['alm_score']).rename(columns={'eph_score': 'coord_score'})
+        self.almanac_data = pd.merge(alm_coord_data, nav_data, on=['svId', 'gnssId']). \
+            drop(columns=['eph_score']).rename(columns={'alm_score': 'coord_score'})
         calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.stamp)
-        t3 = datetime.now()
-        apply_func_set(table=self.almanac_data,
-                       func=lambda row: prepare_navigation_data(
-                           nav_row=get_row(self.navigation_parameters, row.svId, row.gnssId),
-                           param_row=get_row(self.almanac_parameters, row.svId, row.gnssId),
-                           stamp=self.stamp, coord_func=SCC.calc_sat_alm, score_func=calc_alm_score
-                       )
-                       )
-        t4 = datetime.now()
-        print(f'\t eph: {t2-t1}, solEL {t3-t2}, almanac: {t4-t3}')
+        calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.stamp)
 
+## Для calc_navigation_task
+def calc_nav_score(nav_row):
+    quality = 2 if nav_row.qualityInd > 4 else (1 if nav_row.qualityInd == 4 else 0)
+    score = (nav_row.health == 1) * (nav_row.visibility >= 2) * quality * (nav_row.prValid == True)
+    if score:
+        score *= nav_row.cno / (0.1 * abs(nav_row.prRes) + 1) / (nav_row.ura + 1) * (
+                    10 / nav_row.pseuRangeRMSErr) * (2 if nav_row.qualityInd > 4 else 1)
+    return score
 
+def calc_eph_score(nav_row):
+    return 100 / (5 + nav_row.ephAge) if (nav_row.ephSource == 1) * (nav_row.ephVal == True) else 0
+
+def calc_alm_score(nav_row):
+    return 100 / (5 + nav_row.almAge) if (nav_row.almSource == 1) * (nav_row.almVal == True) else 0
+
+def calc_coords(param_row, stamp, coord_func):
+    # if param_row[['Wdot', 'e', 'sqrtA', 'M0', 'W0', 'w']].isna().any():
+    if param_row.isna().any():
+        xyz = None
+    else:
+        xyz = coord_func(param_row, stamp % Constants.week_seconds, stamp // Constants.week_seconds)
+    if xyz:
+        lla = Transformations.ecef2lla(*xyz)
+    else:
+        xyz = (np.nan, np.nan, np.nan)
+        lla = (np.nan, np.nan, np.nan)
+    rho = np.linalg.norm(np.array(xyz) - np.array(Constants.ECEF))
+    return param_row.svId, param_row.gnssId, stamp, *xyz, *lla, rho, rho / Constants.c
+
+def calc_nav(nav_row):
+    return (nav_row.svId, nav_row.gnssId, nav_row.receiving_stamp, nav_row.pseuRangeRMSErr, nav_row.prMes,
+            nav_row.prRes, calc_nav_score(nav_row), calc_alm_score(nav_row), calc_eph_score(nav_row))
