@@ -95,6 +95,10 @@ class UbxMessage(metaclass=ABCMeta):
                 res['satellites'] = self.satellites
         return res
 
+    def format_message(self, max_len) -> (str, str):
+        S = str(self.to_dict())
+        return f'{self.__class__.__name__}:' , S[:min(len(S), max_len)]
+
 
 class RXM_RAWX(UbxMessage):
     format = '<dHbBs3B'

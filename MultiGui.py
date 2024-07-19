@@ -85,14 +85,9 @@ class App:
             self.root.after(0, self.process_data, parsed)
 
     def process_data(self, parsed):
-        # if len(self.messages) >= self.max_messages:
-        #     self.messages = self.messages[self.max_messages//2:]
-        #     self.chat_display.delete(1.0, float(f'{self.max_messages//2}.0'))
-
         self.messages.append(parsed)
         scrolled_to_bottom = self.is_scrolled_to_bottom(self.chat_display)
         self.chat_display.insert(tk.END, str(parsed) + "\n")
-        # self.chat_display.yview(tk.END)
         if scrolled_to_bottom:
             self.chat_display.yview(tk.END)
 
@@ -119,8 +114,6 @@ class App:
             table_display = scrolledtext.ScrolledText(self.table_frame, wrap=tk.NONE, height=20)
             table_display.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
             table_display.insert(tk.END, table.to_string(index=False))
-            # table_display.yview(tk.END)
-            # table_display.xview_moveto(1.0)
 
             self.table_display = table_display
         self.current_table = table
@@ -160,7 +153,6 @@ class App:
         if self.current_table_name in table_map:
             table = table_map[self.current_table_name]
             if self.current_table_name in ["Результаты по эфемеридам", "Результаты по альманах"]:
-                # self.show_table(table, self.current_table_name)
                 self.add_new_rows(table)
             else:
                 self.update_table_cells(table)
@@ -190,23 +182,11 @@ class App:
             scrolled_to_bottom = self.is_scrolled_to_bottom(table_display)
             table_display.delete("1.0", tk.END)
             table_display.insert(tk.END, new_content)
-            # table_display.yview(tk.END)
-            # table_display.xview_moveto(1.0)
             if scrolled_to_bottom:
                 table_display.yview(tk.END)
 
     def is_scrolled_to_bottom(self, widget):
         return widget.yview()[1] == 1.0
-
-    # def truncate_table_content(self, table):
-    #     if len(table) > self.max_messages:
-    #         return table.tail(self.max_messages)
-    #     return table
-
-    # def handle_row_limit(self, table_display):
-    #     lines = table_display.get("1.0", tk.END).strip().split('\n')
-    #     if len(lines) > self.max_messages:
-    #         table_display.delete("1.0", f"{self.max_messages//2}.0")
 
 
 if __name__ == "__main__":

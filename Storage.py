@@ -259,25 +259,37 @@ class Storage:
                                                                   'almSource', 'prRes', 'qualityInd', 'svUsed', 'prMes',
                                                                   'ura', 'almAge', 'ephAge', 'orbitSource', 'ephAvail',
                                                                   'almAvail', 'mpathIndic', 'pseuRangeRMSErr']]
+        # self.navigation_parameters1[['prRes']] = self.navigation_parameters1[['prRes']].round(3)
+        self.navigation_parameters1.loc[:, 'prRes'] = self.navigation_parameters1['prRes'].round(3)
+
         self.ephemeris_parameters1 = self.ephemeris_parameters[['svId', 'gnssId', 'receiving_stamp', 'exist',
                                                                 'is_old', 'week', 'Toe', 'Toc', 'Wdot',
-                                                                'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0', 'w', 'Tgd',
+                                                                'dn', 'i0', 'e', 'sqrtA', 'w', 'Tgd',
                                                                 'health', 'accuracy']]
         self.almanac_parameters1 = self.almanac_parameters[['svId',  'gnssId',  'receiving_stamp',  'exist',  'is_old',
-                                                            'week',  'Toa',  'e',  'delta_i',  'Wdot',  'sqrtA',  'W0',
+                                                            'week',  'Toa',  'e',  'delta_i',  'Wdot',  'sqrtA',
                                                             'w',  'M0',  'af0',  'af1',  'health',  'Data_ID']]
+
         self.ephemeris_data1 = self.ephemeris_data.copy()
-        self.ephemeris_data1[['lat',  'lon',  'alt']] = self.ephemeris_data1[['lat',  'lon',  'alt']].round(1)
+        self.ephemeris_data1[['lat',  'lon',  'alt', 'prRes', 'nav_score', 'coord_score']] = \
+            self.ephemeris_data1[['lat',  'lon',  'alt', 'prRes', 'nav_score', 'coord_score']].round(2)
         self.almanac_data1 = self.almanac_data.copy()
-        self.almanac_data1[['lat', 'lon', 'alt']] = self.almanac_data1[['lat', 'lon', 'alt']].round(1)
+        self.almanac_data1[['lat',  'lon',  'alt', 'prRes', 'nav_score', 'coord_score']] = \
+            self.almanac_data1[['lat',  'lon',  'alt', 'prRes', 'nav_score', 'coord_score']].round(2)
+
         self.ephemeris_solves1 = self.ephemeris_solves.copy()
         self.ephemeris_solves1.drop(columns=['LM_cdt', 'SQP_cdt'], inplace=True)
-        self.ephemeris_solves1.rename(columns={'sat_count': 'sats', 'LM_success': 'LM_f', 'SQP_success': 'SQP_f',
-                                               'LM_calc_time': 'LM_time', 'SQP_calc_time': 'SQP_time'}, inplace=True)
+        self.ephemeris_solves1[['LM_fval', 'SQP_fval']] =\
+            self.ephemeris_solves1[['LM_fval', 'SQP_fval']].apply(lambda col: col.map(lambda x: f"{x:.4e}"))#.applymap(lambda x: f"{x:.4e}")
+        cols = [f'{type}_{name}' for type in ['LM', 'SQP'] for name in ['X', 'Y', 'Z']]
+        self.ephemeris_solves1[cols] = self.ephemeris_solves1[cols].round(1)
+
         self.almanac_solves1 = self.almanac_solves.copy()
         self.almanac_solves1.drop(columns=['LM_cdt', 'SQP_cdt'], inplace=True)
-        self.almanac_solves1.rename(columns={'sat_count': 'sats', 'LM_success': 'LM_f', 'SQP_success': 'SQP_f',
-                                               'LM_calc_time': 'LM_time', 'SQP_calc_time': 'SQP_time'}, inplace=True)
+        self.almanac_solves1[['LM_fval', 'SQP_fval']] =\
+                self.almanac_solves1[['LM_fval', 'SQP_fval']].apply(lambda col: col.map(lambda x: f"{x:.4e}"))#.applymap(lambda x: f"{x:.4e}")
+        self.almanac_solves1[cols] = self.almanac_solves1[cols].round(1)
+
 
 ## Для calc_navigation_task
 def calc_nav_score(nav_row):
