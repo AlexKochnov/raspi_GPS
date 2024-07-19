@@ -14,6 +14,13 @@ from Reader import Reader
 
 from table_description import TABLE_DESCRIPTIONS
 
+import logging
+
+# Настройка логирования
+logging.basicConfig(filename='error.log',
+                    level=logging.ERROR,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class DataReaderThread(QThread):
     data_received = pyqtSignal(object)
@@ -123,6 +130,7 @@ class App(QMainWindow):
             self.port_entry.setEnabled(False)
         except Exception as e:
             QMessageBox.warning(self, "Ошибка подключения", f"Не удалось подключиться к {port}: {e}")
+            logging.error(f"Failed to connect to port {port}: {e}", exc_info=True)
 
     def format_message(self, message):
         # Создаем формат для текста
@@ -185,6 +193,8 @@ class App(QMainWindow):
         self.table_title.setText(title)
         self.table_title.show()
         self.update_table_display(table)
+        if title in ["Результаты по эфемеридам", "Результаты по альманах"]:
+            self.table_display.scrollToBottom()
 
         self.current_table = table
         self.current_table_name = title
@@ -345,7 +355,13 @@ if __name__ == "__main__":
         window.show()
         sys.exit(app.exec_())
     except Exception as e:
-        print(e)
-        print(x:=traceback.format_exc())
-        a=0
+        logging.error("Unhandled exception occurred", exc_info=True)
+
+
+
+
+
+
+
+
 

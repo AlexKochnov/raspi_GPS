@@ -15,6 +15,14 @@ from TimeStamp import TimeStamp
 from UtilsMessages import GNSS
 import SatellitesCoordinateCalculator as SCC
 
+def calc_pseu_RMS_error(index):
+    if pd.isna(index):
+        return np.nan
+    index = int(index)
+    y = (index >> 3) & 0x7
+    x = (index) & 0x7
+    RMS = 0.5 * (1+x/8) * 2 **y
+    return RMS
 
 def update_table_line(table, data, svId, gnssId, receiving_stamp, TOW_type='receiving_stamp'):
     ind = table.index[(table.svId == svId) & (table.gnssId == gnssId)]
@@ -258,7 +266,12 @@ class Storage:
                                                                   'ephUsability', 'ephSource', 'almUsability',
                                                                   'almSource', 'prRes', 'qualityInd', 'svUsed', 'prMes',
                                                                   'ura', 'almAge', 'ephAge', 'orbitSource', 'ephAvail',
-                                                                  'almAvail', 'mpathIndic', 'pseuRangeRMSErr']]
+                                                                  'almAvail', 'mpathIndic', 'pseuRangeRMSErr',
+                                                                  'locktime', 'codePhase', 'wholeChips', 'fracChips']]
+        # self.navigation_parameters1.rename(columns={'pseuRangeRMSErr': 'RMSErrInd'}, inplace=True)
+        self.navigation_parameters1.loc[:, 'codePhase'] = (
+            (self.navigation_parameters['intCodePhase'] + self.navigation_parameters['codePhase']).round(5))
+        self.navigation_parameters1.loc[:, 'prMes'] = self.navigation_parameters1['prMes'].round(4)
         # self.navigation_parameters1[['prRes']] = self.navigation_parameters1[['prRes']].round(3)
         self.navigation_parameters1.loc[:, 'prRes'] = self.navigation_parameters1['prRes'].round(3)
 
@@ -273,9 +286,13 @@ class Storage:
         self.ephemeris_data1 = self.ephemeris_data.copy()
         self.ephemeris_data1[['lat',  'lon',  'alt', 'prRes', 'nav_score', 'coord_score']] = \
             self.ephemeris_data1[['lat',  'lon',  'alt', 'prRes', 'nav_score', 'coord_score']].round(2)
+        self.ephemeris_data1['RMSpr'] = (
+            self.ephemeris_data1.apply(lambda row: calc_pseu_RMS_error(row['pseuRangeRMSErr']), axis=1))
         self.almanac_data1 = self.almanac_data.copy()
         self.almanac_data1[['lat',  'lon',  'alt', 'prRes', 'nav_score', 'coord_score']] = \
             self.almanac_data1[['lat',  'lon',  'alt', 'prRes', 'nav_score', 'coord_score']].round(2)
+        self.almanac_data1['RMSpr'] = (
+            self.almanac_data1.apply(lambda row: calc_pseu_RMS_error(row['pseuRangeRMSErr']), axis=1))
 
         self.ephemeris_solves1 = self.ephemeris_solves.copy()
         self.ephemeris_solves1.drop(columns=['LM_cdt', 'SQP_cdt'], inplace=True)
@@ -327,3 +344,4 @@ def calc_coords(param_row, stamp: TimeStamp, coord_func):
 def calc_nav(nav_row):
     return (nav_row.svId, nav_row.gnssId, nav_row.receiving_stamp, nav_row.pseuRangeRMSErr, nav_row.prMes,
             nav_row.prRes, calc_nav_score(nav_row), calc_alm_score(nav_row), calc_eph_score(nav_row))
+

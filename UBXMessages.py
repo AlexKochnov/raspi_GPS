@@ -279,7 +279,7 @@ class RXM_MEASX(UbxMessage):
             gnssId, svId, cno, mpathIndic, dopplerMS, dopplerHz, wholeChips, fracChips, codePhase, intCodePhase, \
                 pseuRangeRMSErr, _ = struct.unpack('<BBBBllHHLBB2s', msg[+ i * 24: 24 * (i + 1)])
             self.satellites[(svId, GNSS(gnssId))] = {
-                'cno': cno,
+                # 'cNo': cno, # carrier noise ratio (0..63) - коэффициент -> не то
                 'mpathIndic': mpathIndic,
                 'dopplerMS': dopplerMS * 0.04,
                 'dopplerHz': dopplerHz * 0.2,
