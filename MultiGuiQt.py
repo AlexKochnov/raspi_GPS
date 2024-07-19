@@ -12,6 +12,8 @@ import UBXMessages
 from Storage import Storage
 from Reader import Reader
 
+from table_description import TABLE_DESCRIPTIONS
+
 
 class DataReaderThread(QThread):
     data_received = pyqtSignal(object)
@@ -34,7 +36,7 @@ class App(QMainWindow):
         self.messages = []
         self.max_messages = 400
         self.max_message_len = 400
-        self.max_solves = 40
+        self.max_solves = 200
 
         self.storage = None
         self.reader = None
@@ -99,7 +101,11 @@ class App(QMainWindow):
         self.table_display.setRowCount(0)
         self.table_display.setHorizontalScrollMode(QTableWidget.ScrollPerPixel)
 
+        self.table_title = QLabel()
+        self.table_title.setFont(menu_font)
+
         main_layout.addWidget(self.chat_display)
+        main_layout.addWidget(self.table_title)
         main_layout.addWidget(self.table_display)
 
         self.show_chat()
@@ -169,12 +175,15 @@ class App(QMainWindow):
     def show_chat(self):
         self.chat_display.show()
         self.table_display.hide()
+        self.table_title.hide()
         self.current_table = None
         self.current_table_name = ""
 
     def show_table(self, table, title):
         self.chat_display.hide()
         self.table_display.show()
+        self.table_title.setText(title)
+        self.table_title.show()
         self.update_table_display(table)
 
         self.current_table = table
@@ -191,7 +200,11 @@ class App(QMainWindow):
 
             for i in range(len(table.index)):
                 for j in range(len(table.columns)):
-                    self.table_display.setItem(i, j, QTableWidgetItem(str(table.iat[i, j])))
+                    item = QTableWidgetItem(str(table.iat[i, j]))
+                    if i % 2 == 0:
+                        item.setBackground(Qt.lightGray)
+                    self.table_display.setItem(i, j, item)
+
 
             # Add bottom header row
             bottom_row = self.table_display.rowCount() - 1
@@ -199,6 +212,12 @@ class App(QMainWindow):
                 self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
                 self.table_display.item(bottom_row, j).setBackground(Qt.lightGray)
                 self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
+
+            # Set tooltips for horizontal header items
+            # header = self.table_display.horizontalHeader()
+            # for j, column_name in enumerate(table.columns):
+            #     description = TABLE_DESCRIPTIONS.get(column_name, "")
+            #     header.setToolTip(description)
 
             self.table_display.resizeColumnsToContents()
             # header = self.table_display.horizontalHeader()
@@ -257,7 +276,10 @@ class App(QMainWindow):
         for i in range(current_row_count, new_row_count):
             self.table_display.insertRow(i)
             for j in range(len(table.columns)):
-                self.table_display.setItem(i, j, QTableWidgetItem(str(table.iat[i, j])))
+                item = QTableWidgetItem(str(table.iat[i, j]))
+                if i % 2 == 0:
+                    item.setBackground(Qt.lightGray)
+                self.table_display.setItem(i, j, item)
 
         # Update bottom header row
         bottom_row = self.table_display.rowCount() - 1
@@ -286,7 +308,10 @@ class App(QMainWindow):
 
         for i in range(len(table.index)):
             for j in range(len(table.columns)):
-                self.table_display.setItem(i, j, QTableWidgetItem(str(table.iat[i, j])))
+                item = QTableWidgetItem(str(table.iat[i, j]))
+                if i % 2 == 0:
+                    item.setBackground(Qt.lightGray)
+                self.table_display.setItem(i, j, item)
 
         # Add bottom header row
         bottom_row = self.table_display.rowCount() - 1
