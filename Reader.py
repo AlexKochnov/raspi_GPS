@@ -108,7 +108,7 @@ class Reader:
             parsed = msg_class(plb, TimeStamp())#, self.TOW or -1)
         else:
             parsed = UBXReader.parse(raw_message)
-        Save.save_raw(parsed)
+        Save.save_parsed(parsed)
         if Settings.PrintParsedFlag:
             print(parsed)
         return parsed
@@ -143,7 +143,7 @@ class Reader:
         # self.__save_parsed__(parsed)
         # TODO: добавить что-то, когда будет нужна распаковка NMEA
         parsed = raw_message
-        Save.save_raw(parsed)
+        Save.save_parsed(parsed)
         if Settings.PrintParsedFlag:
             print(parsed)
         return parsed

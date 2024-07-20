@@ -41,8 +41,8 @@ class App(QMainWindow):
         self.setWindowTitle("GPS Data Interface for UBX")
 
         self.messages = []
-        self.max_messages = 400
-        self.max_message_len = 400
+        self.max_messages = 1000
+        self.max_message_len = 600
         self.max_solves = 200
 
         self.storage = None
