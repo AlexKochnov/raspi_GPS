@@ -314,7 +314,7 @@ def calc_nav_score(nav_row):
     score = (nav_row.health == 1) * (nav_row.visibility >= 2) * quality * (nav_row.prValid == True)
     if score:
         score *= nav_row.cno / (0.1 * abs(nav_row.prRes) + 1) / (nav_row.ura + 1) * (
-                10 / nav_row.pseuRangeRMSErr) * (2 if nav_row.qualityInd > 4 else 1)
+                10 / nav_row.pseuRangeRMSErr)
     return score
 
 
