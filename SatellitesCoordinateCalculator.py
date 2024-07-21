@@ -6,7 +6,7 @@ import pandas as pd
 import Constants
 
 
-def check_time(time):
+def check_gps_time(time):
     half_week = 302400.0
     if time > half_week:
         time -= 2 * half_week
@@ -15,7 +15,7 @@ def check_time(time):
     return time
 
 
-def calc_sat_alm(ALM: pd.DataFrame or None, time, N):
+def calc_gps_alm(ALM: pd.DataFrame or None, time, N):
     if (ALM is None or time is None or N is None):# or
             #ALM[['week', 'Toa', 'Wdot', 'e', 'sqrtA', 'M0', 'W0', 'w']].isna().any()):
         return None
@@ -37,7 +37,7 @@ def calc_sat_alm(ALM: pd.DataFrame or None, time, N):
 
     # TODO: добавить поправки генераторов
     tk = (N - N0a) * 604800 + time - Toa  # + 3600 * 6
-    tk = check_time(tk)
+    tk = check_gps_time(tk)
 
     Mk = M0 + n0 * tk  # средняя аномалия
     ## Решение уравнения Mk = Ek - e * sin(Ek)
@@ -76,7 +76,7 @@ def calc_sat_alm(ALM: pd.DataFrame or None, time, N):
     # return (X, Y, Z, Vx, Vy, Vz)
 
 
-def calc_sat_eph(EPH: pd.DataFrame or None, time, N):
+def calc_gps_eph(EPH: pd.DataFrame or None, time, N):
     if (EPH is None or time is None or N is None): # or (EPH[['Toe', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc', 'Cis','Cis', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0','w']].isna().any())):
         return None
     # Noe = EPH.week
@@ -116,7 +116,7 @@ def calc_sat_eph(EPH: pd.DataFrame or None, time, N):
     # tk = check_time(time - Toe)
 
     tk = 0 * 604800 + time - Toe
-    tk = check_time(tk)
+    tk = check_gps_time(tk)
     # print(tk)
 
     Mk = M0 + n * tk  # средняя аномалия

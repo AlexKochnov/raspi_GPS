@@ -147,6 +147,8 @@ class App(QMainWindow):
                 plb = plb[:self.max_message_len]
         self.chat_display.setCurrentCharFormat(QTextCharFormat())  # Сброс форматирования
         self.chat_display.insertPlainText(plb + '\n')
+        if message == None:
+            a=0
 
     def on_button_click(self, command, button):
         for btn in self.menu_layout.findChildren(QPushButton):

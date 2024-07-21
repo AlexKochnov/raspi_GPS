@@ -1,9 +1,8 @@
 import struct
-import traceback
 from datetime import datetime
 from abc import ABCMeta
 
-import Constants
+import GPSSingalsParser, GLONASSSignalsParser
 from TimeStamp import BASE_TIME_STAMP, TimeStamp
 from UtilsMessages import GNSS
 
@@ -59,9 +58,6 @@ class UbxMessage(metaclass=ABCMeta):
     @staticmethod
     def byte_find(clsid: bytes, msgid: bytes) -> type:
         return UbxMessage.find((int.from_bytes(clsid), int.from_bytes(msgid)))
-
-    # def __str__(self):
-    #     return f'{type(self).__name__}: {str(self.__dict__)}'
 
     def __str__(self):
         return f'{self.__class__.__name__}: ' + str(self.to_dict())
@@ -272,32 +268,26 @@ class RXM_MEASX(UbxMessage):
 class RXM_SFRBX(UbxMessage):
     format = '<BBBBBBBB'
     header = (0x02, 0x13)
-
-    # @staticmethod
-    # def ParseSfGPS(msg: bytes, numWords):
-    #     sf = struct.unpack('4s' * numWords, msg[:40])
-    #     res = ''
-    #     for word in sf:
-    #         # word = bytes([word[2], word[1], word[0], word[3]])
-    #         res += f'{int(word.hex(), 16):032b}'[2:]
-    #     return res
-
     def __init__(self, msg: bytes, receiving_stamp: int or datetime = BASE_TIME_STAMP()):
         super().__init__(receiving_stamp)
         gnssID, svId, _, freqId, numWords, chn, version, _ = \
             struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         if version == 0x02:
-            self.chn = None
+            chn = None
         msg = msg[struct.calcsize(self.format):]
+        self.data = {
+            'gnssId': GNSS(gnssID),
+            'svId': svId,
+            'freqId': freqId,
+            'chn': chn,
+        }
         if gnssID == 0:
-            m = []
-            r = []
-            for i in range(10):
-                m1 = msg[i * 4:4 * (i + 1)]
-                r1 = '{0:024b}'.format((int.from_bytes(m1) >> 6) & 0xFFFFFF)
-                m.append(m1)
-                r.append(r1)
-            a = 0
+            self.signal = GPSSingalsParser.parse(GPSSingalsParser.gps_join_sf(msg))
+            self.data['id'] = 0 if not 'SV_ID' in self.signal.keys() else self.signal['SV_ID']
+        if gnssID == 6:
+            id, update_data = GLONASSSignalsParser.parse(msg)
+            self.signal = update_data
+            self.data['id'] = id # 0 -> данные для текущего спутника (или общие), иначе - id = svId полученных данных
 
 
 class NAV_TIMEGPS(UbxMessage):
@@ -352,40 +342,6 @@ class NAV_VELECEF(UbxMessage):
         }
 
 
-def gps_join_sf(msg: bytes, reverse_mod: str = 'FULL') -> int:
-    if reverse_mod.upper() == 'AID':
-        aid_reverse = lambda word: [word[2], word[1], word[0], word[3]]
-        words = [0, 0] + [(int.from_bytes(aid_reverse(msg[i:i + 4])) >> 2) & 0x3FFFFFFF for i in range(0, len(msg), 4)]
-    elif reverse_mod == 'FULL':
-        words = [int.from_bytes(msg[i:i + 4][::-1]) & 0x3FFFFFFF for i in range(0, len(msg), 4)]
-    else:
-        # raise TypeError(reverse_mod)
-        return 0
-    return sum((word << 30 * (10 - i - 1)) for i, word in enumerate(words))
-
-
-
-# старые функции
-
-def gps_sf2bin(msg: bytes) -> str:
-    sf = struct.unpack('4s' * 8, msg)
-    res = '0' * 60
-    for word in sf:
-        word = bytes([word[2], word[1], word[0], word[3]])
-        res += f'{int(word.hex(), 16):032b}'[:-2]
-    return res
-
-
-def gps_bin2dec(binaryStr: str) -> int:
-    return int(binaryStr, 2)
-
-
-def gps_twosComp2dec(binaryStr: str) -> int:
-    # функция с проверкой знака
-    intNumber = int(binaryStr, 2)
-    if binaryStr[0] == '1':
-        intNumber -= 2 ** len(binaryStr)
-    return intNumber
 
 
 class AID_EPH(UbxMessage):
@@ -400,9 +356,9 @@ class AID_EPH(UbxMessage):
         if HOW == 0:
             self.data = None
             return
-        data1 = GPSParser.parse(gps_join_sf(msg[:32], 'AID'), 1)
-        data2 = GPSParser.parse(gps_join_sf(msg[32:64], 'AID'), 2)
-        data3 = GPSParser.parse(gps_join_sf(msg[64:], 'AID'), 3)
+        data1 = GPSSingalsParser.parse_aid(GPSSingalsParser.gps_join_sf(msg[:32], 'AID'), 1)
+        data2 = GPSSingalsParser.parse_aid(GPSSingalsParser.gps_join_sf(msg[32:64], 'AID'), 2)
+        data3 = GPSSingalsParser.parse_aid(GPSSingalsParser.gps_join_sf(msg[64:], 'AID'), 3)
         self.data = data1 | data2 | data3
 
 
@@ -419,183 +375,9 @@ class AID_ALM(UbxMessage):
             self.data = None
             return
 
-        self.data = GPSParser.parse(gps_join_sf(msg, 'AID'), 5)
+        data = GPSSingalsParser.parse_aid(GPSSingalsParser.gps_join_sf(msg, 'AID'), 5)
+        self.data = data | {'week': week}
 
 
-def get_bits_gps(data, l, n, sign=False):
-    res = ((data >> (300 - (l+n-1))) & ((1 << n) - 1))
-    if sign is True and res >> (n-1) == 1:
-        res -= 2 ** n
-    return res
 
 
-class GPSParser:
-
-    @staticmethod
-    def get_parse_function(subframe: int):
-        return lambda l, n, sign=False: get_bits_gps(subframe, l, n, sign)
-
-    @staticmethod
-    def get_parse_function2(subframe: int):
-        def parse2(l1, n1, l2, n2, sign=False):
-            d1 = get_bits_gps(subframe, l1, n1, False)
-            d2 = get_bits_gps(subframe, l2, n2, False)
-            res = (d1 << n2) + d2
-            if sign is True and res >> (n1+n2-1) == 1:
-                res -= 2 ** (n1 + n2)
-            return res
-        return parse2
-
-    @staticmethod
-    def parse(subframe_data: int, subframe_number: int = None) -> dict:
-        if subframe_number is not None:
-            return {
-                1: GPSParser.parse_sf_1,
-                2: GPSParser.parse_sf_2,
-                3: GPSParser.parse_sf_3,
-                5: GPSParser.parse_sf_alm,
-            }[subframe_number](subframe_data, full=False)
-        pass
-
-    @staticmethod
-    def get_head_stats(subframe_data, full) -> dict:
-        if not full:
-            return {}
-        return {
-            # TODO: Доделать
-        }
-
-    @staticmethod
-    def parse_sf_1(subframe, full=True) -> dict:
-        parse = GPSParser.get_parse_function(subframe)
-        parse2 = GPSParser.get_parse_function2(subframe)
-        return {
-            'week': parse(61, 10) + 1024 * 2,
-            'accuracy': parse(73, 4),
-            'health': parse(7, 6),
-            'IODC': parse2(83, 2, 211, 8),
-            'Tgd': parse(197, 8, True) * 2 ** (- 31),
-            'Toc': parse(219, 16) * 2 ** 4,
-            'af2': parse(241, 8, True) * 2 ** (- 55),
-            'af1': parse(249, 16, True) * 2 ** (- 43),
-            'af0': parse(271, 22, True) * 2 ** (- 31),
-        } | GPSParser.get_head_stats(subframe, full)
-
-    @staticmethod
-    def parse_sf_2(subframe, full=True) -> dict:
-        parse = GPSParser.get_parse_function(subframe)
-        parse2 = GPSParser.get_parse_function2(subframe)
-        return {
-            'IODE1': parse(61, 8),
-            'Crs': parse(69, 16, True) * 2 ** (- 5),
-            'dn': parse(91, 16, True) * 2 ** (- 43),
-            'M0': parse2(107, 8, 121, 24, True) * 2 ** (- 31),
-            'Cuc': parse(151, 16, True) * 2 ** (- 29),
-            'e': parse2(167, 8, 181, 24) * 2 ** (- 33),
-            'Cus': parse(211, 16, True) * 2 ** (- 29),
-            'sqrtA': parse2(227, 8, 241, 24) * 2 ** (- 19),
-            'Toe': parse(271, 16) * 2 ** 4,
-        } | GPSParser.get_head_stats(subframe, full)
-
-    @staticmethod
-    def parse_sf_3(subframe, full=True) -> dict:
-        parse = GPSParser.get_parse_function(subframe)
-        parse2 = GPSParser.get_parse_function2(subframe)
-        return {
-            'Cic': parse(61, 16, True) * 2 ** (- 29),
-            'W0': parse2(77, 8, 91, 24, True) * 2 ** (- 31),
-            'Cis': parse(121, 16, True) * 2 ** (- 29),
-            'i0': parse2(137, 8, 151, 24, True) * 2 ** (- 31),
-            'Crc': parse(181, 16, True) * 2 ** (- 5),
-            'w': parse2(197, 8, 211, 24, True) * 2 ** (- 31),
-            'Wdot': parse(241, 24, True) * 2 ** (- 43),
-            'IODE2': parse(271, 8),
-            'IDOT': parse(279, 14, True) * 2 ** (- 43),
-        } | GPSParser.get_head_stats(subframe, full)
-
-    @staticmethod
-    def parse_sf_alm(subframe, full=True) -> dict:
-        parse = GPSParser.get_parse_function(subframe)
-        parse2 = GPSParser.get_parse_function2(subframe)
-        return {
-            'Data_ID': parse(61, 2),
-            'SV_ID': parse(63, 6),
-            'e': parse(69, 16) * 2 ** (-21),
-            'Toa': parse(91, 8) * 2 ** 12,
-            'delta_i': parse(99, 16, True) * 2 ** (-19),
-            'Wdot': parse(121, 16, True) * 2 ** (-38),
-            'health': parse(137, 8),
-            'sqrtA': parse(151, 24) * 2 ** (-11),
-            'W0': parse(181, 24, True) * 2 ** (-23),
-            'w': parse(211, 24, True) * 2 ** (-23),
-            'M0': parse(241, 24, True) * 2 ** (-23),
-            'af1': parse(279, 11, True) * 2 ** (-38),
-            'af0': parse2(271, 8, 290, 3, True) * 2 ** (-20),
-        } | GPSParser.get_head_stats(subframe, full)
-
-
-class GPSParser1:
-    @staticmethod
-    def parse(subframe, subframe_number: int) -> list:
-        return {
-            1: GPSParser1.ParseSf1,
-            2: GPSParser1.ParseSf2,
-            3: GPSParser1.ParseSf3,
-            5: GPSParser1.ParseSf5,
-        }[subframe_number](subframe)
-
-    @staticmethod
-    def ParseSf1(subframe):
-        week = gps_bin2dec(subframe[60:70]) + 1024 * 2
-        accuracy = gps_bin2dec(subframe[72:76])
-        health = gps_bin2dec(subframe[76:82])
-        IODC = gps_bin2dec(subframe[82:84] + subframe[196:204])
-        Tgd = gps_twosComp2dec(subframe[195:204]) * 2 ** (- 31)
-        Toc = gps_bin2dec(subframe[218:234]) * 2 ** 4
-        af2 = gps_twosComp2dec(subframe[240:248]) * 2 ** (- 55)
-        af1 = gps_twosComp2dec(subframe[248:264]) * 2 ** (- 43)
-        af0 = gps_twosComp2dec(subframe[270:292]) * 2 ** (- 31)
-        return [week, accuracy, health, IODC, Tgd, Toc, af2, af1, af0]
-
-    @staticmethod
-    def ParseSf2(subframe):
-        IODE1 = gps_bin2dec(subframe[60:68])
-        Crs = gps_twosComp2dec(subframe[68:84]) * 2 ** (- 5)
-        dn = gps_twosComp2dec(subframe[90:106]) * 2 ** (- 43)
-        M0 = gps_twosComp2dec(subframe[106:114] + subframe[120:144]) * 2 ** (- 31)
-        Cuc = gps_twosComp2dec(subframe[150:166]) * 2 ** (- 29)
-        e = gps_bin2dec(subframe[166:174] + subframe[180:204]) * 2 ** (- 33)
-        Cus = gps_twosComp2dec(subframe[210:226]) * 2 ** (- 29)
-        sqrtA = gps_bin2dec(subframe[226:234] + subframe[240:264]) * 2 ** (- 19)
-        Toe = gps_bin2dec(subframe[270:286]) * 2 ** 4
-        return [IODE1, Crs, dn, M0, Cuc, e, Cus, sqrtA, Toe]
-
-    @staticmethod
-    def ParseSf3(subframe):
-        Cic = gps_twosComp2dec(subframe[60:76]) * 2 ** (- 29)
-        W0 = gps_twosComp2dec(subframe[76:84] + subframe[90:114]) * 2 ** (- 31)
-        Cis = gps_twosComp2dec(subframe[120:136]) * 2 ** (- 29)
-        i0 = gps_twosComp2dec(subframe[136:144] + subframe[150:174]) * 2 ** (- 31)
-        Crc = gps_twosComp2dec(subframe[180:196]) * 2 ** (- 5)
-        w = gps_twosComp2dec(subframe[196:204] + subframe[210:234]) * 2 ** (- 31)
-        Wdot = gps_twosComp2dec(subframe[240:264]) * 2 ** (- 43)
-        IODE2 = gps_bin2dec(subframe[270:278])
-        IDOT = gps_twosComp2dec(subframe[278:292]) * 2 ** (- 43)
-        return [Cic, W0, Cis, i0, Crc, w, Wdot, IODE2, IDOT]
-
-    @staticmethod
-    def ParseSf5(subframe):
-        Data_ID = gps_bin2dec(subframe[60:62])
-        SV_ID = gps_bin2dec(subframe[62:68])
-        e = gps_bin2dec(subframe[68:84]) * 2 ** (-21)
-        Toa = gps_bin2dec(subframe[90:98]) * 2 ** 12
-        delta_i = gps_twosComp2dec(subframe[98:114]) * 2 ** (-19)
-        Wdot = gps_twosComp2dec(subframe[120:136]) * 2 ** (-38)
-        health = gps_bin2dec(subframe[136:144])
-        sqrtA = gps_bin2dec(subframe[150:174]) * 2 ** (-11)
-        W0 = gps_twosComp2dec(subframe[180:204]) * 2 ** (-23)
-        w = gps_twosComp2dec(subframe[210:234]) * 2 ** (-23)
-        M0 = gps_twosComp2dec(subframe[240:264]) * 2 ** (-23)
-        af1 = gps_twosComp2dec(subframe[278:289]) * 2 ** (-38)
-        af0 = gps_twosComp2dec(subframe[270:278] + subframe[289:292]) * 2 ** (-20)
-        return [SV_ID, Data_ID, Toa, e, delta_i, Wdot, sqrtA, W0, w, M0, af0, af1, health]

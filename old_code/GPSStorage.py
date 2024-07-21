@@ -124,8 +124,8 @@ class GPSStorage:
 
     def calc_coordinates(self):
         for svId, satellite in self.satellites.items():
-            self.satellites[svId].alm_coord = SCC.calc_sat_alm(satellite.alm, self.get_TOW(), self.week)
-            self.satellites[svId].eph_coord = SCC.calc_sat_eph(satellite.eph, self.get_TOW(), self.week)
+            self.satellites[svId].alm_coord = SCC.calc_gps_alm(satellite.alm, self.get_TOW(), self.week)
+            self.satellites[svId].eph_coord = SCC.calc_gps_eph(satellite.eph, self.get_TOW(), self.week)
 
         good_eph = [satellite for satellite in self.satellites.values()
                     if satellite.check_eph() and satellite.rawx]
