@@ -8,4 +8,9 @@ class GNSS(Enum):
     IMEA = 4
     QZSS = 5
     GLONASS = 6
+    default = -1
+
+    @classmethod
+    def _missing_(cls, value):
+        return cls.default
 

@@ -129,7 +129,7 @@ class App(QMainWindow):
             self.connect_button.setEnabled(False)
             self.port_entry.setEnabled(False)
         except Exception as e:
-            QMessageBox.warning(self, "Ошибка подключения", f"Не удалось подключиться к {port}: {e}")
+            QMessageBox.warning(self, "Ошибка подключения", f"Не удалось подключиться к {port}: {e}" + traceback.format_exc())
             logging.error(f"Failed to connect to port {port}: {e}", exc_info=True)
 
     def format_message(self, message):
