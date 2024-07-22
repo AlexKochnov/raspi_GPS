@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 
+import pyubx2
+
 import Constants
 import Minimizing
 import Settings
@@ -15,6 +17,13 @@ import UBXMessages
 from TimeStamp import TimeStamp
 from UtilsMessages import GNSS
 import SatellitesCoordinateCalculator as SCC
+
+# TODO: подлатать
+pd.set_option('future.no_silent_downcasting', True)
+
+
+# import warnings
+# warnings.filterwarnings("error")
 
 
 def calc_pseu_RMS_error(index):
@@ -43,7 +52,7 @@ def update_table_line(table, data, svId, gnssId, receiving_stamp, TOW_type='rece
         table.at[ind, TOW_type] = receiving_stamp
     for key, value in data.items():
         if key in table.columns:
-            table.at[ind, key] = value
+            table.at[ind, key] = type(table.at[ind, key])(value)  # value
 
 
 def apply_func_get(table, func):
@@ -104,21 +113,56 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     solve_table.loc[len(solve_table)] = SOLVE
 
 
+def get_df_indexes(df):
+    return df.apply(index_func, axis=1)
+
+
+def index_func(row):
+    return row.svId + GNSS(row.gnssId).value * 100
+
+
+def create_table(columns, init_sats_lines):
+    types = np.dtype(list(columns.items()))
+    table = pd.DataFrame(np.empty(len(init_sats_lines), dtype=types))
+    if not init_sats_lines.empty:
+        table.set_index(init_sats_lines.index, inplace=True)
+        table.update(init_sats_lines)
+    return table
+
+
+def create_index_table(data):
+    table = pd.DataFrame(data)
+    table.set_index(get_df_indexes(table), inplace=True)
+    return table
+
+
 class Storage:
-    NAV_ORB_columns = ['health', 'visibility', 'ephUsability', 'ephSource', 'almUsability', 'almSource',
-                       'anoAopUsability', 'type']
-    NAV_SAT_columns = ['cno', 'elev', 'azim', 'prRes', 'qualityInd', 'svUsed', 'health', 'diffCorr', 'smoothed',
-                       'orbitSource', 'ephAvail', 'almAvail']
-    RXM_RAWX_columns = ['prMes', 'cpMes', 'doMes', 'freqId', 'locktime', 'cno', 'prStedv', 'cpStedv', 'doStedv',
-                        'prValid', 'cpValid', 'halfCyc', 'subHalfCyc']
-    RXM_SVSI_columns = ['azim', 'elev', 'ura', 'healthy', 'ephVal', 'almVal', 'notAvail', 'almAge', 'ephAge']
-    RXM_MEASX_columns = ['cno', 'mpathIndic', 'dopplerMS', 'dopplerHz', 'wholeChips', 'fracChips', 'codePhase',
-                         'intCodePhase', 'pseuRangeRMSErr']
-    EPH_columns = ['week', 'Toe', 'Toc', 'IODE1', 'IODE2', 'IODC', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc', 'Cis',
-                   'Cic', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0', 'w', 'Tgd', 'af2', 'af1', 'af0', 'health', 'accuracy']
-    ALM_columns = ['week', 'Toa', 'e', 'delta_i', 'Wdot', 'sqrtA', 'W0', 'w', 'M0', 'af0', 'af1', 'health', 'Data_ID']
+    NAV_ORB_columns = {'health': np.int8, 'visibility': np.int8, 'ephUsability': np.int8, 'ephSource': np.int8,
+                       'almUsability': np.int8, 'almSource': np.int8}
+    NAV_SAT_columns = {'cno': np.int8, 'elev': np.int8, 'azim': np.int16, 'prRes': np.float32, 'qualityInd': np.int8,
+                       'svUsed': np.bool_, 'health': np.int8, 'diffCorr': np.bool_, 'smoothed': np.bool_,
+                       'orbitSource': np.int8, 'ephAvail': np.bool_, 'almAvail': np.bool_}
+    RXM_RAWX_columns = {'prMes': np.float64, 'cpMes': np.float64, 'doMes': np.float64,
+                        'freqId': np.int8, 'locktime': np.uint16, 'cno': np.int8,
+                        'prStedv': np.float32, 'cpStedv': np.float32, 'doStedv': np.float32,
+                        'prValid': np.bool_, 'cpValid': np.bool_, 'halfCyc': np.bool_, 'subHalfCyc': np.bool_}
+    RXM_SVSI_columns = {'azim': np.int16, 'elev': np.int8, 'ura': np.int8, 'healthy': np.bool_, 'ephVal': np.bool_,
+                        'almVal': np.bool_, 'notAvail': np.bool_, 'almAge': np.int8, 'ephAge': np.int8}
+    RXM_MEASX_columns = {'cno': np.int8, 'mpathIndic': np.int8, 'dopplerMS': np.float64, 'dopplerHz': np.float64,
+                         'wholeChips': np.int16, 'fracChips': np.int16, 'codePhase': np.float64,
+                         'intCodePhase': np.int8, 'pseuRangeRMSErr': np.int8}
+    EPH_columns = {'week': np.int16, 'Toe': np.int32, 'Toc': np.int32, 'IODE1': np.int16, 'IODE2': np.int16,
+                   'IODC': np.int16, 'IDOT': np.float64, 'Wdot': np.float64, 'Crs': np.float64, 'Crc': np.float64,
+                   'Cus': np.float64, 'Cuc': np.float64, 'Cis': np.float64, 'Cic': np.float64, 'dn': np.float64,
+                   'i0': np.float64, 'e': np.float64, 'sqrtA': np.float64, 'M0': np.float64, 'W0': np.float64,
+                   'w': np.float64, 'Tgd': np.float64, 'af2': np.float64, 'af1': np.float64, 'af0': np.float64,
+                   'health': np.int8, 'accuracy': np.int8}
+    ALM_columns = {'week': np.int16, 'Toa': np.int32, 'e': np.float32, 'delta_i': np.float32, 'Wdot': np.float32,
+                   'sqrtA': np.float32, 'W0': np.float32, 'w': np.float32, 'M0': np.float32, 'af0': np.float32,
+                   'af1': np.float32, 'health': np.int8, 'Data_ID': np.int8}
     # TODO: delete error
-    solves_columns = ['X', 'Y', 'Z', 'cdt', 'dt', 'fval', 'success', 'error', 'calc_time']
+    solves_columns = {'X': np.float64, 'Y': np.float64, 'Z': np.float64, 'cdt': np.float64, 'dt': np.float64,
+                      'fval': np.float64, 'success': np.bool_, 'error': np.float64, 'calc_time': np.float32}
 
     week: int = None
     TOW: int = None
@@ -132,65 +176,40 @@ class Storage:
 
     def __init__(self):
         self.counter = 0
+        # TODO: задать индекс как (svId + 100 * gnssId.value) и использовать df1.update(df2)
 
-        init_gps_lines = [{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)]
+        # pd.DataFrame(np.empty(0, dtype=np.dtype(list(X.items()))))
+        stamp_columns = {'svId': np.int8, 'gnssId': object}
+        empty_lines = [{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)]
+        # + [{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
+        init_sats_df = pd.DataFrame(empty_lines).astype(stamp_columns)
+        init_sats_df.set_index(get_df_indexes(init_sats_df), inplace=True)
 
-        # TODO delete real_rho & Dt
-        self.ephemeris_parameters = pd.DataFrame(
-            init_gps_lines,
-            columns=['svId', 'gnssId', 'receiving_stamp', 'exist', 'is_old'] + self.EPH_columns
-        )
-        self.almanac_parameters = pd.DataFrame(
-            init_gps_lines,
-            columns=['svId', 'gnssId', 'receiving_stamp', 'exist', 'is_old'] + self.ALM_columns
-        )
-        self.navigation_parameters = pd.DataFrame(
-            init_gps_lines + [{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
-            columns=pd.Series(
-                # General: receiving_TOW = max(all TOW) for every cycle
-                ['svId', 'gnssId', 'receiving_stamp',
-                 'NAV_ORB_stamp', 'NAV_SAT_stamp', 'RXM_RAWX_stamp', 'RXM_SVSI_stamp', 'RXM_MEASX_stamp'] +
-                self.NAV_ORB_columns + self.NAV_SAT_columns + self.RXM_RAWX_columns + self.RXM_SVSI_columns +
-                self.RXM_MEASX_columns
-            ).drop_duplicates().to_list()
-        )
-        self.ephemeris_data = pd.DataFrame(
-            init_gps_lines,
-            columns=['svId', 'gnssId',
-                     'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt',
-                     'pr_stamp', 'pseuRangeRMSErr', 'prMes', 'prRes',
-                     'real_rho', 'Dt', 'coord_score', 'nav_score']
-        )
-        self.almanac_data = pd.DataFrame(
-            init_gps_lines,
-            columns=['svId', 'gnssId',
-                     'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt',
-                     'pr_stamp', 'pseuRangeRMSErr', 'prMes', 'prRes',
-                     'real_rho', 'Dt', 'coord_score', 'nav_score']
-        )
-        self.ephemeris_solves = pd.DataFrame(
-            columns=['week', 'TOW', 'sat_count'] + [f'{"LM"}_{name}' for name in self.solves_columns]
-                    + [f'{"SQP"}_{name}' for name in self.solves_columns]
-        )
-        self.almanac_solves = pd.DataFrame(
-            columns=['week', 'TOW', 'sat_count'] + [f'{"LM"}_{name}' for name in self.solves_columns]
-                    + [f'{"SQP"}_{name}' for name in self.solves_columns]
-        )
+        self.param_columns = stamp_columns | {'receiving_stamp': object, 'exist': np.bool_, 'is_old': np.bool_}
+        self.general_nav_cols = stamp_columns | {name: object for name in ['receiving_stamp', 'NAV_ORB_stamp',
+                                                                           'NAV_SAT_stamp', 'RXM_RAWX_stamp',
+                                                                           'RXM_SVSI_stamp', 'RXM_MEASX_stamp']}
+        self.data_columns = stamp_columns | {'xyz_stamp': object, 'X': np.float64, 'Y': np.float64, 'Z': np.float64,
+                                             'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
+                                             'pr_stamp': object, 'pseuRangeRMSErr': np.int8, 'prMes': np.float64,
+                                             'prRes': np.float32, 'real_rho': np.float64, 'Dt': np.float64,
+                                             'coord_score': np.float16, 'nav_score': np.float16}
+        self.full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int} | \
+                                   {f'{"LM"}_{name}': type for name, type in self.solves_columns.items()} | \
+                                   {f'{"SQP"}_{name}': type for name, type in self.solves_columns.items()}
+        self.full_eph_columns = self.param_columns | self.EPH_columns
+        self.full_alm_columns = self.param_columns | self.ALM_columns
+        self.full_nav_columns = self.param_columns | self.general_nav_cols | self.NAV_ORB_columns | \
+                                self.NAV_SAT_columns | self.RXM_RAWX_columns | self.RXM_SVSI_columns | \
+                                self.RXM_MEASX_columns
 
-        type_stamp = object  # object
-        for name in ['NAV_ORB_stamp', 'NAV_SAT_stamp', 'RXM_RAWX_stamp', 'RXM_SVSI_stamp', 'RXM_MEASX_stamp',
-                     'receiving_stamp']:
-            self.navigation_parameters[name].astype(type_stamp)
-        self.almanac_parameters['receiving_stamp'].astype(type_stamp)
-        self.ephemeris_parameters['receiving_stamp'].astype(type_stamp)
-        for name in ['xyz_stamp', 'pr_stamp']:
-            self.ephemeris_data[name].astype(type_stamp)
-            self.almanac_data[name].astype(type_stamp)
-        # ## Поменять типа ячеек времени на datetime
-        # for name in ['NAV_ORB_stamp', 'NAV_SAT_TOW', 'RXM_RAWX_TOW', 'RXM_SVSI_TOW', 'RXM_MEASX_TOW', 'receiving_TOW']:
-        #     self.navigation_data[name] = pd.to_datetime(self.navigation_data[name])
-        # self.almanac_parameters['receiving_TOW'] = pd.to_datetime(self.almanac_parameters['receiving_TOW'])
-        # self.ephemeris_parameters['receiving_TOW'] = pd.to_datetime(self.ephemeris_parameters['receiving_TOW'])
+        self.ephemeris_parameters = create_table(self.full_eph_columns, init_sats_df)
+        self.almanac_parameters = create_table(self.full_alm_columns, init_sats_df)
+        self.navigation_parameters = create_table(self.full_nav_columns, init_sats_df)
+        self.ephemeris_data = create_table(self.data_columns, init_sats_df)
+        self.almanac_data = create_table(self.data_columns, init_sats_df)
+        self.ephemeris_solves = create_table(self.full_solves_columns, pd.DataFrame())
+        self.almanac_solves = create_table(self.full_solves_columns, pd.DataFrame())
 
         # # TODO: integrate and delete
         # self.SFRBX_GPS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
@@ -212,6 +231,7 @@ class Storage:
         #                                                'P2', 'gamma', 'z', 'dz', 'ddz', 'P', 'P3', 'ln', 'M', 'tau',
         #                                                'N_T', 'n', 'F_T', 'E', 'P4', 'dTau'])
         # self.SFRBX_GLONASS_data = dict()
+
         self.SFRBX_GPS_alm = pd.read_csv('sfrbx_gps_alm.csv', index_col=0)
         self.SFRBX_GPS_eph = pd.read_csv('sfrbx_gps_eph.csv', index_col=0)
         self.SFRBX_GLONASS_alm = pd.read_csv('sfrbx_glonass_alm.csv', index_col=0)
@@ -226,8 +246,9 @@ class Storage:
 
     def update(self, message):
         self.counter += 1
-
         if not message:
+            return
+        if isinstance(message, pyubx2.ubxmessage.UBXMessage):
             return
         if isinstance(message, UBXMessages.UbxMessage):
             self.update_UBX(message)
@@ -244,28 +265,26 @@ class Storage:
             if attr in data.keys() and hasattr(self, attr):
                 setattr(self, attr, data[attr])
 
+    def check_nav_time(self):
+        self.navigation_parameters['receiving_stamp'] = self.navigation_parameters.apply(
+            lambda row: custom_min(row['NAV_ORB_stamp'], row['NAV_SAT_stamp'], row['RXM_RAWX_stamp'],
+                                   row['RXM_SVSI_stamp']), axis=1)
+
     def update_UBX(self, message):
         self.stamp: TimeStamp = message.receiving_stamp
         if isinstance(message, UBXMessages.AID_ALM | UBXMessages.AID_EPH):
             table = self.almanac_parameters if isinstance(message, UBXMessages.AID_ALM) else self.ephemeris_parameters
+            data = message.stamp | {'receiving_stamp': message.receiving_stamp}
             if message.data:
-                assert isinstance(message.data, dict)
-                message.data.update({'is_old': 0, 'exist': 1})
-                update_table_line(table, message.data, *message.stamp, message.receiving_stamp)
+                table.update(create_index_table([message.data | {'is_old': False, 'exist': True} | data]))
             else:
-                update_table_line(table, {'is_old': 1}, *message.stamp, None)
-        elif isinstance(message,
-                        UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX | UBXMessages.RXM_SVSI |
-                        UBXMessages.RXM_MEASX):
-            assert isinstance(message.data, dict)
+                table.update(create_index_table([{'is_old': True} | data]))
+        elif isinstance(message, UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX |
+                        UBXMessages.RXM_SVSI | UBXMessages.RXM_MEASX):
             self.update_param(message.data, 'iTOW', 'week')
             if message.satellites:
-                for stamp, line in message.satellites.items():
-                    update_table_line(self.navigation_parameters, line, *stamp, message.receiving_stamp,
-                                      message.__class__.__name__ + '_stamp')
-            self.navigation_parameters['receiving_stamp'] = self.navigation_parameters.apply(
-                lambda row: custom_min(row['NAV_ORB_stamp'], row['NAV_SAT_stamp'], row['RXM_RAWX_stamp'],
-                                       row['RXM_SVSI_stamp']), axis=1)
+                self.navigation_parameters.update(create_index_table(message.satellites))
+                self.check_nav_time()
             if isinstance(message, UBXMessages.RXM_RAWX):
                 self.calc_navigation_task()
         elif isinstance(message, UBXMessages.NAV_TIMEGPS | UBXMessages.NAV_POSECEF | UBXMessages.NAV_VELECEF):
@@ -276,7 +295,7 @@ class Storage:
             self.other_data[message.__class__.__name__.lower()] = message.data
         elif isinstance(message, UBXMessages.RXM_SFRBX):
             assert isinstance(message.data, dict)
-            try:
+            try:  # TODO: править очень жестко
                 if message.data['gnssId'] == GNSS.GPS:
                     if 'name' in message.signal.keys():
                         self.SFRBX_GPS_data.update(message.signal)
@@ -311,26 +330,30 @@ class Storage:
                 with open('sfrbx_gps_data.txt', 'w') as file:
                     file.write(str(self.SFRBX_GPS_data))
 
-
     def calc_navigation_task(self):
-
-        nav_cols = ['svId', 'gnssId', 'pr_stamp', 'pseuRangeRMSErr', 'prMes', 'prRes', 'nav_score', 'alm_score',
-                    'eph_score']
-        coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'real_rho', 'Dt']
-        nav_data = pd.DataFrame(self.navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
-        eph_coord_data = pd.DataFrame(
-            self.ephemeris_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_gps_eph),
-                                            axis=1).to_list(),
-            columns=coord_cols)
-        alm_coord_data = pd.DataFrame(
-            self.almanac_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_gps_alm), axis=1).to_list(),
-            columns=coord_cols)
-        self.ephemeris_data = pd.merge(eph_coord_data, nav_data, on=['svId', 'gnssId']). \
-            drop(columns=['alm_score']).rename(columns={'eph_score': 'coord_score'})
-        self.almanac_data = pd.merge(alm_coord_data, nav_data, on=['svId', 'gnssId']). \
-            drop(columns=['eph_score']).rename(columns={'alm_score': 'coord_score'})
-        calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.stamp)
-        calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.stamp)
+        try:
+            nav_cols = ['svId', 'gnssId', 'pr_stamp', 'pseuRangeRMSErr', 'prMes', 'prRes', 'nav_score', 'alm_score',
+                        'eph_score']
+            coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'real_rho', 'Dt']
+            nav_data = pd.DataFrame(self.navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
+            eph_coord_data = pd.DataFrame(
+                self.ephemeris_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_gps_eph),
+                                                axis=1).to_list(),
+                columns=coord_cols)
+            alm_coord_data = pd.DataFrame(
+                self.almanac_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_gps_alm),
+                                              axis=1).to_list(),
+                columns=coord_cols)
+            self.ephemeris_data = pd.merge(eph_coord_data, nav_data, on=['svId', 'gnssId']). \
+                drop(columns=['alm_score']).rename(columns={'eph_score': 'coord_score'})
+            self.almanac_data = pd.merge(alm_coord_data, nav_data, on=['svId', 'gnssId']). \
+                drop(columns=['eph_score']).rename(columns={'alm_score': 'coord_score'})
+            calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.stamp)
+            calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.stamp)
+        except Exception as e:
+            print(e)
+            print(tr := traceback.format_exc())
+            a = 0
 
     def ADD_1_TABLES(self):
         self.navigation_parameters1 = self.navigation_parameters[['svId', 'gnssId', 'receiving_stamp', 'health', 'cno',
@@ -401,7 +424,7 @@ def calc_alm_score(nav_row):
 
 def calc_coords(param_row, stamp: TimeStamp, coord_func):
     # if param_row[['Wdot', 'e', 'sqrtA', 'M0', 'W0', 'w']].isna().any():
-    if param_row.isna().any():
+    if param_row.isna().any() or not param_row.exist:
         xyz = None
     else:
         xyz = coord_func(param_row, stamp.TOW, stamp.week)
