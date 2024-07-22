@@ -32,6 +32,10 @@ def get_bytes_from_flag(flags: int, *pattern) -> int:
     return (flags >> min(pattern)) & sum(1 << (x - min(pattern)) for x in pattern)
 
 
+def get_stamps(obj, svId: int, gnssId: GNSS) -> dict:
+    return {'svId': svId, 'gnssId': gnssId} | {f'{obj.__class__.__name__}_stamp': obj.receiving_stamp}
+
+
 class UbxMessage(metaclass=ABCMeta):
     receiving_stamp: int or datetime = None
     format: str = None
@@ -79,10 +83,12 @@ class RXM_RAWX(UbxMessage):
     header = (0x02, 0x15)
 
     data: dict = {}
-    satellites: dict = {}
+    satellites: list = []
 
     def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
         super().__init__(receiving_TOW)
+        self.data: dict = {}
+        self.satellites: list = []
         rcvTow, week, leapS, numMeas, recStat, *_ = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
         recStat = flag_to_int(recStat)
@@ -98,7 +104,7 @@ class RXM_RAWX(UbxMessage):
             prMes, cpMes, doMes, gnssId, svId, _, freqId, locktime, cno, prStedv, cpStedv, doStedv, trkStat, _ = \
                 struct.unpack('<ddfBBBBHBssssB', msg[32 * i: 32 * (i + 1)])
             trkStat = flag_to_int(trkStat)
-            self.satellites[(svId, GNSS(gnssId))] = {
+            self.satellites.append({
                 'prMes': prMes,
                 'cpMes': cpMes,
                 'doMes': doMes,
@@ -112,7 +118,7 @@ class RXM_RAWX(UbxMessage):
                 'cpValid': get_bytes_from_flag(trkStat, 1),
                 'halfCyc': get_bytes_from_flag(trkStat, 2),
                 'subHalfCyc': get_bytes_from_flag(trkStat, 3),
-            }
+            } | get_stamps(self, svId, GNSS(gnssId)))
 
 
 class NAV_SAT(UbxMessage):
@@ -120,12 +126,12 @@ class NAV_SAT(UbxMessage):
     header = (0x01, 0x35)
 
     data: dict = {}
-    satellites: dict = {}
+    satellites: list = []
 
     def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
-        if not msg:
-            return
         super().__init__(receiving_TOW)
+        self.data: dict = {}
+        self.satellites: list = []
         iTOW, version, numsSvs, *reversed1 = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
         self.data: dict = {
@@ -134,7 +140,7 @@ class NAV_SAT(UbxMessage):
         for i in range(numsSvs):
             gnssId, svId, cno, elev, azim, prRes, flags = struct.unpack('<BBBbhh4s', msg[12 * i: 12 * (i + 1)])
             flags = flag_to_int(flags)
-            self.satellites[(svId, GNSS(gnssId))] = {
+            self.satellites.append({
                 'cno': cno,
                 'elev': elev,
                 'azim': azim,
@@ -157,7 +163,7 @@ class NAV_SAT(UbxMessage):
                 'crCorrUsed': get_bytes_from_flag(flags, 21),
                 'doCorrUsed': get_bytes_from_flag(flags, 22),
                 'clasCorrUsed': get_bytes_from_flag(flags, 23),
-            }
+            } | get_stamps(self, svId, GNSS(gnssId)))
 
 
 class NAV_ORB(UbxMessage):
@@ -165,10 +171,12 @@ class NAV_ORB(UbxMessage):
     header = (0x01, 0x34)
 
     data: dict = {}
-    satellites: dict = {}
+    satellites: list = []
 
     def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
         super().__init__(receiving_TOW)
+        self.data: dict = {}
+        self.satellites: list = []
         iTOW, version, numsSvs, *reversed1 = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
         self.data = {
@@ -180,7 +188,7 @@ class NAV_ORB(UbxMessage):
             eph = flag_to_int(eph)
             alm = flag_to_int(alm)
             otherOrb = flag_to_int(otherOrb)
-            self.satellites[(svId, GNSS(gnssId))] = {
+            self.satellites.append({
                 'health': svFlag % 4,
                 'visibility': (svFlag // 4) % 4,
                 'ephUsability': eph % 32,
@@ -189,7 +197,7 @@ class NAV_ORB(UbxMessage):
                 'almSource': alm // 32,
                 'anoAopUsability': otherOrb % 32,
                 'type': otherOrb // 32,
-            }
+            } | get_stamps(self, svId, GNSS(gnssId)))
 
 
 class RXM_SVSI(UbxMessage):
@@ -197,10 +205,12 @@ class RXM_SVSI(UbxMessage):
     header = (0x02, 0x20)
 
     data: dict = {}
-    satellites: dict = {}
+    satellites: list = []
 
     def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
         super().__init__(receiving_TOW)
+        self.data: dict = {}
+        self.satellites: list = []
         iTOW, week, numVis, numSV = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
         self.data = {
@@ -212,7 +222,7 @@ class RXM_SVSI(UbxMessage):
             svId, sv_flag, azim, elev, age_flag = struct.unpack('<Bshbs', msg[+ i * 6: 6 * (i + 1)])
             sv_flag = flag_to_int(sv_flag)
             age_flag = flag_to_int(age_flag)
-            self.satellites[(svId, GNSS.GPS)] = {
+            self.satellites.append({
                 'azim': azim,
                 'elev': elev,
                 'ura': get_bytes_from_flag(sv_flag, 0, 1, 2, 3),
@@ -222,7 +232,7 @@ class RXM_SVSI(UbxMessage):
                 'notAvail': get_bytes_from_flag(sv_flag, 7),
                 'almAge': (age_flag & 0x0f) - 4,
                 'ephAge': ((age_flag & 0xf0) >> 4) - 4,
-            }
+            } | get_stamps(self, svId, GNSS.GPS))
 
 
 class RXM_MEASX(UbxMessage):
@@ -230,10 +240,12 @@ class RXM_MEASX(UbxMessage):
     header = (0x02, 0x14)
 
     data: dict = {}
-    satellites: dict = {}
+    satellites: list = []
 
     def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
         super().__init__(receiving_TOW)
+        self.data: dict = {}
+        self.satellites: list = []
         version, _, gpsTOW, gloTOW, bdsTOW, _, qzssTOW, gpsTOWacc, gloTOWacc, bdsTOWacc, _, qzssTOWacc, numSV, flags, _ \
             = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
@@ -252,7 +264,7 @@ class RXM_MEASX(UbxMessage):
         for i in range(numSV):
             gnssId, svId, cno, mpathIndic, dopplerMS, dopplerHz, wholeChips, fracChips, codePhase, intCodePhase, \
                 pseuRangeRMSErr, _ = struct.unpack('<BBBBllHHLBB2s', msg[+ i * 24: 24 * (i + 1)])
-            self.satellites[(svId, GNSS(gnssId))] = {
+            self.satellites.append({
                 # 'cNo': cno, # carrier noise ratio (0..63) - коэффициент -> не то
                 'mpathIndic': mpathIndic,
                 'dopplerMS': dopplerMS * 0.04,
@@ -262,7 +274,7 @@ class RXM_MEASX(UbxMessage):
                 'codePhase': codePhase * 2 ** (-21),
                 'intCodePhase': intCodePhase,
                 'pseuRangeRMSErr': pseuRangeRMSErr,
-            }
+            } | get_stamps(self, svId, GNSS(gnssId)))
 
 
 class RXM_SFRBX(UbxMessage):
@@ -342,8 +354,6 @@ class NAV_VELECEF(UbxMessage):
         }
 
 
-
-
 class AID_EPH(UbxMessage):
     format = '<LL'
     header = (0x0B, 0x31)
@@ -352,7 +362,7 @@ class AID_EPH(UbxMessage):
         super().__init__(receiving_TOW)
         svId, HOW = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
-        self.stamp = (svId, GNSS.GPS)
+        self.stamp = {'svId': svId, 'gnssId': GNSS.GPS}
         if HOW == 0:
             self.data = None
             return
@@ -370,7 +380,7 @@ class AID_ALM(UbxMessage):
         super().__init__(receiving_TOW)
         svId, week = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
-        self.stamp = (svId, GNSS.GPS)
+        self.stamp = {'svId': svId, 'gnssId': GNSS.GPS}
         if week == 0:
             self.data = None
             return

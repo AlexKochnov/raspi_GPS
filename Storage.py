@@ -18,8 +18,9 @@ from TimeStamp import TimeStamp
 from UtilsMessages import GNSS
 import SatellitesCoordinateCalculator as SCC
 
-#TODO: подлатать
-# pd.set_option('future.no_silent_downcasting', True)
+# TODO: подлатать
+pd.set_option('future.no_silent_downcasting', True)
+
 
 # import warnings
 # warnings.filterwarnings("error")
@@ -51,14 +52,7 @@ def update_table_line(table, data, svId, gnssId, receiving_stamp, TOW_type='rece
         table.at[ind, TOW_type] = receiving_stamp
     for key, value in data.items():
         if key in table.columns:
-            try:
-                table.at[ind, key] = type(table.at[ind, key])(value) # value
-            except FutureWarning as fw:
-                print(fw)
-                print(traceback.format_exc())
-                a=0
-
-
+            table.at[ind, key] = type(table.at[ind, key])(value)  # value
 
 
 def apply_func_get(table, func):
@@ -118,18 +112,29 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
             SOLVE |= solve
     solve_table.loc[len(solve_table)] = SOLVE
 
+
 def get_df_indexes(df):
     return df.apply(index_func, axis=1)
 
+
 def index_func(row):
-    return row.svId + GNSS(row.gnssId).value*100
+    return row.svId + GNSS(row.gnssId).value * 100
+
 
 def create_table(columns, init_sats_lines):
     types = np.dtype(list(columns.items()))
     table = pd.DataFrame(np.empty(len(init_sats_lines), dtype=types))
-    table.set_index(init_sats_lines.index, inplace=True)
-    table.update(init_sats_lines)
+    if not init_sats_lines.empty:
+        table.set_index(init_sats_lines.index, inplace=True)
+        table.update(init_sats_lines)
     return table
+
+
+def create_index_table(data):
+    table = pd.DataFrame(data)
+    table.set_index(get_df_indexes(table), inplace=True)
+    return table
+
 
 class Storage:
     NAV_ORB_columns = {'health': np.int8, 'visibility': np.int8, 'ephUsability': np.int8, 'ephSource': np.int8,
@@ -171,52 +176,40 @@ class Storage:
 
     def __init__(self):
         self.counter = 0
-        #TODO: задать индекс как (svId + 100 * gnssId.value) и использовать df1.update(df2)
+        # TODO: задать индекс как (svId + 100 * gnssId.value) и использовать df1.update(df2)
 
         # pd.DataFrame(np.empty(0, dtype=np.dtype(list(X.items()))))
         stamp_columns = {'svId': np.int8, 'gnssId': object}
-        init_sats_lines = [{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)]
-                        # + [{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
-        init_sats_df = pd.DataFrame(init_sats_lines).astype(stamp_columns)
+        empty_lines = [{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)]
+        # + [{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
+        init_sats_df = pd.DataFrame(empty_lines).astype(stamp_columns)
         init_sats_df.set_index(get_df_indexes(init_sats_df), inplace=True)
 
-        # TODO delete real_rho & Dt
-        param_columns = stamp_columns | {'receiving_stamp': object, 'exist': np.bool_, 'is_old': np.bool_}
-        self.ephemeris_parameters = create_table(param_columns | self.EPH_columns, init_sats_df)
-        self.almanac_parameters = create_table(param_columns | self.ALM_columns, init_sats_df)
-        general_nav_cols = stamp_columns | {name: object for name in ['receiving_stamp', 'NAV_ORB_stamp',
-                                                                      'NAV_SAT_stamp', 'RXM_RAWX_stamp',
-                                                                      'RXM_SVSI_stamp', 'RXM_MEASX_stamp']}
-        self.navigation_parameters = create_table(param_columns | general_nav_cols | self.NAV_ORB_columns |
-                                                  self.NAV_SAT_columns | self.RXM_RAWX_columns | self.RXM_SVSI_columns |
-                                                  self.RXM_MEASX_columns, init_sats_df)
-        data_columns = stamp_columns | {'xyz_stamp': object, 'X': np.float64, 'Y': np.float64, 'Z': np.float64,
-                                        'lat': np.float64, 'lon': np.float64, 'alt': np.float64, 'pr_stamp': object,
-                                        'pseuRangeRMSErr': np.int8, 'prMes': np.float64, 'prRes': np.float32,
-                                        'real_rho': np.float64, 'Dt': np.float64, 'coord_score': np.float16,
-                                        'nav_score': np.float16}
-        self.ephemeris_data = create_table(data_columns, init_sats_df)
-        self.almanac_data = create_table(data_columns, init_sats_df)
-        full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int} | \
-                               {f'{"LM"}_{name}': type for name, type in self.solves_columns.items()} | \
-                               {f'{"SQP"}_{name}': type for name, type in self.solves_columns.items()}
-        self.ephemeris_solves = create_table(full_solves_columns, init_sats_df)
-        self.almanac_solves = create_table(full_solves_columns, init_sats_df)
+        self.param_columns = stamp_columns | {'receiving_stamp': object, 'exist': np.bool_, 'is_old': np.bool_}
+        self.general_nav_cols = stamp_columns | {name: object for name in ['receiving_stamp', 'NAV_ORB_stamp',
+                                                                           'NAV_SAT_stamp', 'RXM_RAWX_stamp',
+                                                                           'RXM_SVSI_stamp', 'RXM_MEASX_stamp']}
+        self.data_columns = stamp_columns | {'xyz_stamp': object, 'X': np.float64, 'Y': np.float64, 'Z': np.float64,
+                                             'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
+                                             'pr_stamp': object, 'pseuRangeRMSErr': np.int8, 'prMes': np.float64,
+                                             'prRes': np.float32, 'real_rho': np.float64, 'Dt': np.float64,
+                                             'coord_score': np.float16, 'nav_score': np.float16}
+        self.full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int} | \
+                                   {f'{"LM"}_{name}': type for name, type in self.solves_columns.items()} | \
+                                   {f'{"SQP"}_{name}': type for name, type in self.solves_columns.items()}
+        self.full_eph_columns = self.param_columns | self.EPH_columns
+        self.full_alm_columns = self.param_columns | self.ALM_columns
+        self.full_nav_columns = self.param_columns | self.general_nav_cols | self.NAV_ORB_columns | \
+                                self.NAV_SAT_columns | self.RXM_RAWX_columns | self.RXM_SVSI_columns | \
+                                self.RXM_MEASX_columns
 
-        # type_stamp = object  # object
-        # for name in ['NAV_ORB_stamp', 'NAV_SAT_stamp', 'RXM_RAWX_stamp', 'RXM_SVSI_stamp', 'RXM_MEASX_stamp',
-        #              'receiving_stamp']:
-        #     self.navigation_parameters[name].astype(type_stamp)
-        # self.almanac_parameters['receiving_stamp'].astype(type_stamp)
-        # self.ephemeris_parameters['receiving_stamp'].astype(type_stamp)
-        # for name in ['xyz_stamp', 'pr_stamp']:
-        #     self.ephemeris_data[name].astype(type_stamp)
-        #     self.almanac_data[name].astype(type_stamp)
-        # ## Поменять типа ячеек времени на datetime
-        # for name in ['NAV_ORB_stamp', 'NAV_SAT_TOW', 'RXM_RAWX_TOW', 'RXM_SVSI_TOW', 'RXM_MEASX_TOW', 'receiving_TOW']:
-        #     self.navigation_data[name] = pd.to_datetime(self.navigation_data[name])
-        # self.almanac_parameters['receiving_TOW'] = pd.to_datetime(self.almanac_parameters['receiving_TOW'])
-        # self.ephemeris_parameters['receiving_TOW'] = pd.to_datetime(self.ephemeris_parameters['receiving_TOW'])
+        self.ephemeris_parameters = create_table(self.full_eph_columns, init_sats_df)
+        self.almanac_parameters = create_table(self.full_alm_columns, init_sats_df)
+        self.navigation_parameters = create_table(self.full_nav_columns, init_sats_df)
+        self.ephemeris_data = create_table(self.data_columns, init_sats_df)
+        self.almanac_data = create_table(self.data_columns, init_sats_df)
+        self.ephemeris_solves = create_table(self.full_solves_columns, pd.DataFrame())
+        self.almanac_solves = create_table(self.full_solves_columns, pd.DataFrame())
 
         # # TODO: integrate and delete
         # self.SFRBX_GPS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
@@ -238,6 +231,7 @@ class Storage:
         #                                                'P2', 'gamma', 'z', 'dz', 'ddz', 'P', 'P3', 'ln', 'M', 'tau',
         #                                                'N_T', 'n', 'F_T', 'E', 'P4', 'dTau'])
         # self.SFRBX_GLONASS_data = dict()
+
         self.SFRBX_GPS_alm = pd.read_csv('sfrbx_gps_alm.csv', index_col=0)
         self.SFRBX_GPS_eph = pd.read_csv('sfrbx_gps_eph.csv', index_col=0)
         self.SFRBX_GLONASS_alm = pd.read_csv('sfrbx_glonass_alm.csv', index_col=0)
@@ -252,23 +246,18 @@ class Storage:
 
     def update(self, message):
         self.counter += 1
-        try:
-            if not message:
-                return
-            if isinstance(message, pyubx2.ubxmessage.UBXMessage):
-                return
-            if isinstance(message, UBXMessages.UbxMessage):
-                self.update_UBX(message)
-            self.ADD_1_TABLES()
-            if self.iTOW:
-                self.TOW = self.iTOW // 1000
-            if self.iTOW != self.last_iTOW:
-                self.last_iTOW = self.iTOW
-                return True
-        except Exception as e:
-            print(e)
-            print(traceback.format_exc())
-            a=0
+        if not message:
+            return
+        if isinstance(message, pyubx2.ubxmessage.UBXMessage):
+            return
+        if isinstance(message, UBXMessages.UbxMessage):
+            self.update_UBX(message)
+        self.ADD_1_TABLES()
+        if self.iTOW:
+            self.TOW = self.iTOW // 1000
+        if self.iTOW != self.last_iTOW:
+            self.last_iTOW = self.iTOW
+            return True
         return False
 
     def update_param(self, data, *attrs):
@@ -276,28 +265,26 @@ class Storage:
             if attr in data.keys() and hasattr(self, attr):
                 setattr(self, attr, data[attr])
 
+    def check_nav_time(self):
+        self.navigation_parameters['receiving_stamp'] = self.navigation_parameters.apply(
+            lambda row: custom_min(row['NAV_ORB_stamp'], row['NAV_SAT_stamp'], row['RXM_RAWX_stamp'],
+                                   row['RXM_SVSI_stamp']), axis=1)
+
     def update_UBX(self, message):
         self.stamp: TimeStamp = message.receiving_stamp
         if isinstance(message, UBXMessages.AID_ALM | UBXMessages.AID_EPH):
             table = self.almanac_parameters if isinstance(message, UBXMessages.AID_ALM) else self.ephemeris_parameters
+            data = message.stamp | {'receiving_stamp': message.receiving_stamp}
             if message.data:
-                assert isinstance(message.data, dict)
-                message.data.update({'is_old': 0, 'exist': 1})
-                update_table_line(table, message.data, *message.stamp, message.receiving_stamp)
+                table.update(create_index_table([message.data | {'is_old': False, 'exist': True} | data]))
             else:
-                update_table_line(table, {'is_old': 1}, *message.stamp, None)
-        elif isinstance(message,
-                        UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX | UBXMessages.RXM_SVSI |
-                        UBXMessages.RXM_MEASX):
-            assert isinstance(message.data, dict)
+                table.update(create_index_table([{'is_old': True} | data]))
+        elif isinstance(message, UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX |
+                        UBXMessages.RXM_SVSI | UBXMessages.RXM_MEASX):
             self.update_param(message.data, 'iTOW', 'week')
             if message.satellites:
-                for stamp, line in message.satellites.items():
-                    update_table_line(self.navigation_parameters, line, *stamp, message.receiving_stamp,
-                                      message.__class__.__name__ + '_stamp')
-            self.navigation_parameters['receiving_stamp'] = self.navigation_parameters.apply(
-                lambda row: custom_min(row['NAV_ORB_stamp'], row['NAV_SAT_stamp'], row['RXM_RAWX_stamp'],
-                                       row['RXM_SVSI_stamp']), axis=1)
+                self.navigation_parameters.update(create_index_table(message.satellites))
+                self.check_nav_time()
             if isinstance(message, UBXMessages.RXM_RAWX):
                 self.calc_navigation_task()
         elif isinstance(message, UBXMessages.NAV_TIMEGPS | UBXMessages.NAV_POSECEF | UBXMessages.NAV_VELECEF):
@@ -308,7 +295,7 @@ class Storage:
             self.other_data[message.__class__.__name__.lower()] = message.data
         elif isinstance(message, UBXMessages.RXM_SFRBX):
             assert isinstance(message.data, dict)
-            try: # TODO: править очень жестко
+            try:  # TODO: править очень жестко
                 if message.data['gnssId'] == GNSS.GPS:
                     if 'name' in message.signal.keys():
                         self.SFRBX_GPS_data.update(message.signal)
@@ -343,26 +330,30 @@ class Storage:
                 with open('sfrbx_gps_data.txt', 'w') as file:
                     file.write(str(self.SFRBX_GPS_data))
 
-
     def calc_navigation_task(self):
-
-        nav_cols = ['svId', 'gnssId', 'pr_stamp', 'pseuRangeRMSErr', 'prMes', 'prRes', 'nav_score', 'alm_score',
-                    'eph_score']
-        coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'real_rho', 'Dt']
-        nav_data = pd.DataFrame(self.navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
-        eph_coord_data = pd.DataFrame(
-            self.ephemeris_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_gps_eph),
-                                            axis=1).to_list(),
-            columns=coord_cols)
-        alm_coord_data = pd.DataFrame(
-            self.almanac_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_gps_alm), axis=1).to_list(),
-            columns=coord_cols)
-        self.ephemeris_data = pd.merge(eph_coord_data, nav_data, on=['svId', 'gnssId']). \
-            drop(columns=['alm_score']).rename(columns={'eph_score': 'coord_score'})
-        self.almanac_data = pd.merge(alm_coord_data, nav_data, on=['svId', 'gnssId']). \
-            drop(columns=['eph_score']).rename(columns={'alm_score': 'coord_score'})
-        calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.stamp)
-        calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.stamp)
+        try:
+            nav_cols = ['svId', 'gnssId', 'pr_stamp', 'pseuRangeRMSErr', 'prMes', 'prRes', 'nav_score', 'alm_score',
+                        'eph_score']
+            coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'real_rho', 'Dt']
+            nav_data = pd.DataFrame(self.navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
+            eph_coord_data = pd.DataFrame(
+                self.ephemeris_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_gps_eph),
+                                                axis=1).to_list(),
+                columns=coord_cols)
+            alm_coord_data = pd.DataFrame(
+                self.almanac_parameters.apply(lambda row: calc_coords(row, self.stamp, SCC.calc_gps_alm),
+                                              axis=1).to_list(),
+                columns=coord_cols)
+            self.ephemeris_data = pd.merge(eph_coord_data, nav_data, on=['svId', 'gnssId']). \
+                drop(columns=['alm_score']).rename(columns={'eph_score': 'coord_score'})
+            self.almanac_data = pd.merge(alm_coord_data, nav_data, on=['svId', 'gnssId']). \
+                drop(columns=['eph_score']).rename(columns={'alm_score': 'coord_score'})
+            calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.stamp)
+            calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.stamp)
+        except Exception as e:
+            print(e)
+            print(tr := traceback.format_exc())
+            a = 0
 
     def ADD_1_TABLES(self):
         self.navigation_parameters1 = self.navigation_parameters[['svId', 'gnssId', 'receiving_stamp', 'health', 'cno',
@@ -433,7 +424,7 @@ def calc_alm_score(nav_row):
 
 def calc_coords(param_row, stamp: TimeStamp, coord_func):
     # if param_row[['Wdot', 'e', 'sqrtA', 'M0', 'W0', 'w']].isna().any():
-    if param_row.isna().any():
+    if param_row.isna().any() or not param_row.exist:
         xyz = None
     else:
         xyz = coord_func(param_row, stamp.TOW, stamp.week)
