@@ -13,3 +13,17 @@ class GNSS(Enum):
     @classmethod
     def _missing_(cls, value):
         return cls.default
+
+
+GNSSLen = {
+    GNSS.GPS: 32,
+    GNSS.GLONASS: 24
+}
+
+
+def get_GNSS_len(gnss: GNSS):
+    if gnss in GNSSLen.keys():
+        return GNSSLen[gnss]
+    return 0
+
+

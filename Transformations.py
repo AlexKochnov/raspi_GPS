@@ -13,6 +13,7 @@ def eci2lla(time, x, y, z):
     return lla
 
 def ecef2lla(x, y, z):
+    #TODO: add glo and alm versions (wgs-84 and ПЗ-90)
     lla = pm.ecef2geodetic(x, y, z)
     return lla
 

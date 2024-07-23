@@ -12,12 +12,13 @@ week_seconds = 7 * 24 * 3600
 leapS = 18
 STEP = 1
 
-GPSAltitude = 20200
-
+ApproximateGPSAltitude = 20200
 ApproximateEarthRadius = 6400
 
 OmegaEarthDot = 7.2921151467 * 1e-5
-mu = 3.9860044 * 1e14
+mu = 3.986004418 * 1e14
+ae_glonass = 6378136
+J20_glonass = 1082.62575e-6
 
 c = 299792458
 

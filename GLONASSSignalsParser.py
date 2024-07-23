@@ -78,7 +78,7 @@ def parse_line(data, StringN, fN) -> (int, dict):  # номер спутника
             # эфемериды, строки 1-4
             if StringN == 1:
                 return 0, {
-                    'tk': parse(65, 70) * 3600 + parse(70, 76) * 60 + parse(76, 76) * 30, # sec
+                    'tk': parse(65, 69) * 3600 + parse(70, 75) * 60 + parse(76, 76) * 30, # sec
                     'x': parse(9, 35, True) * 2 ** (-11),       # km
                     'dx': parse(41, 64, True) * 2 ** (-20),     # km/s
                     'ddx': parse(36, 40, True) * 2 ** (-30),    # km/s^2
@@ -86,7 +86,7 @@ def parse_line(data, StringN, fN) -> (int, dict):  # номер спутника
                 }
             if StringN == 2:
                 return 0, {
-                    'tb': parse(70, 76) * 60, # sec
+                    'tb': parse(70, 76) * 15 * 60,  # sec
                     'y': parse(9, 35, True) * 2 ** (-11),       # km
                     'dy': parse(41, 64, True) * 2 ** (-20),     # km/s
                     'ddy': parse(36, 40, True) * 2 ** (-30),    # km/s^2

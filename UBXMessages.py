@@ -4,7 +4,7 @@ from abc import ABCMeta
 
 import GPSSingalsParser, GLONASSSignalsParser
 from TimeStamp import BASE_TIME_STAMP, TimeStamp
-from UtilsMessages import GNSS
+from GNSS import GNSS
 
 
 # BASE_TIME_STAMP = lambda : -1

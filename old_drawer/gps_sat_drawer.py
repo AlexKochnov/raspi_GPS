@@ -45,7 +45,7 @@ def calc_ubx_ecef(row):
 
 def calc_dist(row):
     r = Constants.ApproximateEarthRadius
-    h = Constants.GPSAltitude
+    h = Constants.ApproximateGPSAltitude
     if row.elev == -91:
         return np.nan
     dist = 0.5 * (
