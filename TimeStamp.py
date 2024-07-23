@@ -113,3 +113,24 @@ class TimeStamp:
 # BASE_TIME_STAMP = get_now_TOW
 
 BASE_TIME_STAMP = TimeStamp
+
+
+def calc_julian_day(N4: int, N: int) -> tuple[int, int, int, int, float]:
+    JD0 = 1461 * (N4 - 1) + N + 2450082.5
+    JDN = JD0 + 0.5
+    a = JDN + 32044
+    b = (4 * a + 3) // 146097
+    c = a - (146097 * b) // 4
+    d = (4 * c + 3) // 1461
+    e = c - (1461 * d) // 4
+    m = (5 * e + 2) // 153
+
+    day: int = e - (153 * m + 2) // 5 + 1
+    month: int = m + 3 - 12 * (m // 10)
+    year: int = 100 * b + d - 4800 + (m // 10)
+    day_of_week: int = JDN % 7 + 1
+
+    ERA = 2 * math.pi * (0.7790572732640 + 1.00273781191135448 * (JD0 - 2451545.0))
+    dT = (JD0 - 2451545.0) / 36525
+    GMST = ERA + 0.0000000703270726 + 0.0223603658710194 * dT + 0.0000067465784654 * dT ** 2 - 0.0000000000021332 * dT ** 3 - 0.0000000001452308 * dT ** 4 - 0.0000000000001784 * dT ** 5
+    return day, month, year, day_of_week, GMST

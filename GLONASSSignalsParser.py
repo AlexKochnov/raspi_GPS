@@ -71,7 +71,7 @@ def parse_line(data, StringN, fN) -> (int, dict):  # номер спутника
                 'tau_c': parse(38, 69, True) * 2 ** (-31),  # может быть другая длинна
                 'tau_GPS': parse(10, 31, True) * 2 ** (-30),
                 'N4': parse(32, 36),
-                'N': parse(70, 80),
+                'NA': parse(70, 80),
                 #'ln': parse(9, 9)  # TODO: понять, от какого спутника это
             }
         else:

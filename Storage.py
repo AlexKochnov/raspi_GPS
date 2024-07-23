@@ -323,7 +323,7 @@ class Storage:
                                                        'omega_n', 'ln'])
         self.SFRBX_GLONASS_eph = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
                                               columns=['svId', 'gnssId', 'B1', 'B2', 'KP', 'tau_c', 'tau_GPS', 'N4',
-                                                       'N', 'tk', 'x', 'dx', 'ddx', 'P1', 'tb', 'y', 'dy', 'ddy', 'Bn',
+                                                       'NA', 'tk', 'x', 'dx', 'ddx', 'P1', 'tb', 'y', 'dy', 'ddy', 'Bn',
                                                        'P2', 'gamma', 'z', 'dz', 'ddz', 'P', 'P3', 'ln', 'M', 'tau',
                                                        'N_T', 'n', 'F_T', 'E', 'P4', 'dTau'])
         self.SFRBX_GLONASS_data = dict()
