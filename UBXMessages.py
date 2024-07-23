@@ -222,6 +222,7 @@ class RXM_SVSI(UbxMessage):
             svId, sv_flag, azim, elev, age_flag = struct.unpack('<Bshbs', msg[+ i * 6: 6 * (i + 1)])
             sv_flag = flag_to_int(sv_flag)
             age_flag = flag_to_int(age_flag)
+            #TODO: svId -> svId + gnssId - прописать соответствие
             self.satellites.append({
                 'azim': azim,
                 'elev': elev,
@@ -295,7 +296,12 @@ class RXM_SFRBX(UbxMessage):
         }
         if gnssID == 0:
             self.signal = GPSSingalsParser.parse(GPSSingalsParser.gps_join_sf(msg))
-            self.data['id'] = 0 if not 'SV_ID' in self.signal.keys() else self.signal['SV_ID']
+            if 'name' in self.signal.keys():
+                self.data['id'] = -1 # общие данные группировки
+            elif 'SV_ID' in self.signal.keys():
+                self.data['id'] = self.signal['SV_ID'] # данные конкретного спутника
+            else:
+                self.data['id'] = 0 # данные спутника, с которого получен сигнал
         if gnssID == 6:
             id, update_data = GLONASSSignalsParser.parse(msg)
             self.signal = update_data

@@ -1,3 +1,5 @@
+import os
+import pickle
 import traceback
 import numpy as np
 import pandas as pd
@@ -15,7 +17,6 @@ from NavTaskUtils import make_ae_nav_data
 from TimeStamp import TimeStamp
 from GNSS import GNSS, get_GNSS_len
 from StorageColumnsLord import StorageColumnsLord as SCL
-
 
 # TODO: подлатать
 pd.set_option('future.no_silent_downcasting', True)
@@ -54,35 +55,11 @@ def update_table_line(table, data, svId, gnssId, receiving_stamp, TOW_type='rece
             table.at[ind, key] = type(table.at[ind, key])(value)  # value
 
 
-def apply_func_get(table, func):
-    result = {}
-    for ind, row in table.iterrows():
-        result[(row.svId, row.gnssId)] = func(row)
-    return result
-
-
-def update_table(table, datas):
-    # t = datetime.now(tz=Constants.tz_utc)
-    for stamp, data in datas.items():
-        for key, value in data.items():
-            table.loc[table.index[(table.svId == stamp[0]) & (table.gnssId == stamp[1])], key] = value
-    # t2 = datetime.now(tz=Constants.tz_utc)
-    # print(f'\t\tupdate: {t2 - t}')
-
-
-def apply_func_set(table, func):
-    update_table(table, apply_func_get(table, func))
-
-
 def custom_min(*args):
     arr = [x for x in args if x is not None and pd.notna(x)]
     if arr:
         return min(arr)
     return np.nan
-
-
-def get_row(table, svId, gnssId):
-    return table[(table.svId == svId) & (table.gnssId == gnssId)]
 
 
 def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp):
@@ -120,7 +97,7 @@ def index_func(row):
     return row.svId + GNSS(row.gnssId).value * 100
 
 
-def create_table(columns, init_sats_lines):
+def create_table(columns: dict, init_sats_lines: pd.DataFrame = pd.DataFrame()):
     types = np.dtype(list(columns.items()))
     table = pd.DataFrame(np.empty(len(init_sats_lines), dtype=types))
     if not init_sats_lines.empty:
@@ -140,10 +117,14 @@ def make_init_df(*gnss_s: GNSS):
         init_df = pd.DataFrame(lines).astype(SCL.stamp_columns)
         init_df.set_index(get_df_indexes(init_df), inplace=True)
         return init_df
+
     lines = []
     for gnss in gnss_s:
-        lines += [{'svId': j+1, 'gnssId': gnss} for j in range(get_GNSS_len(gnss))]
+        lines += [{'svId': j + 1, 'gnssId': gnss} for j in range(get_GNSS_len(gnss))]
     return init_lines_to_df(lines)
+
+
+SFRBX_DATA_PATH = 'sfrbx_data.plk'
 
 
 class Storage:
@@ -158,51 +139,29 @@ class Storage:
     leapS = 18
 
     def __init__(self):
-
         self.counter = 0
-        # TODO: задать индекс как (svId + 100 * gnssId.value) и использовать df1.update(df2)
 
         init0 = make_init_df(GNSS.GPS)
         init06 = make_init_df(GNSS.GPS, GNSS.GLONASS)
 
         self.ephemeris_parameters = create_table(SCL.full_eph_columns, init0)
         self.almanac_parameters = create_table(SCL.full_alm_columns, init0)
-        self.navigation_parameters = create_table(SCL.full_nav_columns, init06)# init_sats_df)
+        self.navigation_parameters = create_table(SCL.full_nav_columns, init06)  # GP + GL
         self.ephemeris_data = create_table(SCL.data_columns, init0)
         self.almanac_data = create_table(SCL.data_columns, init0)
-        self.ephemeris_solves = create_table(SCL.full_solves_columns, pd.DataFrame())
-        self.almanac_solves = create_table(SCL.full_solves_columns, pd.DataFrame())
+        self.ephemeris_solves = create_table(SCL.full_solves_columns)
+        self.almanac_solves = create_table(SCL.full_solves_columns)
 
-        # # TODO: integrate and delete
-        # self.SFRBX_GPS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
-        #                                   columns=['svId', 'gnssId', 'Data_ID', 'SV_ID', 'e', 'Toa', 'delta_i', 'Wdot',
-        #                                            'health', 'sqrtA', 'W0', 'w', 'M0', 'af1', 'af0'])
-        # self.SFRBX_GPS_eph = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
-        #                                   columns=['svId', 'gnssId', 'week', 'accuracy', 'health', 'IODC', 'Tgd', 'Toc',
-        #                                            'af2', 'af1', 'af0', 'IODE1', 'Crs', 'dn', 'M0', 'Cuc', 'e', 'Cus',
-        #                                            'sqrtA', 'Toe', 'Cic', 'W0', 'Cis', 'i0', 'Crc', 'w', 'Wdot',
-        #                                            'IODE2', 'IDOT'])
-        # self.SFRBX_GPS_data = dict()
-        # self.SFRBX_GLONASS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
-        #                                       columns=['svId', 'gnssId', 'n', 'lambda_n', 'delta_i_n', 'eps_n', 'M_n',
-        #                                                'tau_n', 'Cn', 'Hn', 't_lambda_n', 'delta_T_n', 'delta_T_dot_n',
-        #                                                'omega_n', 'ln'])
-        # self.SFRBX_GLONASS_eph = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
-        #                                       columns=['svId', 'gnssId', 'B1', 'B2', 'KP', 'tau_c', 'tau_GPS', 'N4',
-        #                                                'N', 'tk', 'x', 'dx', 'ddx', 'P1', 'tb', 'y', 'dy', 'ddy', 'Bn',
-        #                                                'P2', 'gamma', 'z', 'dz', 'ddz', 'P', 'P3', 'ln', 'M', 'tau',
-        #                                                'N_T', 'n', 'F_T', 'E', 'P4', 'dTau'])
-        # self.SFRBX_GLONASS_data = dict()
-
-        self.SFRBX_GPS_alm = pd.read_csv('sfrbx_gps_alm.csv', index_col=0)
-        self.SFRBX_GPS_eph = pd.read_csv('sfrbx_gps_eph.csv', index_col=0)
-        self.SFRBX_GLONASS_alm = pd.read_csv('sfrbx_glonass_alm.csv', index_col=0)
-        self.SFRBX_GLONASS_eph = pd.read_csv('sfrbx_glonass_eph.csv', index_col=0)
-        with open('sfrbx_gps_data.txt', 'r') as file:
-            self.SFRBX_GPS_data = eval(file.read())
-
-    def get_TOW(self):
-        return self.TOW
+        # TODO: integrate and delete
+        if os.path.exists(SFRBX_DATA_PATH):
+            with open(SFRBX_DATA_PATH, 'rb') as file:
+                self.SFRBX_GPS_eph = pickle.load(file)
+                self.SFRBX_GPS_alm = pickle.load(file)
+                self.SFRBX_GLONASS_eph = pickle.load(file)
+                self.SFRBX_GLONASS_alm = pickle.load(file)
+                self.SFRBX_GPS_data = pickle.load(file)
+        else:
+            self.make_SFRBX_data()
 
     ### Обновление данных при приходе нового сообщения ###
 
@@ -242,7 +201,7 @@ class Storage:
             else:
                 table.update(create_index_table([{'is_old': True} | data]))
         elif isinstance(message, UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX |
-                        UBXMessages.RXM_SVSI | UBXMessages.RXM_MEASX):
+                                 UBXMessages.RXM_SVSI | UBXMessages.RXM_MEASX):
             self.update_param(message.data, 'iTOW', 'week')
             if message.satellites:
                 self.navigation_parameters.update(create_index_table(message.satellites))
@@ -261,8 +220,9 @@ class Storage:
                 if message.data['gnssId'] == GNSS.GPS:
                     if 'name' in message.signal.keys():
                         self.SFRBX_GPS_data.update(message.signal)
-                        # TODO: add configs and health and ion
+                        # TODO: add configs and health and ion processing
                     elif message.data['id'] == 0:
+                        #TODO: update_line() -> df.update()
                         update_table_line(self.SFRBX_GPS_eph, message.signal,
                                           message.data['svId'], GNSS.GPS, None)
                     else:
@@ -279,18 +239,13 @@ class Storage:
                 print(e)
                 print(traceback.format_exc())
                 a = 0
-        match self.counter % 100:
-            case 1:
-                self.SFRBX_GPS_eph.to_csv('sfrbx_gps_eph.csv')
-            case 2:
-                self.SFRBX_GPS_alm.to_csv('sfrbx_gps_alm.csv')
-            case 3:
-                self.SFRBX_GLONASS_eph.to_csv('sfrbx_glonass_eph.csv')
-            case 4:
-                self.SFRBX_GLONASS_alm.to_csv('sfrbx_glonass_alm.csv')
-            case 5:
-                with open('sfrbx_gps_data.txt', 'w') as file:
-                    file.write(str(self.SFRBX_GPS_data))
+        if self.counter % 100 == 50:
+            with open(SFRBX_DATA_PATH, 'wb') as file:
+                pickle.dump(self.SFRBX_GPS_eph, file)
+                pickle.dump(self.SFRBX_GPS_alm, file)
+                pickle.dump(self.SFRBX_GLONASS_eph, file)
+                pickle.dump(self.SFRBX_GLONASS_alm, file)
+                pickle.dump(self.SFRBX_GPS_data, file)
 
     def calc_navigation_task(self):
         try:
@@ -352,6 +307,23 @@ class Storage:
                 lambda col: col.map(lambda x: f"{x:.4e}"))  # .applymap(lambda x: f"{x:.4e}")
         self.almanac_solves1[cols] = self.almanac_solves1[cols].round(1)
 
-
-
-
+    def make_SFRBX_data(self):
+        self.SFRBX_GPS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
+                                          columns=['svId', 'gnssId', 'Data_ID', 'SV_ID', 'e', 'Toa', 'delta_i', 'Wdot',
+                                                   'health', 'sqrtA', 'W0', 'w', 'M0', 'af1', 'af0'])
+        self.SFRBX_GPS_eph = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
+                                          columns=['svId', 'gnssId', 'week', 'accuracy', 'health', 'IODC', 'Tgd', 'Toc',
+                                                   'af2', 'af1', 'af0', 'IODE1', 'Crs', 'dn', 'M0', 'Cuc', 'e', 'Cus',
+                                                   'sqrtA', 'Toe', 'Cic', 'W0', 'Cis', 'i0', 'Crc', 'w', 'Wdot',
+                                                   'IODE2', 'IDOT'])
+        self.SFRBX_GPS_data = dict()
+        self.SFRBX_GLONASS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
+                                              columns=['svId', 'gnssId', 'n', 'lambda_n', 'delta_i_n', 'eps_n', 'M_n',
+                                                       'tau_n', 'Cn', 'Hn', 't_lambda_n', 'delta_T_n', 'delta_T_dot_n',
+                                                       'omega_n', 'ln'])
+        self.SFRBX_GLONASS_eph = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
+                                              columns=['svId', 'gnssId', 'B1', 'B2', 'KP', 'tau_c', 'tau_GPS', 'N4',
+                                                       'N', 'tk', 'x', 'dx', 'ddx', 'P1', 'tb', 'y', 'dy', 'ddy', 'Bn',
+                                                       'P2', 'gamma', 'z', 'dz', 'ddz', 'P', 'P3', 'ln', 'M', 'tau',
+                                                       'N_T', 'n', 'F_T', 'E', 'P4', 'dTau'])
+        self.SFRBX_GLONASS_data = dict()

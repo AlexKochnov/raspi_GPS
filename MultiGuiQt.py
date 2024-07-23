@@ -45,8 +45,8 @@ class App(QMainWindow):
         self.max_message_len = 600
         self.max_solves = 200
 
-        self.storage = None
-        self.reader = None
+        self.storage: Storage = None
+        self.reader: Reader = None
 
         self.current_table: pd.DataFrame = None
         self.current_table_name = ""
@@ -170,7 +170,6 @@ class App(QMainWindow):
         scrolled_to_bottom = self.is_scrolled_to_bottom(self.chat_display)
         # message_line = str(parsed)
         # self.chat_display.append(message_line[:min(self.max_message_len, len(message_line))])
-        #TODO вернуть
         self.messages.append(parsed)
         self.format_message(parsed)
 
