@@ -1,6 +1,7 @@
 import sys
 import traceback
 
+import numpy as np
 from PyQt5.QtGui import QFont, QTextCharFormat, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, \
     QLineEdit, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView
@@ -8,6 +9,7 @@ from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 import pandas as pd
 
 import UBXMessages
+from GNSS import GNSS
 # мои собственные готовые модули, которые имортируются и не зменяются
 from Storage import Storage
 from Reader import Reader
@@ -22,10 +24,133 @@ logging.basicConfig(filename='error.log',
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 grey_power = 240
+white = QColor(255, 255, 255)
 light_grey = QColor(grey_power, grey_power, grey_power)
 red = QColor(255, grey_power, grey_power)
 green = QColor(grey_power, 255, grey_power)
 yellow = QColor(255, 255, grey_power)
+turquoise = QColor(grey_power, 255, 255)
+purple = QColor(255, grey_power, 255)
+
+def process_columns(columns, title):
+    def check_column(column):
+        if title == "Навигационные данные":
+            match column:
+                case 'receiving_stamp': return column + ', s'
+                case 'cno': return column + ', dBHz'
+                case 'azim' | 'elev': return column + ', °'
+                case 'prMes' | 'prRes' | 'prRMSer': return column + ', m'
+                case _: return column
+        elif title == "Параметры эфемерид" or title == "Параметры альманах":
+            match column:
+                case 'Toe' | 'Toc' | 'Toa' | 'Tgd': return column + ', s'
+                case 'af0': return column + ', s'
+                case 'af1': return column + ', s/s'
+                case 'af2': return column + ', s/s^2'
+                case 'sqrtA': return column + ', m^0.5'
+                case 'Crs' | 'Crc': return column + ', m'
+                case 'M0' | 'W0' | 'i0' | 'w' | 'delta_i' | 'Cuc' | 'Cus' | 'Cic' | 'Cis': return column + ', rad'
+                case 'dn' | 'Wdot' | 'IDOT': return column + ', rad/s'
+                case _: return column
+        return column
+    try:
+        cols = [check_column(col) for col in columns]
+        return cols
+    except Exception as e:
+        print(e)
+        a=0
+    return columns
+
+def get_color(val, N1, N2, reverse=False):
+    if val <= N1:
+        return red if reverse else green
+    if val <= N2:
+        return yellow
+    return green if reverse else red
+
+
+def get_QTableWidgetItem(data, column, table_title, base_color):
+    try:
+        if np.isnan(data) or data == 'nan':
+            item = QTableWidgetItem(str('—'))
+            item.setBackground(base_color)
+            return item
+    except Exception as e:
+        pass
+    color = base_color
+    if column in ['svId', 'gnssId', 'receiving_stamp']:
+        match column:
+            case 'svId':
+                data = int(data)
+            case 'gnssId':
+                data = data.name
+            case 'receiving_stamp':
+                data = data.TOW
+    elif table_title == "Навигационные данные":
+        match column:
+            case 'cno':
+                data = int(data)
+                color = get_color(data, 30, 40, reverse=True)
+            case 'ephUsability' | 'almUsability':
+                data = int(data)
+                color = red if data == 0 else (turquoise if data == 31 else green)
+            case 'ephSource' | 'almSource':
+                data, color = ('GNSS', green) if data == 1 else (('-', base_color) if data == 0 else ('other', red))
+            case 'prMes':
+                data = f'{data:.2f}'
+            case 'prRes':
+                data = f'{data:.1f}'
+                color = get_color(abs(float(data)), 10, 40)
+            case 'prRMSer':
+                color = purple if int(data) == 120 else get_color(abs(data), 5, 30)
+                data = f'{data:.1f}'
+            case 'qualityInd':
+                data = int(data)
+                color = get_color(data, 3, 4, reverse=True)
+            case 'mpathIndic':
+                data = int(data)
+                color = get_color(data, 1, 2) if data else turquoise
+            case 'orbitSourse':
+                match int(data):
+                    case 0: data, color = '-', turquoise
+                    case 1: data, color = 'E', green
+                    case 2: data, color = 'A', green
+                    case _: data = '?'
+            case 'health':
+                data, color = [('?', turquoise), ('+', green), ('-', red)][int(data)]
+            case 'ephAvail' | 'almAvail':
+                data, color = ('+', green) if data else ('-', red)
+            case 'visibility':
+                match int(data):
+                    case 0: data, color = '?', turquoise
+                    case 1: data, color = '-', red
+                    case 2 | 3: data, color = '+', green
+            case 'prValid' | 'svUsed' | 'diffCorr' | 'smoothed':
+                data, color = ('+', green) if data else ('-', red)
+    elif table_title == "Параметры эфемерид" or table_title == "Параметры альманах":
+        match column:
+            case 'week' | 'Toe' | 'Toc' | 'Toa' | 'IODE1' | 'IODE2' | 'IODC' | 'Data_ID':
+                data = int(data)
+            case 'exist' | 'is_old':
+                data, color = ('+', green) if data else ('-', red)
+            case 'health':
+                data = int(data)
+                color = green if data == 0 else red
+            case 'accuracy':
+                data = int(data)
+                color = green if data == 0 else yellow
+            case _:
+                if 1e4 > data > 1:
+                    data = f'{data:.3f}'
+                elif data > 1e-4:
+                    data = f'{data:.5f}'
+                else:
+                    data = f'{data:.5e}'
+
+    item = QTableWidgetItem(str(data))
+    item.setBackground(color)
+    return item
+
 
 
 class DataReaderThread(QThread):
@@ -89,7 +214,7 @@ class App(QMainWindow):
             "Данные эфемерид": self.show_ephemeris_data,
             "Результаты по эфемеридам": self.show_ephemeris_solves,
             "Данные альманах": self.show_almanac_data,
-            "Результаты по альманах": self.show_almanac_solves
+            "Результаты по альманах": self.show_almanac_solves,
         }
 
         for text, command in self.buttons.items():
@@ -135,7 +260,8 @@ class App(QMainWindow):
             self.connect_button.setEnabled(False)
             self.port_entry.setEnabled(False)
         except Exception as e:
-            QMessageBox.warning(self, "Ошибка подключения", f"Не удалось подключиться к {port}: {e}" + traceback.format_exc())
+            QMessageBox.warning(self, "Ошибка подключения",
+                                f"Не удалось подключиться к {port}: {e}" + traceback.format_exc())
             logging.error(f"Failed to connect to port {port}: {e}", exc_info=True)
 
     def format_message(self, message):
@@ -154,7 +280,7 @@ class App(QMainWindow):
         self.chat_display.setCurrentCharFormat(QTextCharFormat())  # Сброс форматирования
         self.chat_display.insertPlainText(plb + '\n')
         if message == None:
-            a=0
+            a = 0
 
     def on_button_click(self, command, button):
         for btn in self.menu_layout.findChildren(QPushButton):
@@ -162,16 +288,14 @@ class App(QMainWindow):
         button.setEnabled(False)
         command()
 
-
     @pyqtSlot(object)
     def process_data(self, parsed):
         if len(self.messages) > self.max_messages:
-            self.messages = [] #self.messages[-self.max_messages:]  # Сохраняем последние max_messages сообщений
+            self.messages = []  # self.messages[-self.max_messages:]  # Сохраняем последние max_messages сообщений
             self.chat_display.clear()  # Очистка чата
             # for msg in self.messages:
             # # #     self.chat_display.append(msg)
-                # self.format_message(msg)
-
+            # self.format_message(msg)
 
         scrolled_to_bottom = self.is_scrolled_to_bottom(self.chat_display)
         # message_line = str(parsed)
@@ -195,40 +319,43 @@ class App(QMainWindow):
         self.current_table_name = ""
 
     def show_table(self, table, title):
-        self.chat_display.hide()
-        self.table_display.show()
-        self.table_title.setText(title)
-        self.table_title.show()
-        self.update_table_display(table)
-        if title in ["Результаты по эфемеридам", "Результаты по альманах"]:
-            self.table_display.scrollToBottom()
+        try:
+            self.chat_display.hide()
+            self.table_display.show()
+            self.table_title.setText(title)
+            self.table_title.show()
+            self.current_table = table
+            self.current_table_name = title
+            self.update_table_display(table)
+            if title in ["Результаты по эфемеридам", "Результаты по альманах"]:
+                self.table_display.scrollToBottom()
 
-        self.current_table = table
-        self.current_table_name = title
-        a=0
+
+        except Exception as e:
+            print(e)
+            a = 0
 
     def update_table_display(self, table):
         if table is not None:
             scrolled_to_bottom = self.is_scrolled_to_bottom(self.table_display)
 
             self.table_display.setColumnCount(len(table.columns))
-            self.table_display.setRowCount(len(table.index) + 1)  # +1 for the bottom header row
-            self.table_display.setHorizontalHeaderLabels(table.columns)
+            self.table_display.setRowCount(len(table.index))# + 1)  # +1 for the bottom header row
+            columns = process_columns(table.columns, self.current_table_name)
+            self.table_display.setHorizontalHeaderLabels(columns)
 
             for i in range(len(table.index)):
                 for j in range(len(table.columns)):
-                    item = QTableWidgetItem(str(table.iat[i, j]))
-                    if i % 2 == 0:
-                        item.setBackground(light_grey)
+                    item = get_QTableWidgetItem(table.iat[i, j], table.columns[j], self.current_table_name,
+                                                light_grey if i % 2 == 0 else white)
                     self.table_display.setItem(i, j, item)
 
-
             # Add bottom header row
-            bottom_row = self.table_display.rowCount() - 1
-            for j, column_name in enumerate(table.columns):
-                self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
-                self.table_display.item(bottom_row, j).setBackground(light_grey)
-                self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
+            # bottom_row = self.table_display.rowCount() - 1
+            # for j, column_name in enumerate(table.columns):
+            #     self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
+            #     self.table_display.item(bottom_row, j).setBackground(light_grey)
+            #     self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
 
             # Set tooltips for horizontal header items
             # header = self.table_display.horizontalHeader()
@@ -287,29 +414,29 @@ class App(QMainWindow):
     def add_new_rows(self, table):
         scrolled_to_bottom = self.is_scrolled_to_bottom(self.table_display)
 
-        current_row_count = self.table_display.rowCount() - 1  # -1 for the bottom header row
+        current_row_count = self.table_display.rowCount()# - 1  # -1 for the bottom header row
         new_row_count = len(table.index)
 
         for i in range(current_row_count, new_row_count):
             self.table_display.insertRow(i)
             for j in range(len(table.columns)):
-                item = QTableWidgetItem(str(table.iat[i, j]))
-                if i % 2 == 0:
-                    item.setBackground(light_grey)
+                item = get_QTableWidgetItem(table.iat[i, j], table.columns[j], self.current_table_name,
+                                            light_grey if i % 2 == 0 else white)
                 self.table_display.setItem(i, j, item)
 
         # Update bottom header row
-        bottom_row = self.table_display.rowCount() - 1
-        for j, column_name in enumerate(table.columns):
-            self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
-            self.table_display.item(bottom_row, j).setBackground(light_grey)
-            self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
-
+        # bottom_row = self.table_display.rowCount() - 1
+        # for j, column_name in enumerate(table.columns):
+        #     self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
+        #     self.table_display.item(bottom_row, j).setBackground(light_grey)
+        #     self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
 
         self.table_display.resizeColumnsToContents()
         # header = self.table_display.horizontalHeader()
         # header.setSectionResizeMode(QHeaderView.Stretch)
         # header.setSectionResizeMode(QHeaderView.Interactive)
+        for row in range(self.table_display.rowCount()):
+            self.table_display.setRowHeight(row, 26)
 
         if scrolled_to_bottom:
             self.table_display.scrollToBottom()
@@ -319,24 +446,25 @@ class App(QMainWindow):
         scrolled_to_bottom = self.is_scrolled_to_bottom(self.table_display)
         self.table_display.clearContents()
 
-        self.table_display.setRowCount(len(table.index) + 1)  # +1 for the bottom header row
+        self.table_display.setRowCount(len(table.index))# + 1)  # +1 for the bottom header row
         self.table_display.setColumnCount(len(table.columns))
-        self.table_display.setHorizontalHeaderLabels(table.columns)
+        self.table_display.setHorizontalHeaderLabels(process_columns(table.columns, self.current_table_name))
 
         for i in range(len(table.index)):
             for j in range(len(table.columns)):
-                #TODO: функция форматирования ячейки
-                item = QTableWidgetItem(str(table.iat[i, j]))
-                if i % 2 == 0:
-                    item.setBackground(light_grey)
+                item = get_QTableWidgetItem(table.iat[i, j], table.columns[j], self.current_table_name,
+                                            light_grey if i % 2 == 0 else white)
                 self.table_display.setItem(i, j, item)
 
         # Add bottom header row
-        bottom_row = self.table_display.rowCount() - 1
-        for j, column_name in enumerate(table.columns):
-            self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
-            self.table_display.item(bottom_row, j).setBackground(light_grey)
-            self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
+        # bottom_row = self.table_display.rowCount() - 1
+        # for j, column_name in enumerate(table.columns):
+        #     self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
+        #     self.table_display.item(bottom_row, j).setBackground(light_grey)
+        #     self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
+
+        for row in range(self.table_display.rowCount()):
+            self.table_display.setRowHeight(row, 26)
 
         if scrolled_to_bottom:
             self.table_display.scrollToBottom()
@@ -366,12 +494,3 @@ if __name__ == "__main__":
         print(e)
         print(traceback.format_exc())
         logging.error("Unhandled exception occurred", exc_info=True)
-
-
-
-
-
-
-
-
-

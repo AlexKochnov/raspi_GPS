@@ -158,7 +158,7 @@ class NAV_SAT(UbxMessage):
                 'health': get_bytes_from_flag(flags, 4, 5),
                 'diffCorr': get_bytes_from_flag(flags, 6),
                 'smoothed': get_bytes_from_flag(flags, 7),
-                'orbitSource': get_bytes_from_flag(flags, 8, 9, 10),
+                'orbitSourse': get_bytes_from_flag(flags, 8, 9, 10),
                 'ephAvail': get_bytes_from_flag(flags, 11),
                 'almAvail': get_bytes_from_flag(flags, 12),
                 'anoAvail': get_bytes_from_flag(flags, 13),

@@ -73,22 +73,22 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
     SOLVE = {'week': stamp.week, 'TOW': stamp.TOW, 'sat_count': len(data)}
     if len(data) >= Settings.MinimumMinimizingSatellitesCount:
-        for name, func in [#('LM', Minimizing.solve_navigation_task_LevMar),
-                           # ('SQP', Minimizing.solve_navigation_task_SLSQP),
-                           # ('TC', Minimizing.solve_navigation_task_TC),
-                           # ('DB', Minimizing.solve_navigation_task_DogBox),
-                           # ('TRF', Minimizing.solve_navigation_task_TRF),
-                           # ('CF', Minimizing.solve_navigation_task_CF),
-                           # ('CF', Minimizing.solve_navigation_task_CF),
-                           # ('COBYLA', Minimizing.solve_navigation_task_COBYLA),
-                           # ('TC', Minimizing.solve_navigation_task_TC)
-                           ]:
+        for name, func in [  # ('LM', Minimizing.solve_navigation_task_LevMar),
+            # ('SQP', Minimizing.solve_navigation_task_SLSQP),
+            # ('TC', Minimizing.solve_navigation_task_TC),
+            # ('DB', Minimizing.solve_navigation_task_DogBox),
+            # ('TRF', Minimizing.solve_navigation_task_TRF),
+            # ('CF', Minimizing.solve_navigation_task_CF),
+            # ('CF', Minimizing.solve_navigation_task_CF),
+            # ('COBYLA', Minimizing.solve_navigation_task_COBYLA),
+            # ('TC', Minimizing.solve_navigation_task_TC)
+        ]:
             try:
                 t = datetime.now(tz=Constants.tz_utc)
                 res = func(data)
                 solve = {
                     'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
-                    'fval': sum(res.fun**2) if name in ['LM', 'TRF', 'DB'] else res.fun,
+                    'fval': sum(res.fun ** 2) if name in ['LM', 'TRF', 'DB'] else res.fun,
                     'success': res.success,
                     'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
                     'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
@@ -97,8 +97,8 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
                 SOLVE |= solve
             except Exception as e:
                 print(e)
-                print(tr:=traceback.format_exc())
-                a=0
+                print(tr := traceback.format_exc())
+                a = 0
     solve_table.loc[len(solve_table)] = SOLVE
 
 
@@ -111,8 +111,11 @@ def index_func(row):
 
 
 def create_table(columns: dict, init_sats_lines: pd.DataFrame = pd.DataFrame()):
-    types = np.dtype(list(columns.items()))
-    table = pd.DataFrame(np.empty(len(init_sats_lines), dtype=types))
+    #TODO: вернуть типыcom3
+    # types = np.dtype(list(columns.items()))
+    # table = pd.DataFrame(np.empty(len(init_sats_lines), dtype=types))
+    table = pd.DataFrame(np.nan, index=init_sats_lines.index, columns=list(columns.keys()))
+
     if not init_sats_lines.empty:
         table.set_index(init_sats_lines.index, inplace=True)
         table.update(init_sats_lines)
@@ -285,89 +288,18 @@ class Storage:
 
     def ADD_GUI_TABLES(self):
 
-        def transform_nav_params(row):
-            return {
-                'svId': row.svId,
-                'gnssId': row.gnssId,
-                'receiving_TOW': row.receiving_stamp.TOW,
-                'cno': row.cno,
-                'elev': row.elev,
-                'azim': row.azim,
-                'ephUsability': row.ephUsability,
-                'prMes': row.prMes,
-                'prRes': row.prRes,
-                'prRMSer': row.prRMSer,
-                #flags
-                'qualityInd': row.qualityInd,
-                'mpathIndic': row.mpathIndic,
-                'orbitSource': row.orbitSource,
-                'health': row.health,
-                'ephSource': row.ephSource,
-                'ephAvail': row.ephAvail,
-                'almSource': row.almSource,
-                'almAvail': row.almAvail,
-                'visibility': row.visibility,
-                'prValid': row.prValid,
-                'svUsed': row.svUsed,
-                'diffCorr': row.diffCorr,
-                'smoothed': row.smoothed,
-            }
-                # #values
-                # 'cno': int(row.cno),
-                # 'ephUsability': int(row.ephUsability),
-                # 'prMes': f'{row.prMes}.2f',
-                # #flags
-                # 'health': ('?', '+', '-')[row.health],
-                # 'ephSource': 'GNSS' if row.ephSource == 1 else 'other',
-                # 'almSource': 'GNSS' if row.almSource == 1 else 'other',
-
-
-        self.navigation_parameters1 = self.navigation_parameters[['svId', 'gnssId', 'receiving_stamp', 'health', 'cno',
-                                                                  'ephUsability', 'ephSource', 'almUsability',
-                                                                  'almSource', 'prRes', 'qualityInd', 'svUsed', 'prMes',
-                                                                  'orbitSource', 'ephAvail',
-                                                                  'almAvail', 'mpathIndic', 'pseuRangeRMSErr',
-                                                                  'locktime', 'codePhase', 'wholeChips', 'fracChips']]
-        # self.navigation_parameters1.rename(columns={'pseuRangeRMSErr': 'RMSErrInd'}, inplace=True)
-        self.navigation_parameters1.loc[:, 'codePhase'] = (
-            (self.navigation_parameters['intCodePhase'] + self.navigation_parameters['codePhase']).round(5))
-        self.navigation_parameters1.loc[:, 'prMes'] = self.navigation_parameters1['prMes'].round(4)
-        # self.navigation_parameters1[['prRes']] = self.navigation_parameters1[['prRes']].round(3)
-        self.navigation_parameters1.loc[:, 'prRes'] = self.navigation_parameters1['prRes'].round(3)
-
-        self.ephemeris_parameters1 = self.ephemeris_parameters[['svId', 'gnssId', 'receiving_stamp', 'exist',
-                                                                'is_old', 'week', 'Toe', 'Toc', 'Wdot',
-                                                                'dn', 'i0', 'e', 'sqrtA', 'w', 'Tgd',
-                                                                'health', 'accuracy']]
-        self.almanac_parameters1 = self.almanac_parameters[['svId', 'gnssId', 'receiving_stamp', 'exist', 'is_old',
-                                                            'week', 'Toa', 'e', 'delta_i', 'Wdot', 'sqrtA',
-                                                            'w', 'M0', 'af0', 'af1', 'health', 'Data_ID']]
-
-        self.ephemeris_data1 = self.ephemeris_data.copy()
-        self.ephemeris_data1[['lat', 'lon', 'alt', 'prRes', 'nav_score', 'coord_score']] = \
-            self.ephemeris_data1[['lat', 'lon', 'alt', 'prRes', 'nav_score', 'coord_score']].round(2)
-        self.ephemeris_data1['RMSpr'] = (
-            self.ephemeris_data1.apply(lambda row: calc_pseu_RMS_error(row['pseuRangeRMSErr']), axis=1))
+        self.navigation_parameters1 = self.navigation_parameters[
+            ['svId', 'gnssId', 'receiving_stamp', 'cno', 'elev', 'azim', 'ephUsability', 'prMes', 'prRes', 'prRMSer',
+             'qualityInd', 'mpathIndic', 'orbitSourse', 'health', 'ephSource', 'ephAvail', 'almSource', 'almAvail',
+             'visibility', 'prValid', 'svUsed', 'diffCorr', 'smoothed', ]]
+        self.navigation_parameters1.rename(columns={'receiving_stamp': 'receiving'})
+        self.almanac_parameters1 = self.almanac_parameters.copy()
         self.almanac_data1 = self.almanac_data.copy()
-        self.almanac_data1[['lat', 'lon', 'alt', 'prRes', 'nav_score', 'coord_score']] = \
-            self.almanac_data1[['lat', 'lon', 'alt', 'prRes', 'nav_score', 'coord_score']].round(2)
-        self.almanac_data1['RMSpr'] = (
-            self.almanac_data1.apply(lambda row: calc_pseu_RMS_error(row['pseuRangeRMSErr']), axis=1))
-
-        self.ephemeris_solves1 = self.ephemeris_solves.copy()
-        self.ephemeris_solves1.drop(columns=['LM_cdt', 'SQP_cdt'], inplace=True)
-        self.ephemeris_solves1[['LM_fval', 'SQP_fval']] = \
-            self.ephemeris_solves1[['LM_fval', 'SQP_fval']].apply(
-                lambda col: col.map(lambda x: f"{x:.4e}"))  # .applymap(lambda x: f"{x:.4e}")
-        cols = [f'{type}_{name}' for type in ['LM', 'SQP'] for name in ['X', 'Y', 'Z']]
-        self.ephemeris_solves1[cols] = self.ephemeris_solves1[cols].round(1)
-
         self.almanac_solves1 = self.almanac_solves.copy()
-        self.almanac_solves1.drop(columns=['LM_cdt', 'SQP_cdt'], inplace=True)
-        self.almanac_solves1[['LM_fval', 'SQP_fval']] = \
-            self.almanac_solves1[['LM_fval', 'SQP_fval']].apply(
-                lambda col: col.map(lambda x: f"{x:.4e}"))  # .applymap(lambda x: f"{x:.4e}")
-        self.almanac_solves1[cols] = self.almanac_solves1[cols].round(1)
+        self.ephemeris_parameters1 = self.ephemeris_parameters.copy()
+        self.ephemeris_data1 = self.ephemeris_data.copy()
+        self.ephemeris_solves1 = self.ephemeris_solves.copy()
+
 
     def make_SFRBX_data(self):
         self.SFRBX_GPS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
