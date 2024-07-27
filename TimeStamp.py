@@ -4,9 +4,11 @@ from typing import Union
 
 import Constants
 from Constants import gps_epoch, leapS, week_seconds, tz_utc, STEP
+from GNSS import GNSS
 
 
 class TimeStamp:
+    dt: datetime
     TOW: float
     week: int
 
@@ -19,19 +21,32 @@ class TimeStamp:
 
         :param args: Позиционные аргументы (TOW и неделя).
         :param kwargs: Именованные аргументы (TOW и неделя).
+        :param type: тип передаваемого времени
         """
+        type = kwargs.get('type', GNSS.GPS)
         if not args and not kwargs:
-            self.TOW, self.week = self.DT2TOW(datetime.now(tz=tz_utc), STEP)
+            self.TOW, self.week = self.dt2gps(datetime.now(tz=tz_utc), STEP)
         elif len(args) == 2 and all(isinstance(arg, (int, float)) for arg in args):
-            self.TOW, self.week = float(args[0]), int(args[1])
+            if type == GNSS.GPS:
+                self.TOW, self.week = float(args[0]), int(args[1])
+            elif type == GNSS.GLONASS:
+                pass
         elif len(kwargs) == 2 and all(key in kwargs for key in ['TOW', 'week']):
             self.TOW, self.week = float(kwargs['TOW']), int(kwargs['week'])
 
+    def from_datetime(self, dt: datetime):
+        self.TOW, self.week = self.dt2gps(dt)
+        pass
+    
     def total_stamp(self):
         return self.TOW + self.week * Constants.week_seconds
 
     def to_datetime(self) -> datetime:
         return gps_epoch + timedelta(seconds=self.total_stamp() - Constants.leapS)
+
+    @staticmethod
+    def gps_to_glonass_time(week, tow):
+        pass
 
     def __str__(self):
         return f'<TS: {self.week}.{self.TOW}>'
@@ -40,7 +55,7 @@ class TimeStamp:
         return str(self)
 
     @staticmethod
-    def DT2TOW(timestamp: datetime, step=1):
+    def dt2gps(timestamp: datetime, step=1):
         dt = (timestamp - gps_epoch).total_seconds() + leapS
         TOW = dt % week_seconds
         week = int(dt // week_seconds)

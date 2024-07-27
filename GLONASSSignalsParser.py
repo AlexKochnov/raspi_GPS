@@ -3,7 +3,7 @@ from numpy import pi
 def parse(msg: bytes):
     StringN, superframeN, frameN, line = cut_line(msg)
     id, update_data = parse_line(line, StringN, frameN)
-    return id, update_data
+    return id, StringN, superframeN, update_data
 
 
 def cut_line(line: bytes):
@@ -32,7 +32,7 @@ def parse_line(data, StringN, fN) -> (int, dict):  # номер спутника
 
     if StringN in [14, 15] and fN == 5:
         if StringN == 14:
-            return 0, {
+            return -1, {    # общие данные системы глонасс
                 'B1': parse(70, 80, True) * 2 ** (-10),  # dUT1 на начало суток
                 'B2': parse(60, 69, True) * 2 ** (-16),  # скорость изменения dUT1 сек / средние солнечные сутки (???)
                 'KP': parse(58, 59),  # Признак коррекции времени
@@ -66,11 +66,11 @@ def parse_line(data, StringN, fN) -> (int, dict):  # номер спутника
                 'ln': parse(9, 9),
             }
     else:
-        if StringN == 5:  # общие данные для систем глонасс (???) , но  точно нужны для альманаха
-            return 0, {
+        if StringN == 5:  # общие данные для системы глонасс
+            return -1, {
                 'tau_c': parse(38, 69, True) * 2 ** (-31),  # может быть другая длинна
                 'tau_GPS': parse(10, 31, True) * 2 ** (-30),
-                'N4': parse(32, 36),
+                'N4': parse(32, 36), # TODO: разделить на альманах и общие данные
                 'NA': parse(70, 80),
                 #'ln': parse(9, 9)  # TODO: понять, от какого спутника это
             }

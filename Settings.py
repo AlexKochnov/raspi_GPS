@@ -17,3 +17,11 @@ parsed_logger = 'parsed.log'
 PrintNoiseFlag = True
 PrintParsedFlag = True
 PrintRawFlag = False
+
+optimize_methods = {
+    'LM': 'Levenberg-Marquardt',
+    'SQP': 'SQP',
+    'TRF': 'trf',
+    'TC': 'trust-constr',
+    'DB': 'DogBox',
+}

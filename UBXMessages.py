@@ -9,6 +9,14 @@ from GNSS import GNSS
 
 # BASE_TIME_STAMP = lambda : -1
 
+def calc_prRMSer(index):
+    index = int(index)
+    y = (index >> 3) & 0x7
+    x = (index) & 0x7
+    RMSer = 0.5 * (1 + float(x) / 8.0) * 2.0 ** y
+    return RMSer
+
+
 def calc_ubx_checksum(cmd: bytes) -> bytes:
     ck_a = 0
     ck_b = 0
@@ -274,7 +282,8 @@ class RXM_MEASX(UbxMessage):
                 'fracChips': fracChips,
                 'codePhase': codePhase * 2 ** (-21),
                 'intCodePhase': intCodePhase,
-                'pseuRangeRMSErr': pseuRangeRMSErr,
+                'pseuRangeRMSErr': pseuRangeRMSErr, # индекс
+                'prRMSer': calc_prRMSer(pseuRangeRMSErr), # метры
             } | get_stamps(self, svId, GNSS(gnssId)))
 
 
@@ -303,9 +312,11 @@ class RXM_SFRBX(UbxMessage):
             else:
                 self.data['id'] = 0 # данные спутника, с которого получен сигнал
         if gnssID == 6:
-            id, update_data = GLONASSSignalsParser.parse(msg)
+            id, StringN, superframeN, update_data = GLONASSSignalsParser.parse(msg)
             self.signal = update_data
             self.data['id'] = id # 0 -> данные для текущего спутника (или общие), иначе - id = svId полученных данных
+            self.data['StringN'] = StringN
+            self.data['superframeN'] = superframeN
 
 
 class NAV_TIMEGPS(UbxMessage):

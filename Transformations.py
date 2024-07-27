@@ -6,7 +6,6 @@ import pymap3d as pm
 import Constants
 
 
-
 def eci2lla(time, x, y, z):
     ecef = eci2ecef(time, x, y, z)
     lla = pm.ecef2geodetic(*ecef)
@@ -61,6 +60,7 @@ def aer2ecef2(azim, elev, dist, lat, lon, alt):
     XYZ = lla2ecef(lat, lon, alt)
     ECEF = UVW + XYZ
     return ECEF
+
 
 def lla2ecef(lat, lon, alt):
     return pm.geodetic2ecef(lat, lon, alt)

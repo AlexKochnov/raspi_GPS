@@ -34,17 +34,22 @@ def calc_nav_score(nav_row):
     quality = 2 if nav_row.qualityInd > 4 else (1 if nav_row.qualityInd == 4 else 0)
     score = (nav_row.health == 1) * (nav_row.visibility >= 2) * quality * (nav_row.prValid == True)
     if score:
-        score *= nav_row.cno / (0.1 * abs(nav_row.prRes) + 1) / (nav_row.ura + 1) * (
-                10 / nav_row.pseuRangeRMSErr)
+        score *= 100*nav_row.cno / (abs(nav_row.prRes) + 1) * (nav_row.prRMSer) #TODO: RMS error (not index)
     return score
 
 
 def calc_eph_score(nav_row):
-    return 100 / (5 + nav_row.ephAge) if (nav_row.ephSource == 1) * (nav_row.ephVal == True) else 0
+    if (nav_row.ephSource == 1) * (nav_row.ephAvail == True):
+        return nav_row.ephUsability if nav_row.ephUsability != 31 else 10
+    else:
+        return 0
 
 
 def calc_alm_score(nav_row):
-    return 100 / (5 + nav_row.almAge) if (nav_row.almSource == 1) * (nav_row.almVal == True) else 0
+    if (nav_row.almSource == 1) * (nav_row.almAvail == True):
+        return nav_row.almUsability if nav_row.almUsability != 31 else 10
+    else:
+        return 0
 
 
 def calc_coords(param_row, stamp: TimeStamp, coord_func):

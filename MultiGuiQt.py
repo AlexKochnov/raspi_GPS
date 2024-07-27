@@ -21,6 +21,12 @@ logging.basicConfig(filename='error.log',
                     level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+grey_power = 240
+light_grey = QColor(grey_power, grey_power, grey_power)
+red = QColor(255, grey_power, grey_power)
+green = QColor(grey_power, 255, grey_power)
+yellow = QColor(255, 255, grey_power)
+
 
 class DataReaderThread(QThread):
     data_received = pyqtSignal(object)
@@ -213,7 +219,7 @@ class App(QMainWindow):
                 for j in range(len(table.columns)):
                     item = QTableWidgetItem(str(table.iat[i, j]))
                     if i % 2 == 0:
-                        item.setBackground(Qt.lightGray)
+                        item.setBackground(light_grey)
                     self.table_display.setItem(i, j, item)
 
 
@@ -221,7 +227,7 @@ class App(QMainWindow):
             bottom_row = self.table_display.rowCount() - 1
             for j, column_name in enumerate(table.columns):
                 self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
-                self.table_display.item(bottom_row, j).setBackground(Qt.lightGray)
+                self.table_display.item(bottom_row, j).setBackground(light_grey)
                 self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
 
             # Set tooltips for horizontal header items
@@ -289,14 +295,14 @@ class App(QMainWindow):
             for j in range(len(table.columns)):
                 item = QTableWidgetItem(str(table.iat[i, j]))
                 if i % 2 == 0:
-                    item.setBackground(Qt.lightGray)
+                    item.setBackground(light_grey)
                 self.table_display.setItem(i, j, item)
 
         # Update bottom header row
         bottom_row = self.table_display.rowCount() - 1
         for j, column_name in enumerate(table.columns):
             self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
-            self.table_display.item(bottom_row, j).setBackground(Qt.lightGray)
+            self.table_display.item(bottom_row, j).setBackground(light_grey)
             self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
 
 
@@ -319,16 +325,17 @@ class App(QMainWindow):
 
         for i in range(len(table.index)):
             for j in range(len(table.columns)):
+                #TODO: функция форматирования ячейки
                 item = QTableWidgetItem(str(table.iat[i, j]))
                 if i % 2 == 0:
-                    item.setBackground(Qt.lightGray)
+                    item.setBackground(light_grey)
                 self.table_display.setItem(i, j, item)
 
         # Add bottom header row
         bottom_row = self.table_display.rowCount() - 1
         for j, column_name in enumerate(table.columns):
             self.table_display.setItem(bottom_row, j, QTableWidgetItem(column_name))
-            self.table_display.item(bottom_row, j).setBackground(Qt.lightGray)
+            self.table_display.item(bottom_row, j).setBackground(light_grey)
             self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
 
         if scrolled_to_bottom:
@@ -356,6 +363,8 @@ if __name__ == "__main__":
         window.show()
         sys.exit(app.exec_())
     except Exception as e:
+        print(e)
+        print(traceback.format_exc())
         logging.error("Unhandled exception occurred", exc_info=True)
 
 

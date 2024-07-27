@@ -11,11 +11,11 @@ class StorageColumnsLord:
                         'freqId': np.int8, 'locktime': np.uint16, 'cno': np.int8,
                         'prStedv': np.float32, 'cpStedv': np.float32, 'doStedv': np.float32,
                         'prValid': np.bool_, 'cpValid': np.bool_, 'halfCyc': np.bool_, 'subHalfCyc': np.bool_}
-    RXM_SVSI_columns = {'azim': np.int16, 'elev': np.int8, 'ura': np.int8, 'healthy': np.bool_, 'ephVal': np.bool_,
-                        'almVal': np.bool_, 'notAvail': np.bool_, 'almAge': np.int8, 'ephAge': np.int8}
+    # RXM_SVSI_columns = {'azim': np.int16, 'elev': np.int8, 'ura': np.int8, 'healthy': np.bool_, 'ephVal': np.bool_,
+    #                     'almVal': np.bool_, 'notAvail': np.bool_, 'almAge': np.int8, 'ephAge': np.int8}
     RXM_MEASX_columns = {'cno': np.int8, 'mpathIndic': np.int8, 'dopplerMS': np.float64, 'dopplerHz': np.float64,
                          'wholeChips': np.int16, 'fracChips': np.int16, 'codePhase': np.float64,
-                         'intCodePhase': np.int8, 'pseuRangeRMSErr': np.int8}
+                         'intCodePhase': np.int8, 'pseuRangeRMSErr': np.int8, 'prRMSer': np.float16}
     EPH_columns = {'week': np.int16, 'Toe': np.int32, 'Toc': np.int32, 'IODE1': np.int16, 'IODE2': np.int16,
                    'IODC': np.int16, 'IDOT': np.float64, 'Wdot': np.float64, 'Crs': np.float64, 'Crc': np.float64,
                    'Cus': np.float64, 'Cuc': np.float64, 'Cis': np.float64, 'Cic': np.float64, 'dn': np.float64,
@@ -32,7 +32,7 @@ class StorageColumnsLord:
     stamp_columns = {'svId': np.int8, 'gnssId': object}
     param_columns = stamp_columns | {'receiving_stamp': object, 'exist': np.bool_, 'is_old': np.bool_}
     general_nav_cols = stamp_columns | {name: object for name in ['receiving_stamp', 'NAV_ORB_stamp', 'RXM_RAWX_stamp',
-                                                                  'NAV_SAT_stamp', 'RXM_SVSI_stamp', 'RXM_MEASX_stamp']}
+                                                                  'NAV_SAT_stamp', 'RXM_MEASX_stamp']}
     # TODO: delete real_rho & Dt
     data_columns = stamp_columns | {'xyz_stamp': object, 'X': np.float64, 'Y': np.float64, 'Z': np.float64,
                                     'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
@@ -42,8 +42,14 @@ class StorageColumnsLord:
     # TODO: delete one optimization method
     full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int} | \
                           {f'{"LM"}_{name}': type for name, type in solves_columns.items()} | \
-                          {f'{"SQP"}_{name}': type for name, type in solves_columns.items()}
+                          {f'{"SQP"}_{name}': type for name, type in solves_columns.items()} |\
+                          {f'{"TRF"}_{name}': type for name, type in solves_columns.items()} | \
+                          {f'{"TC"}_{name}': type for name, type in solves_columns.items()} | \
+                          {f'{"DB"}_{name}': type for name, type in solves_columns.items()}
+                          # {f'{"COBYLA"}_{name}': type for name, type in solves_columns.items()}
+                          # {f'{"CF"}_{name}': type for name, type in solves_columns.items()} |\
     full_eph_columns = param_columns | EPH_columns
     full_alm_columns = param_columns | ALM_columns
     full_nav_columns = stamp_columns | {'receiving_stamp': object} | general_nav_cols | \
-                       NAV_ORB_columns | NAV_SAT_columns | RXM_RAWX_columns | RXM_SVSI_columns | RXM_MEASX_columns
+                       NAV_ORB_columns | NAV_SAT_columns | RXM_RAWX_columns | RXM_MEASX_columns
+

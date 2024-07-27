@@ -1,5 +1,6 @@
 from math import pi, floor, sin, cos, atan, sqrt, tan, atan2
 from scipy.integrate import RK45 , solve_ivp, odeint
+from scipy.integrate._ivp.ivp import OdeResult
 
 import numpy as np
 import pandas as pd
@@ -243,7 +244,7 @@ def calc_glo_alm(alm, N4, NA, t1, N, hard=True):
     dNa = get_glo_dNA(N4=N4, NA=NA, N=N)
     dt_pr = dNa * 86400 + (t1 - t_lambda)
 
-   # 2 - количество целых витков W на интервале прогноза
+    # 2 - количество целых витков W на интервале прогноза
     Tdr_avg = 43200
     W = floor(dt_pr / (Tdr_avg + dT))
 
@@ -323,11 +324,10 @@ def calc_glo_alm(alm, N4, NA, t1, N, hard=True):
         L = L + dL2 - dL1
 
     # 10 - эксцентрическая аномалия
-    E1 = 10 + E0
-    while abs(E1 - E0) > 1e-9:
-        E0 = E1
-        E1 = L - w + e * sin(E0)
-    E = E1
+    E = 10 + E0
+    while abs(E - E0) > 1e-9:
+        E0 = E
+        E = L - w + e * sin(E0)
 
     # 11 истинняа аномалия и аргумент широты
     nu = 2 * atan(sqrt((1 + e) / (1 - e)) * tan(E / 2))

@@ -73,19 +73,32 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
     SOLVE = {'week': stamp.week, 'TOW': stamp.TOW, 'sat_count': len(data)}
     if len(data) >= Settings.MinimumMinimizingSatellitesCount:
-        for name, func in [('LM', Minimizing.solve_navigation_task_LevMar),
-                           ('SQP', Minimizing.solve_navigation_task_SLSQP)]:
-            t = datetime.now(tz=Constants.tz_utc)
-            res = func(data)
-            solve = {
-                'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
-                'fval': sum(res.fun) if name == 'LM' else res.fun,
-                'success': res.success,
-                'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
-                'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
-            }
-            solve = {f'{name}_{key}': value for key, value in solve.items()}
-            SOLVE |= solve
+        for name, func in [#('LM', Minimizing.solve_navigation_task_LevMar),
+                           # ('SQP', Minimizing.solve_navigation_task_SLSQP),
+                           # ('TC', Minimizing.solve_navigation_task_TC),
+                           # ('DB', Minimizing.solve_navigation_task_DogBox),
+                           # ('TRF', Minimizing.solve_navigation_task_TRF),
+                           # ('CF', Minimizing.solve_navigation_task_CF),
+                           # ('CF', Minimizing.solve_navigation_task_CF),
+                           # ('COBYLA', Minimizing.solve_navigation_task_COBYLA),
+                           # ('TC', Minimizing.solve_navigation_task_TC)
+                           ]:
+            try:
+                t = datetime.now(tz=Constants.tz_utc)
+                res = func(data)
+                solve = {
+                    'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
+                    'fval': sum(res.fun**2) if name in ['LM', 'TRF', 'DB'] else res.fun,
+                    'success': res.success,
+                    'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
+                    'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
+                }
+                solve = {f'{name}_{key}': value for key, value in solve.items()}
+                SOLVE |= solve
+            except Exception as e:
+                print(e)
+                print(tr:=traceback.format_exc())
+                a=0
     solve_table.loc[len(solve_table)] = SOLVE
 
 
@@ -160,6 +173,7 @@ class Storage:
                 self.SFRBX_GLONASS_eph = pickle.load(file)
                 self.SFRBX_GLONASS_alm = pickle.load(file)
                 self.SFRBX_GPS_data = pickle.load(file)
+                self.SFRBX_GLONASS_data = pickle.load(file)
         else:
             self.make_SFRBX_data()
 
@@ -188,8 +202,7 @@ class Storage:
 
     def check_nav_time(self):
         self.navigation_parameters['receiving_stamp'] = self.navigation_parameters.apply(
-            lambda row: custom_min(row['NAV_ORB_stamp'], row['NAV_SAT_stamp'], row['RXM_RAWX_stamp'],
-                                   row['RXM_SVSI_stamp']), axis=1)
+            lambda row: custom_min(row['NAV_ORB_stamp'], row['NAV_SAT_stamp'], row['RXM_RAWX_stamp']), axis=1)
 
     def update_UBX(self, message):
         self.time_stamp: TimeStamp = message.receiving_stamp
@@ -200,8 +213,8 @@ class Storage:
                 table.update(create_index_table([message.data | {'is_old': False, 'exist': True} | data]))
             else:
                 table.update(create_index_table([{'is_old': True} | data]))
-        elif isinstance(message, UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX |
-                                 UBXMessages.RXM_SVSI | UBXMessages.RXM_MEASX):
+        elif isinstance(message, UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX | \
+                                 UBXMessages.RXM_MEASX):
             self.update_param(message.data, 'iTOW', 'week')
             if message.satellites:
                 self.navigation_parameters.update(create_index_table(message.satellites))
@@ -218,27 +231,37 @@ class Storage:
             assert isinstance(message.data, dict)
             try:  # TODO: править очень жестко
                 if message.data['gnssId'] == GNSS.GPS:
-                    if 'name' in message.signal.keys():
+                    if message.data['id'] == -1:
                         self.SFRBX_GPS_data.update(message.signal)
                         # TODO: add configs and health and ion processing
                     elif message.data['id'] == 0:
-                        #TODO: update_line() -> df.update()
+                        # TODO: update_line() -> df.update()
                         update_table_line(self.SFRBX_GPS_eph, message.signal,
                                           message.data['svId'], GNSS.GPS, None)
                     else:
                         update_table_line(self.SFRBX_GPS_alm, message.signal,
                                           message.signal['SV_ID'], GNSS.GPS, None)
                 elif message.data['gnssId'] == GNSS.GLONASS:
-                    if message.data['id'] == 0:
-                        update_table_line(self.SFRBX_GLONASS_eph, message.signal,
-                                          message.data['svId'], GNSS.GLONASS, None)
+                    if message.data['id'] == -1:
+                        self.SFRBX_GLONASS_data.update(message.signal)
+                    elif message.data['id'] == 0:
+                        update_table_line(self.SFRBX_GLONASS_eph, message.signal | \
+                                          {f'sfN{message.data["StringN"]}': message.data['superframeN']},
+                                          message.data['svId'], GNSS.GLONASS, message.receiving_stamp)
                     else:
-                        update_table_line(self.SFRBX_GLONASS_alm, message.signal,
-                                          message.data['id'], GNSS.GLONASS, None)
+                        update_table_line(self.SFRBX_GLONASS_alm, message.signal | \
+                                          {f'sfN{message.data["StringN"] % 2}': message.data['superframeN']},
+                                          message.data['id'], GNSS.GLONASS, message.receiving_stamp)
             except Exception as e:
                 print(e)
                 print(traceback.format_exc())
                 a = 0
+        if self.counter % 30 == 0:
+            pass
+            self.navigation_parameters.to_csv('nav_params.csv')
+            # self.ephemeris_solves.to_csv('eph_solves.csv')
+            # self.ephemeris_data.to_csv(f'epd_data{self.counter}.csv')
+            # self.almanac_data.to_csv(f'alm_data{self.counter}.csv')
         if self.counter % 100 == 50:
             with open(SFRBX_DATA_PATH, 'wb') as file:
                 pickle.dump(self.SFRBX_GPS_eph, file)
@@ -246,6 +269,7 @@ class Storage:
                 pickle.dump(self.SFRBX_GLONASS_eph, file)
                 pickle.dump(self.SFRBX_GLONASS_alm, file)
                 pickle.dump(self.SFRBX_GPS_data, file)
+                pickle.dump(self.SFRBX_GLONASS_data, file)
 
     def calc_navigation_task(self):
         try:
@@ -260,10 +284,48 @@ class Storage:
             a = 0
 
     def ADD_GUI_TABLES(self):
+
+        def transform_nav_params(row):
+            return {
+                'svId': row.svId,
+                'gnssId': row.gnssId,
+                'receiving_TOW': row.receiving_stamp.TOW,
+                'cno': row.cno,
+                'elev': row.elev,
+                'azim': row.azim,
+                'ephUsability': row.ephUsability,
+                'prMes': row.prMes,
+                'prRes': row.prRes,
+                'prRMSer': row.prRMSer,
+                #flags
+                'qualityInd': row.qualityInd,
+                'mpathIndic': row.mpathIndic,
+                'orbitSource': row.orbitSource,
+                'health': row.health,
+                'ephSource': row.ephSource,
+                'ephAvail': row.ephAvail,
+                'almSource': row.almSource,
+                'almAvail': row.almAvail,
+                'visibility': row.visibility,
+                'prValid': row.prValid,
+                'svUsed': row.svUsed,
+                'diffCorr': row.diffCorr,
+                'smoothed': row.smoothed,
+            }
+                # #values
+                # 'cno': int(row.cno),
+                # 'ephUsability': int(row.ephUsability),
+                # 'prMes': f'{row.prMes}.2f',
+                # #flags
+                # 'health': ('?', '+', '-')[row.health],
+                # 'ephSource': 'GNSS' if row.ephSource == 1 else 'other',
+                # 'almSource': 'GNSS' if row.almSource == 1 else 'other',
+
+
         self.navigation_parameters1 = self.navigation_parameters[['svId', 'gnssId', 'receiving_stamp', 'health', 'cno',
                                                                   'ephUsability', 'ephSource', 'almUsability',
                                                                   'almSource', 'prRes', 'qualityInd', 'svUsed', 'prMes',
-                                                                  'ura', 'almAge', 'ephAge', 'orbitSource', 'ephAvail',
+                                                                  'orbitSource', 'ephAvail',
                                                                   'almAvail', 'mpathIndic', 'pseuRangeRMSErr',
                                                                   'locktime', 'codePhase', 'wholeChips', 'fracChips']]
         # self.navigation_parameters1.rename(columns={'pseuRangeRMSErr': 'RMSErrInd'}, inplace=True)
@@ -318,12 +380,14 @@ class Storage:
                                                    'IODE2', 'IDOT'])
         self.SFRBX_GPS_data = dict()
         self.SFRBX_GLONASS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
-                                              columns=['svId', 'gnssId', 'n', 'lambda_n', 'delta_i_n', 'eps_n', 'M_n',
+                                              columns=['svId', 'gnssId', 'receiving_stamp', 'sfN0', 'sfN1',
+                                                       'n', 'lambda_n', 'delta_i_n', 'eps_n', 'M_n',
                                                        'tau_n', 'Cn', 'Hn', 't_lambda_n', 'delta_T_n', 'delta_T_dot_n',
                                                        'omega_n', 'ln'])
         self.SFRBX_GLONASS_eph = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
-                                              columns=['svId', 'gnssId', 'B1', 'B2', 'KP', 'tau_c', 'tau_GPS', 'N4',
-                                                       'NA', 'tk', 'x', 'dx', 'ddx', 'P1', 'tb', 'y', 'dy', 'ddy', 'Bn',
-                                                       'P2', 'gamma', 'z', 'dz', 'ddz', 'P', 'P3', 'ln', 'M', 'tau',
-                                                       'N_T', 'n', 'F_T', 'E', 'P4', 'dTau'])
+                                              columns=['svId', 'gnssId', 'receiving_stamp', 'sfN1', 'sfN2', 'sfN3',
+                                                       'sfN4', 'tk', 'tb', 'tau', 'dTau', 'gamma', 'N_T', 'F_T', 'E',
+                                                       'n', 'x', 'y', 'z', 'dx', 'dy', 'dz', 'ddx', 'ddy', 'ddz',
+                                                       'ln', 'P', 'P1', 'P2', 'P3', 'P4', 'Bn', 'M'])
+        # 'B1', 'B2', 'KP', 'tau_c', 'tau_GPS', 'N4', 'NA'
         self.SFRBX_GLONASS_data = dict()
