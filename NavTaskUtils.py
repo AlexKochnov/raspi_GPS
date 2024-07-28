@@ -13,7 +13,7 @@ from TimeStamp import TimeStamp
 
 
 def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parameters, time_stamp):
-    nav_cols = ['svId', 'gnssId', 'pr_stamp', 'prRMSer', 'prMes', 'prRes', 'nav_score', 'alm_score',
+    nav_cols = ['svId', 'gnssId', 'pr_stamp', 'prRMSer', 'prMes', 'prRes', 'prStedv', 'nav_score', 'alm_score',
                 'eph_score']
     coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'azim', 'polar', 'radius',
                   'real_rho', 'Dt']
@@ -26,10 +26,10 @@ def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parame
         columns=coord_cols)
     ephemeris_data = pd.merge(eph_coord_data, nav_data, on=['svId', 'gnssId']). \
         drop(columns=['alm_score']).rename(columns={'eph_score': 'coord_score'})
-    ephemeris_data.Dt -= ephemeris_data.prMes / Constants.c
+    ephemeris_data.Dt += ephemeris_data.prMes / Constants.c
     almanac_data = pd.merge(alm_coord_data, nav_data, on=['svId', 'gnssId']). \
         drop(columns=['eph_score']).rename(columns={'alm_score': 'coord_score'})
-    almanac_data.Dt -= almanac_data.prMes / Constants.c
+    almanac_data.Dt += almanac_data.prMes / Constants.c
     return ephemeris_data, almanac_data
 
 
@@ -71,9 +71,9 @@ def calc_coords(param_row, stamp: TimeStamp, coord_func):
         lla = (np.nan, np.nan, np.nan)
         azim, polar, radius = (np.nan, np.nan, np.nan)
     rho = np.linalg.norm(np.array(xyz) - np.array(Constants.ECEF))
-    return param_row.svId, param_row.gnssId, stamp, *xyz, *lla, azim, polar, radius, rho, rho / Constants.c
+    return param_row.svId, param_row.gnssId, stamp, *xyz, *lla, azim, polar, radius, rho, -rho / Constants.c
 
 
 def calc_nav(nav_row):
-    return (nav_row.svId, nav_row.gnssId, nav_row.receiving_stamp, nav_row.prRMSer, nav_row.prMes,
-            nav_row.prRes, calc_nav_score(nav_row), calc_alm_score(nav_row), calc_eph_score(nav_row))
+    return (nav_row.svId, nav_row.gnssId, nav_row.receiving_stamp, nav_row.prRMSer, nav_row.prMes, nav_row.prRes,
+            nav_row.prStedv, calc_nav_score(nav_row), calc_alm_score(nav_row), calc_eph_score(nav_row))

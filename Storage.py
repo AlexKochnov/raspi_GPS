@@ -12,6 +12,7 @@ import pyubx2
 import Constants
 import Minimizing
 import Settings
+import Transformations
 # from Messages import *
 # import Messages
 import UBXMessages
@@ -102,8 +103,10 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
                 def get_solve_line():
                     t = datetime.now(tz=Constants.tz_utc)
                     res = func(data)
+                    lla = Transformations.ecef2lla(*res.x[:-1])
                     solve = {
                         'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
+                        'lat': lla[0], 'lon': lla[1], 'alt': lla[2],
                         'fval': sum(res.fun ** 2) if method in ['LM', 'TRF', 'DB'] else res.fun,
                         'success': res.success,
                         'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
@@ -171,6 +174,20 @@ def make_init_df(*gnss_s: GNSS):
 
 SFRBX_DATA_PATH = 'sfrbx_data.plk'
 
+
+# def get_tables_object(storage):
+#     class DynamicObject(object):
+#         pass
+#
+#     Dyn = DynamicObject()
+#     Dyn.ephemeris_parameters = storage.ephemeris_parameters
+#     Dyn.almanac_parameters = storage.almanac_parameters
+#     Dyn.navigation_parameters = storage.navigation_parameters
+#     Dyn.ephemeris_data = storage.ephemeris_data
+#     Dyn.almanac_data = storage.almanac_data
+#     Dyn.ephemeris_solves = storage.ephemeris_solves
+#     Dyn.almanac_solves = storage.almanac_solves
+#     return Dyn
 
 class Storage:
     week: int = None
@@ -330,8 +347,9 @@ class Storage:
                     row.nav_score = np.nan
             return row
 
+
         self.navigation_parameters1 = self.navigation_parameters[
-            ['svId', 'gnssId', 'receiving_stamp', 'cno', 'prMes', 'prRes', 'prRMSer',  'elev', 'azim',
+            ['svId', 'gnssId', 'receiving_stamp', 'cno', 'prMes', 'prRes', 'prRMSer', 'prStedv', 'elev', 'azim',
              'ephUsability', 'ephSource', 'ephAvail', 'almUsability', 'almSource', 'almAvail',
              'health', 'qualityInd', 'prValid', 'mpathIndic', 'orbitSourse', 'visibility', 'svUsed']]
         self.navigation_parameters1.rename(columns={'receiving_stamp': 'receiving'})

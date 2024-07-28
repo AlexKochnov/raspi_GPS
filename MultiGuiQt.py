@@ -2,10 +2,10 @@ import sys
 import traceback
 
 import numpy as np
-from PyQt5.QtGui import QFont, QTextCharFormat, QBrush, QColor
+from PyQt5.QtGui import QFont, QTextCharFormat, QBrush, QColor, QCursor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, \
-    QLineEdit, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
+    QLineEdit, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QToolTip
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt, QSize
 import pandas as pd
 
 import Settings
@@ -15,7 +15,7 @@ from GNSS import GNSS
 from Storage import Storage
 from Reader import Reader
 
-from table_description import TABLE_DESCRIPTIONS
+from table_description import TABLE_DESCRIPTIONS, TABLE_DESCRIPTIONS2
 
 import logging
 
@@ -42,10 +42,10 @@ red = QColor(255, color_power, color_power)
 green = QColor(color_power, 255, color_power)
 yellow = QColor(255, 255, color_power)
 turquoise = QColor(color_power, 255, 255)
-purple = QColor(255, color_power, 255)
+purple = QColor(250, color_power, 255)
 
 data_cols = ['svId', 'gnssId', 'xyz_stamp', 'pr_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'azim', 'polar', 'radius',
-             'prMes', 'prRes', 'prRMSer', 'coord_score', 'nav_score', 'real_rho', 'Dt']
+             'prMes', 'prRes', 'prRMSer', 'prStedv', 'coord_score', 'nav_score', 'real_rho', 'Dt']
 
 
 def process_columns(columns, title):
@@ -55,7 +55,7 @@ def process_columns(columns, title):
                 case 'receiving_stamp': return column + ', s'
                 case 'cno': return column + ', dBHz'
                 case 'azim' | 'elev': return column + ', °'
-                case 'prMes' | 'prRes' | 'prRMSer': return column + ', m'
+                case 'prMes' | 'prRes' | 'prRMSer' | 'prStedv': return column + ', m'
                 case 'ephUsability': return column + ', hours'
                 case 'almUsability': return column + ', days'
                 case _: return column
@@ -73,21 +73,28 @@ def process_columns(columns, title):
         elif title == "Данные эфемерид" or title == 'Данные альманах':
             match column:
                 case 'xyz_stamp' | 'pr_stamp': return column + ', s'
-                case 'X' | 'Y' | 'Z' | 'real_rho' | 'prMes' | 'prRes' | 'prRMSer' | 'radius':
+                case 'X' | 'Y' | 'Z' | 'real_rho' | 'prMes' | 'prRes' | 'prRMSer' | 'radius' | 'prStedv':
                     return column + ', m'
                 case 'alt':
                     return column + ', km'
-                case 'lat' | 'lon' | 'polar' | 'azim': return column + ', °'
+                case 'lat' | 'lon': return column + ', °'
+                case 'polar' | 'azim': return column + ', °'
                 # case 'lon': return 'azim, °'
                 case 'Dt': return column + ', ms'
+        elif title == 'Результаты по эфемеридам' or title == 'Результаты по альманах':
+            match column:
+                case 'X' | 'Y' | 'Z' | 'cdt' | 'error' | 'alt': return column + ', m'
+                case 'lat' | 'lon': return column + ', °'
+                case 'dt' | 'calc_time': return column + ', ms'
+                case 'fval': return column + ', m^2'
         return column
-    try:
-        cols = [check_column(col) for col in columns]
-        return cols
-    except Exception as e:
-        print(e)
-        a=0
-    return columns
+    # try:
+    cols = [check_column(col) for col in columns]
+    return cols
+    # except Exception as e:
+    #     print(e)
+    #     a=0
+    # return columns
 
 def get_color(val, N1, N2, reverse=False):
     if val <= N1:
@@ -135,6 +142,9 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
             case 'prRMSer':
                 color = purple if int(data) == 120 else get_color(abs(data), 5, 30)
                 data = f'{data:.1f}'
+            case 'prStedv':
+                color = get_color(data, 5, 25)
+                data = f'{data:.2f}'
             case 'qualityInd':
                 data = int(data)
                 color = get_color(data, 3, 4, reverse=True)
@@ -190,6 +200,9 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 data = f'{data:.5f}'
             case 'Dt':
                 data = f'{data*1000:.4f}'
+            case 'prStedv':
+                color = get_color(data, 5, 25)
+                data = f'{data:.2f}'
             case 'coord_score' | 'nav_score' | 'prRes' | 'prRMSer':
                 if column == 'prRes':
                     color = get_color(abs(float(data)), 10, 40)
@@ -199,7 +212,18 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                     if data < 1:
                         color = red
                 data = f'{data:.1f}'
-
+    elif table_title == 'Результаты по эфемеридам' or table_title == 'Результаты по альманах':
+        match column:
+            case 'X' | 'Y' | 'Z' | 'cdt' | 'error' | 'alt':
+                data = f'{data:.2f}'
+            case 'lat' | 'lon':
+                data = f'{data:.5f}'
+            case 'dt' | 'calc_time':
+                data = f'{data*1000:.5f}'
+            case 'fval':
+                data = f'{data:.2e}'
+            case 'success':
+                data, color = ('+', green) if data else ('-', red)
 
     item = QTableWidgetItem(str(data))
     item.setBackground(color)
@@ -218,6 +242,22 @@ class DataReaderThread(QThread):
     def run(self):
         for parsed in self.reader:
             self.data_received.emit(parsed)
+
+
+# class StorageThread(QThread):
+#     storage_updated = pyqtSignal()
+#
+#     def __init__(self, storage, parent=None):
+#         super(StorageThread, self).__init__(parent)
+#         self.storage = storage
+#
+#     def run(self):
+#         # Метод будет вызываться для обновления storage
+#         while True:
+#             # Замените это реальной логикой обновления
+#             self.storage.update()
+#             self.storage_updated.emit()
+#             self.msleep(100)  # Пример задержки, чтобы не загружать процессор
 
 
 class App(QMainWindow):
@@ -310,15 +350,19 @@ class App(QMainWindow):
         self.table_title.setFont(menu_font)
         self.table_title.setMaximumWidth(500)
 
+        self.method_title = QLabel('Method: ')
+        self.method_title.setFont(menu_font)
+        self.method_title.setMaximumWidth(150)
+
         #описание таблицы
         self.desc_button = QPushButton("Описание таблицы")
         self.desc_button.setFont(menu_font)
         self.desc_button.clicked.connect(self.show_column_descriptions)
         self.desc_button.setMaximumWidth(500)
 
-
         self.table_buttons_layout.addWidget(self.table_title)
         self.table_buttons_layout.addStretch()
+        self.table_buttons_layout.addWidget(self.method_title)
         self.table_buttons_layout.addWidget(self.combo_box)
         self.table_buttons_layout.addStretch()
         self.table_buttons_layout.addWidget(self.desc_button)
@@ -354,9 +398,27 @@ class App(QMainWindow):
                 widget.show()
     def show_column_descriptions(self):
         if self.current_table is not None:
-            descriptions = [TABLE_DESCRIPTIONS.get(col, "Описание недоступно") for col in self.current_table.columns]
-            desc_text = "\n".join(f"{col}: {desc}" for col, desc in zip(self.current_table.columns, descriptions))
-            QMessageBox.information(self, "Описание колонок", desc_text)
+            descriptions = [TABLE_DESCRIPTIONS.get(col.split(',')[0], "Описание недоступно") for col in self.current_table.columns]
+            desc_text = "<br>".join(f"<b>{col}</b>: {desc}" for col, desc in zip(self.current_table.columns, descriptions))
+            QMessageBox.information(self, f"Описание таблицы \"{self.current_table_name}\"", desc_text)
+
+            # msg_box = QMessageBox(self)
+            # msg_box.setWindowTitle(f"Описание таблицы \"{self.current_table_name}\"")
+            # msg_box.setText(desc_text)
+            # msg_box.setIcon(QMessageBox.Information)
+            # msg_box.setStyleSheet("QLabel{min-width: 2000px;}");
+            # msg_box.show()
+
+            # msg_box = QMessageBox()
+            # msg_box.setIcon(QMessageBox.Information)
+            # # msg_box.setText("Это <b>важное</b> информационное сообщение.")
+            # msg_box.setText(desc_text)
+            # msg_box.setWindowTitle(f"Описание таблицы \"{self.current_table_name}\"")  # Установка названия окна
+            # # msg_box.setFixedWidth(2000)
+            # # msg_box.setMinimumSize(QSize(2000, 2000))
+            # msg_box.setStyleSheet("QLabel {min-width: 2000px; min-height: 2000px;}")
+            # msg_box.exec_()
+            # .information(self, "Описание колонок", desc_text)
 
     @pyqtSlot()
     def connect(self):
@@ -364,9 +426,16 @@ class App(QMainWindow):
         try:
             self.reader = Reader(port)
             self.storage = Storage()
+
+            # self.storage_thread = StorageThread(self.storage)
+            # self.storage_thread.storage_updated.connect(self.update_current_table)
+
             self.data_reader_thread = DataReaderThread(self.reader)
             self.data_reader_thread.data_received.connect(self.process_data)
+
             self.data_reader_thread.start()
+            # self.storage_thread.start()
+
             self.connect_button.setEnabled(False)
             self.port_entry.setEnabled(False)
         except Exception as e:
@@ -429,22 +498,24 @@ class App(QMainWindow):
         self.current_table_name = ""
 
     def show_table(self, table, title):
-        try:
-            self.chat_display.hide()
-            self.table_display.show()
-            self.table_title.setText(title)
-            self.show_table_buttons_layout()
-            self.current_table = table
-            self.current_table_name = title
-            self.update_table_display(table)
-            if title in ["Результаты по эфемеридам", "Результаты по альманах"]:
-                self.table_display.scrollToBottom()
-                self.combo_box.show()
-            else:
-                self.combo_box.hide()
-        except Exception as e:
-            print(e)
-            a = 0
+        # try:
+        self.chat_display.hide()
+        self.table_display.show()
+        self.table_title.setText(title)
+        self.show_table_buttons_layout()
+        self.current_table = table
+        self.current_table_name = title
+        self.update_table_display(table)
+        if title in ["Результаты по эфемеридам", "Результаты по альманах"]:
+            self.table_display.scrollToBottom()
+            self.combo_box.show()
+            self.method_title.show()
+        else:
+            self.combo_box.hide()
+            self.method_title.hide()
+        # except Exception as e:
+        #     print(e)
+        #     a = 0
 
     def update_table_display(self, table):
         if table is not None:
@@ -476,12 +547,25 @@ class App(QMainWindow):
 
             self.correct_table_width()
 
+            # self.table_header = self.table_display.horizontalHeader()
+            # self.table_header.sectionEntered.connect(self.show_tooltip)
+
             # header = self.table_display.horizontalHeader()
             # header.setSectionResizeMode(QHeaderView.Stretch)
             # header.setSectionResizeMode(QHeaderView.Interactive)
 
             if scrolled_to_bottom:
                 self.table_display.verticalScrollBar().setValue(self.table_display.verticalScrollBar().maximum())
+
+    def show_tooltip(self, logicalIndex):
+        column_name = self.table_display.horizontalHeaderItem(logicalIndex).text()
+        if self.current_table_name in ["Навигационные данные", "Параметры эфемерид", "Параметры альманах",
+                                       "Данные эфемерид", "Данные альманах"]:
+            description = TABLE_DESCRIPTIONS.get(column_name, "Описание недоступно")
+        else:
+            description = TABLE_DESCRIPTIONS2.get(column_name, "Описание недоступно")
+        QToolTip.showText(QCursor.pos(), description, self.table_display)
+        print('TOOLTIP')
 
     def correct_table_width(self):
         self.table_display.resizeColumnsToContents()
@@ -557,7 +641,7 @@ class App(QMainWindow):
 
         for i in range(current_row_count, new_row_count):
             self.table_display.insertRow(i)
-            self.table_display.setRowHeight(i, 26)
+            # self.table_display.setRowHeight(i, 26)
             for j in range(len(table.columns)):
                 item = get_QTableWidgetItem(table.iat[i, j], table.columns[j], self.current_table_name,
                                             light_grey if i % 2 == 0 else white)
