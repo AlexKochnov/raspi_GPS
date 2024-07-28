@@ -4,10 +4,11 @@ import traceback
 import numpy as np
 from PyQt5.QtGui import QFont, QTextCharFormat, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, \
-    QLineEdit, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView
+    QLineEdit, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 import pandas as pd
 
+import Settings
 import UBXMessages
 from GNSS import GNSS
 # мои собственные готовые модули, которые имортируются и не зменяются
@@ -23,14 +24,29 @@ logging.basicConfig(filename='error.log',
                     level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+margin = 5
+
+optimize_methods = [
+    ('LM', 'Levenberg-Marquardt'),
+    ('SQP', 'SQP'),
+    ('TRF', 'trf'),
+    ('TC', 'trust-constr'),
+    ('DB', 'DogBox'),
+]
+
 grey_power = 243
+color_power = 230
 white = QColor(255, 255, 255)
 light_grey = QColor(grey_power, grey_power, grey_power)
-red = QColor(255, grey_power, grey_power)
-green = QColor(grey_power, 255, grey_power)
-yellow = QColor(255, 255, grey_power)
-turquoise = QColor(grey_power, 255, 255)
-purple = QColor(255, grey_power, 255)
+red = QColor(255, color_power, color_power)
+green = QColor(color_power, 255, color_power)
+yellow = QColor(255, 255, color_power)
+turquoise = QColor(color_power, 255, 255)
+purple = QColor(255, color_power, 255)
+
+data_cols = ['svId', 'gnssId', 'xyz_stamp', 'pr_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'azim', 'polar', 'radius',
+             'prMes', 'prRes', 'prRMSer', 'coord_score', 'nav_score', 'real_rho', 'Dt']
+
 
 def process_columns(columns, title):
     def check_column(column):
@@ -40,6 +56,8 @@ def process_columns(columns, title):
                 case 'cno': return column + ', dBHz'
                 case 'azim' | 'elev': return column + ', °'
                 case 'prMes' | 'prRes' | 'prRMSer': return column + ', m'
+                case 'ephUsability': return column + ', hours'
+                case 'almUsability': return column + ', days'
                 case _: return column
         elif title == "Параметры эфемерид" or title == "Параметры альманах":
             match column:
@@ -55,8 +73,12 @@ def process_columns(columns, title):
         elif title == "Данные эфемерид" or title == 'Данные альманах':
             match column:
                 case 'xyz_stamp' | 'pr_stamp': return column + ', s'
-                case 'X' | 'Y' | 'Z' | 'alt' | 'real_rho' | 'prMes' | 'prRes' | 'prRMSer': return column + ', m'
-                case 'lat' | 'lon': return column + ', °'
+                case 'X' | 'Y' | 'Z' | 'real_rho' | 'prMes' | 'prRes' | 'prRMSer' | 'radius':
+                    return column + ', m'
+                case 'alt':
+                    return column + ', km'
+                case 'lat' | 'lon' | 'polar' | 'azim': return column + ', °'
+                # case 'lon': return 'azim, °'
                 case 'Dt': return column + ', ms'
         return column
     try:
@@ -101,6 +123,8 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
             case 'ephUsability' | 'almUsability':
                 data = int(data)
                 data, color = ('-', red) if data == 0 else (('?', turquoise) if data == 31 else (data, green))
+                if isinstance(data, int) and column == 'ephUsability':
+                    data *= 15
             case 'ephSource' | 'almSource':
                 data, color = ('GNSS', green) if data == 1 else (('-', base_color) if data == 0 else ('other', red))
             case 'prMes':
@@ -131,7 +155,8 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 match int(data):
                     case 0: data, color = '?', turquoise
                     case 1: data, color = '-', red
-                    case 2 | 3: data, color = '+', green
+                    case 2: data, color = '±', yellow
+                    case 3: data, color = '+', green
             case 'prValid' | 'svUsed' | 'diffCorr' | 'smoothed':
                 data, color = ('+', green) if data else ('-', red)
     elif table_title == "Параметры эфемерид" or table_title == "Параметры альманах":
@@ -157,8 +182,12 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
         match column:
             case 'X' | 'Y' | 'Z' | 'real_rho' | 'prMes':
                 data = f'{data:.2f}'
-            case 'lat' | 'lon' | 'alt':
-                data = f'{data:.4f}'
+            case 'lat' | 'lon' | 'radius':
+                data = f'{data:.2f}'
+            case 'alt':
+                data = f'{data/1000:.1f}'
+            case 'polar' | 'azim':
+                data = f'{data:.5f}'
             case 'Dt':
                 data = f'{data*1000:.4f}'
             case 'coord_score' | 'nav_score' | 'prRes' | 'prRMSer':
@@ -167,7 +196,7 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 elif column == 'prRMSer':
                     color = purple if int(data) == 120 else get_color(abs(data), 5, 30)
                 else:
-                    if data < 0.1:
+                    if data < 1:
                         color = red
                 data = f'{data:.1f}'
 
@@ -177,9 +206,6 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
     item.setTextAlignment(Qt.AlignCenter)
     return item
 
-
-data_cols = ['svId', 'gnssId', 'xyz_stamp', 'pr_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'prMes', 'prRes', 'prRMSer',
-             'coord_score', 'nav_score', 'real_rho', 'Dt']
 
 
 class DataReaderThread(QThread):
@@ -268,14 +294,69 @@ class App(QMainWindow):
         self.table_display.setRowCount(0)
         self.table_display.setHorizontalScrollMode(QTableWidget.ScrollPerPixel)
 
+
+        # строка над таблицей
+
+        # Создаем QComboBox
+        self.combo_box = QComboBox()
+        self.combo_box.setFont(menu_font)
+        self.combo_box.setFixedWidth(500)
+        self.combo_box.addItems([met for (name, met) in optimize_methods])
+        self.combo_box.currentIndexChanged.connect(self.combo_changed)
+
+        # нвзавние таблицы
+        self.table_buttons_layout = QHBoxLayout()
         self.table_title = QLabel()
         self.table_title.setFont(menu_font)
+        self.table_title.setMaximumWidth(500)
+
+        #описание таблицы
+        self.desc_button = QPushButton("Описание таблицы")
+        self.desc_button.setFont(menu_font)
+        self.desc_button.clicked.connect(self.show_column_descriptions)
+        self.desc_button.setMaximumWidth(500)
+
+
+        self.table_buttons_layout.addWidget(self.table_title)
+        self.table_buttons_layout.addStretch()
+        self.table_buttons_layout.addWidget(self.combo_box)
+        self.table_buttons_layout.addStretch()
+        self.table_buttons_layout.addWidget(self.desc_button)
 
         main_layout.addWidget(self.chat_display)
-        main_layout.addWidget(self.table_title)
+        main_layout.addLayout(self.table_buttons_layout)
         main_layout.addWidget(self.table_display)
 
+        # main_layout.addWidget(self.chat_display)
+        # main_layout.addWidget(self.table_title)
+        # main_layout.addWidget(self.table_display)
+
         self.show_chat()
+
+    def combo_changed(self, index):
+        # for name, title in optimize_methods.items():
+        #     if title == index:
+        # self.storage.method = optimize_methods[index][0]
+        # print(f'method: {optimize_methods[index][0]}')
+        Settings.used_method = optimize_methods[index][0]
+        # return
+
+    def hide_table_buttons_layout(self):
+        for i in range(self.table_buttons_layout.count()):
+            widget = self.table_buttons_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.hide()
+
+    def show_table_buttons_layout(self):
+        for i in range(self.table_buttons_layout.count()):
+            widget = self.table_buttons_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.show()
+    def show_column_descriptions(self):
+        if self.current_table is not None:
+            descriptions = [TABLE_DESCRIPTIONS.get(col, "Описание недоступно") for col in self.current_table.columns]
+            desc_text = "\n".join(f"{col}: {desc}" for col, desc in zip(self.current_table.columns, descriptions))
+            QMessageBox.information(self, "Описание колонок", desc_text)
 
     @pyqtSlot()
     def connect(self):
@@ -343,7 +424,7 @@ class App(QMainWindow):
     def show_chat(self):
         self.chat_display.show()
         self.table_display.hide()
-        self.table_title.hide()
+        self.hide_table_buttons_layout()
         self.current_table = None
         self.current_table_name = ""
 
@@ -352,14 +433,15 @@ class App(QMainWindow):
             self.chat_display.hide()
             self.table_display.show()
             self.table_title.setText(title)
-            self.table_title.show()
+            self.show_table_buttons_layout()
             self.current_table = table
             self.current_table_name = title
             self.update_table_display(table)
             if title in ["Результаты по эфемеридам", "Результаты по альманах"]:
                 self.table_display.scrollToBottom()
-
-
+                self.combo_box.show()
+            else:
+                self.combo_box.hide()
         except Exception as e:
             print(e)
             a = 0
@@ -392,13 +474,40 @@ class App(QMainWindow):
             #     description = TABLE_DESCRIPTIONS.get(column_name, "")
             #     header.setToolTip(description)
 
-            self.table_display.resizeColumnsToContents()
+            self.correct_table_width()
+
             # header = self.table_display.horizontalHeader()
             # header.setSectionResizeMode(QHeaderView.Stretch)
             # header.setSectionResizeMode(QHeaderView.Interactive)
 
             if scrolled_to_bottom:
                 self.table_display.verticalScrollBar().setValue(self.table_display.verticalScrollBar().maximum())
+
+    def correct_table_width(self):
+        self.table_display.resizeColumnsToContents()
+        for column in range(self.table_display.columnCount()):
+            header = self.table_display.horizontalHeaderItem(column).text()
+            current_width = self.table_display.columnWidth(column)
+            if len(header) < 10:
+                self.table_display.setColumnWidth(column, current_width + margin)
+
+        # Если общая ширина столбцов меньше ширины таблицы, растягиваем столбцы
+        total_column_width = sum(
+            self.table_display.columnWidth(column) for column in range(self.table_display.columnCount()))
+        table_width = self.table_display.viewport().width()
+
+        # Учитываем ширину вертикальной полосы прокрутки, если она есть
+        if self.table_display.verticalScrollBar().isVisible():
+            table_width -= self.table_display.verticalScrollBar().width()
+
+        # Если общая ширина столбцов меньше ширины таблицы, растягиваем столбцы
+        if total_column_width < table_width:
+            extra_space = table_width - total_column_width - 50
+            additional_width_per_column = extra_space // self.table_display.columnCount()
+
+            for column in range(self.table_display.columnCount()):
+                new_width = self.table_display.columnWidth(column) + additional_width_per_column
+                self.table_display.setColumnWidth(column, new_width)
 
     def show_navigation_data(self):
         self.show_table(self.storage.navigation_parameters1, "Навигационные данные")
@@ -461,7 +570,8 @@ class App(QMainWindow):
         #     self.table_display.item(bottom_row, j).setBackground(light_grey)
         #     self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
 
-        self.table_display.resizeColumnsToContents()
+        self.correct_table_width()
+
         # header = self.table_display.horizontalHeader()
         # header.setSectionResizeMode(QHeaderView.Stretch)
         # header.setSectionResizeMode(QHeaderView.Interactive)

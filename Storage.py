@@ -1,9 +1,11 @@
 import os
 import pickle
+import threading
 import traceback
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import concurrent.futures
 
 import pyubx2
 
@@ -62,6 +64,21 @@ def custom_min(*args):
     return np.nan
 
 
+optimize_methods = {
+    'LM': Minimizing.solve_navigation_task_LevMar,
+    'SQP': Minimizing.solve_navigation_task_SLSQP,
+    'TC': Minimizing.solve_navigation_task_TC,
+    'DB': Minimizing.solve_navigation_task_DogBox,
+    'TRF': Minimizing.solve_navigation_task_TRF,
+}
+
+
+# class TimeoutException(Exception):
+#     pass
+#
+# def timer_handler():
+#     raise TimeoutException()
+
 def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp):
     sats = data_table.copy()
     sats = sats[(sats.nav_score > 0) & (sats.coord_score > 0) &
@@ -73,33 +90,45 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
     SOLVE = {'week': stamp.week, 'TOW': stamp.TOW, 'sat_count': len(data)}
     if len(data) >= Settings.MinimumMinimizingSatellitesCount:
-        for name, func in [  # ('LM', Minimizing.solve_navigation_task_LevMar),
-            # ('SQP', Minimizing.solve_navigation_task_SLSQP),
-            # ('TC', Minimizing.solve_navigation_task_TC),
-            # ('DB', Minimizing.solve_navigation_task_DogBox),
-            # ('TRF', Minimizing.solve_navigation_task_TRF),
-            # ('CF', Minimizing.solve_navigation_task_CF),
-            # ('CF', Minimizing.solve_navigation_task_CF),
-            # ('COBYLA', Minimizing.solve_navigation_task_COBYLA),
-            # ('TC', Minimizing.solve_navigation_task_TC)
-        ]:
+        for method, func in optimize_methods.items():
+            # if name not in Settings.using_methods:
+            if method != Settings.used_method:#(METHOD if METHOD else Settings.used_method):
+                continue
+            # signal.signal(signal.SIGALRM, handler)
+            # signal.alarm(Settings.max_calc_time)
+            # timer = threading.Timer(Settings.max_calc_time, timer_handler)
+            # timer.start()
             try:
-                t = datetime.now(tz=Constants.tz_utc)
-                res = func(data)
-                solve = {
-                    'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
-                    'fval': sum(res.fun ** 2) if name in ['LM', 'TRF', 'DB'] else res.fun,
-                    'success': res.success,
-                    'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
-                    'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
-                }
-                solve = {f'{name}_{key}': value for key, value in solve.items()}
-                SOLVE |= solve
+                def get_solve_line():
+                    t = datetime.now(tz=Constants.tz_utc)
+                    res = func(data)
+                    solve = {
+                        'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
+                        'fval': sum(res.fun ** 2) if method in ['LM', 'TRF', 'DB'] else res.fun,
+                        'success': res.success,
+                        'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
+                        'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
+                    }
+                    # solve = {f'{name}_{key}': value for key, value in solve.items()}
+                    return solve | {'method': method}
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(get_solve_line)
+                    try:
+                        SOLVE |= future.result(timeout=Settings.max_calc_time)
+                    except concurrent.futures.TimeoutError:
+                        SOLVE |= {'method': method, 'calc_time': '>limit'}
+                # signal.alarm(0)
+            # except TimeoutException:
+            #     SOLVE |= {'method': method, 'calc_time': '>limit'}
             except Exception as e:
                 print(e)
                 print(tr := traceback.format_exc())
                 a = 0
+            # finally:
+                # timer.cancel()
     solve_table.loc[len(solve_table)] = SOLVE
+
+
 
 
 def get_df_indexes(df):
@@ -304,8 +333,7 @@ class Storage:
         self.navigation_parameters1 = self.navigation_parameters[
             ['svId', 'gnssId', 'receiving_stamp', 'cno', 'prMes', 'prRes', 'prRMSer',  'elev', 'azim',
              'ephUsability', 'ephSource', 'ephAvail', 'almUsability', 'almSource', 'almAvail',
-             'health', 'qualityInd', 'prValid',
-             'mpathIndic', 'orbitSourse', 'visibility', 'svUsed', 'diffCorr', 'smoothed', ]]
+             'health', 'qualityInd', 'prValid', 'mpathIndic', 'orbitSourse', 'visibility', 'svUsed']]
         self.navigation_parameters1.rename(columns={'receiving_stamp': 'receiving'})
         self.almanac_parameters1 = self.almanac_parameters.apply(row_table_cleaning, axis=1, result_type='expand')
         self.almanac_data1 = self.almanac_data.apply(row_table_cleaning, axis=1, result_type='expand')

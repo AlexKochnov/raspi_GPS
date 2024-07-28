@@ -15,7 +15,8 @@ from TimeStamp import TimeStamp
 def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parameters, time_stamp):
     nav_cols = ['svId', 'gnssId', 'pr_stamp', 'prRMSer', 'prMes', 'prRes', 'nav_score', 'alm_score',
                 'eph_score']
-    coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'real_rho', 'Dt']
+    coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'azim', 'polar', 'radius',
+                  'real_rho', 'Dt']
     nav_data = pd.DataFrame(navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
     eph_coord_data = pd.DataFrame(
         ephemeris_parameters.apply(lambda row: calc_coords(row, time_stamp, SCC.calc_gps_eph), axis=1).to_list(),
@@ -62,11 +63,15 @@ def calc_coords(param_row, stamp: TimeStamp, coord_func):
         xyz = coord_func(param_row, stamp.TOW, stamp.week)
     if xyz:
         lla = Transformations.ecef2lla(*xyz)
+        x, y, z = xyz
+        r = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+        azim, polar, radius = np.rad2deg(np.arctan2(y, x)), np.rad2deg(np.arccos(z/r)), r
     else:
         xyz = (np.nan, np.nan, np.nan)
         lla = (np.nan, np.nan, np.nan)
+        azim, polar, radius = (np.nan, np.nan, np.nan)
     rho = np.linalg.norm(np.array(xyz) - np.array(Constants.ECEF))
-    return param_row.svId, param_row.gnssId, stamp, *xyz, *lla, rho, rho/ Constants.c
+    return param_row.svId, param_row.gnssId, stamp, *xyz, *lla, azim, polar, radius, rho, rho / Constants.c
 
 
 def calc_nav(nav_row):

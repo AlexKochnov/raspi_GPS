@@ -1,5 +1,7 @@
 import numpy as np
 
+import Settings
+
 
 class StorageColumnsLord:
     NAV_ORB_columns = {'health': np.int8, 'visibility': np.int8, 'ephUsability': np.int8, 'ephSource': np.int8,
@@ -37,20 +39,20 @@ class StorageColumnsLord:
     data_columns = stamp_columns | {'xyz_stamp': object, 'pr_stamp': object,
                                     'X': np.float64, 'Y': np.float64, 'Z': np.float64,
                                     'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
+                                    'azim': np.float32, 'polar': np.float32, 'radius': np.float32,
                                     'prRMSer': np.float16, 'prMes': np.float64, 'prRes': np.float32,
                                     'real_rho': np.float64, 'Dt': np.float64,
                                     'coord_score': np.float16, 'nav_score': np.float16}
     # TODO: delete one optimization method
-    full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int} | \
-                          {f'{"LM"}_{name}': type for name, type in solves_columns.items()} | \
-                          {f'{"SQP"}_{name}': type for name, type in solves_columns.items()} |\
-                          {f'{"TRF"}_{name}': type for name, type in solves_columns.items()} | \
-                          {f'{"TC"}_{name}': type for name, type in solves_columns.items()} | \
-                          {f'{"DB"}_{name}': type for name, type in solves_columns.items()}
-                          # {f'{"COBYLA"}_{name}': type for name, type in solves_columns.items()}
-                          # {f'{"CF"}_{name}': type for name, type in solves_columns.items()} |\
+    full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int, 'method': np.str_} | solves_columns
+                          # {f'{Settings.using_methods[0]}_{name}': type for name, type in solves_columns.items()}
+    # {f'{"SQP"}_{name}': type for name, type in solves_columns.items()} |\
+    # {f'{"TRF"}_{name}': type for name, type in solves_columns.items()} | \
+    # {f'{"TC"}_{name}': type for name, type in solves_columns.items()} | \
+    # {f'{"DB"}_{name}': type for name, type in solves_columns.items()}
+    # {f'{"COBYLA"}_{name}': type for name, type in solves_columns.items()}
+    # {f'{"CF"}_{name}': type for name, type in solves_columns.items()} |\
     full_eph_columns = param_columns | EPH_columns
     full_alm_columns = param_columns | ALM_columns
     full_nav_columns = stamp_columns | {'receiving_stamp': object} | general_nav_cols | \
                        NAV_ORB_columns | NAV_SAT_columns | RXM_RAWX_columns | RXM_MEASX_columns
-

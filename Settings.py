@@ -18,10 +18,14 @@ PrintNoiseFlag = True
 PrintParsedFlag = True
 PrintRawFlag = False
 
-optimize_methods = {
-    'LM': 'Levenberg-Marquardt',
-    'SQP': 'SQP',
-    'TRF': 'trf',
-    'TC': 'trust-constr',
-    'DB': 'DogBox',
-}
+used_method = 'LM'
+using_methods = [
+    'LM',
+    'SQP',
+    'TRF',
+    'TC',
+    'DB',
+]
+max_calc_time = 0.05
+
+

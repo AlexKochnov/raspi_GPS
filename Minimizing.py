@@ -77,7 +77,7 @@ def solve_navigation_task_SLSQP(satellites, bounds=None, Y0=None):
         jac=apply_func(satellites, jac),
         # jac=get_minimize_derivative(satellites),
         # jac=apply_func(satellites, jac),
-        options={'disp': True, 'maxiter': 10000},
+        options={'disp': True, 'maxiter': 500},
         tol=1e-10,
     )
     # t2 = datetime.now(tz=Constants.tz_utc)
@@ -123,6 +123,7 @@ def solve_navigation_task_TC(satellites, Y0=None):
         # constraints=[con],
         tol=1e-15,
         jac=apply_func(satellites, jac),
+        options={'disp': True, 'maxiter': 500},
     )
     print('tc', Transformations.ecef2lla(*result.x[:-1]))
     print('TC deiation', constraint(result.x))
@@ -348,9 +349,4 @@ def solve_navigation_task_GO(satellites, bounds=None):
 
 
 
-if __name__ == '__main__':
-    import pandas as pd
-    df = pd.read_csv('data.csv', header=0, index_col=0)
-    sats =i
-    # for i,
-
+# if __name_com3
