@@ -23,7 +23,7 @@ logging.basicConfig(filename='error.log',
                     level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-grey_power = 240
+grey_power = 243
 white = QColor(255, 255, 255)
 light_grey = QColor(grey_power, grey_power, grey_power)
 red = QColor(255, grey_power, grey_power)
@@ -52,6 +52,12 @@ def process_columns(columns, title):
                 case 'M0' | 'W0' | 'i0' | 'w' | 'delta_i' | 'Cuc' | 'Cus' | 'Cic' | 'Cis': return column + ', rad'
                 case 'dn' | 'Wdot' | 'IDOT': return column + ', rad/s'
                 case _: return column
+        elif title == "Данные эфемерид" or title == 'Данные альманах':
+            match column:
+                case 'xyz_stamp' | 'pr_stamp': return column + ', s'
+                case 'X' | 'Y' | 'Z' | 'alt' | 'real_rho' | 'prMes' | 'prRes' | 'prRMSer': return column + ', m'
+                case 'lat' | 'lon': return column + ', °'
+                case 'Dt': return column + ', ms'
         return column
     try:
         cols = [check_column(col) for col in columns]
@@ -74,26 +80,27 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
         if np.isnan(data) or data == 'nan':
             item = QTableWidgetItem(str('—'))
             item.setBackground(base_color)
+            item.setTextAlignment(Qt.AlignCenter)
             return item
     except Exception as e:
         pass
     color = base_color
-    if column in ['svId', 'gnssId', 'receiving_stamp']:
+    if column in ['svId', 'gnssId', 'receiving_stamp', 'xyz_stamp', 'pr_stamp']:
         match column:
             case 'svId':
                 data = int(data)
             case 'gnssId':
                 data = data.name
-            case 'receiving_stamp':
+            case 'receiving_stamp' | 'xyz_stamp' | 'pr_stamp':
                 data = data.TOW
     elif table_title == "Навигационные данные":
         match column:
             case 'cno':
                 data = int(data)
-                color = get_color(data, 30, 40, reverse=True)
+                color = purple if data == 0 else get_color(data, 20, 40, reverse=True)
             case 'ephUsability' | 'almUsability':
                 data = int(data)
-                color = red if data == 0 else (turquoise if data == 31 else green)
+                data, color = ('-', red) if data == 0 else (('?', turquoise) if data == 31 else (data, green))
             case 'ephSource' | 'almSource':
                 data, color = ('GNSS', green) if data == 1 else (('-', base_color) if data == 0 else ('other', red))
             case 'prMes':
@@ -146,11 +153,33 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                     data = f'{data:.5f}'
                 else:
                     data = f'{data:.5e}'
+    elif table_title == "Данные эфемерид" or table_title == 'Данные альманах':
+        match column:
+            case 'X' | 'Y' | 'Z' | 'real_rho' | 'prMes':
+                data = f'{data:.2f}'
+            case 'lat' | 'lon' | 'alt':
+                data = f'{data:.4f}'
+            case 'Dt':
+                data = f'{data*1000:.4f}'
+            case 'coord_score' | 'nav_score' | 'prRes' | 'prRMSer':
+                if column == 'prRes':
+                    color = get_color(abs(float(data)), 10, 40)
+                elif column == 'prRMSer':
+                    color = purple if int(data) == 120 else get_color(abs(data), 5, 30)
+                else:
+                    if data < 0.1:
+                        color = red
+                data = f'{data:.1f}'
+
 
     item = QTableWidgetItem(str(data))
     item.setBackground(color)
+    item.setTextAlignment(Qt.AlignCenter)
     return item
 
+
+data_cols = ['svId', 'gnssId', 'xyz_stamp', 'pr_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'prMes', 'prRes', 'prRMSer',
+             'coord_score', 'nav_score', 'real_rho', 'Dt']
 
 
 class DataReaderThread(QThread):
@@ -381,13 +410,13 @@ class App(QMainWindow):
         self.show_table(self.storage.almanac_parameters1, "Параметры альманах")
 
     def show_ephemeris_data(self):
-        self.show_table(self.storage.ephemeris_data1, "Данные эфемерид")
+        self.show_table(self.storage.ephemeris_data1[data_cols], "Данные эфемерид")
 
     def show_ephemeris_solves(self):
         self.show_table(self.storage.ephemeris_solves1, "Результаты по эфемеридам")
 
     def show_almanac_data(self):
-        self.show_table(self.storage.almanac_data1, "Данные альманах")
+        self.show_table(self.storage.almanac_data1[data_cols], "Данные альманах")
 
     def show_almanac_solves(self):
         self.show_table(self.storage.almanac_solves1, "Результаты по альманах")
@@ -397,9 +426,9 @@ class App(QMainWindow):
             "Навигационные данные": self.storage.navigation_parameters1,
             "Параметры эфемерид": self.storage.ephemeris_parameters1,
             "Параметры альманах": self.storage.almanac_parameters1,
-            "Данные эфемерид": self.storage.ephemeris_data1,
+            "Данные эфемерид": self.storage.ephemeris_data1[data_cols],
             "Результаты по эфемеридам": self.storage.ephemeris_solves1,
-            "Данные альманах": self.storage.almanac_data1,
+            "Данные альманах": self.storage.almanac_data1[data_cols],
             "Результаты по альманах": self.storage.almanac_solves1,
         }
         if self.current_table_name in table_map:
@@ -408,8 +437,8 @@ class App(QMainWindow):
                 self.add_new_rows(table)
             else:
                 self.update_table_cells(table)
-                for row in range(self.table_display.rowCount()):
-                    self.table_display.setRowHeight(row, 26)
+                # for row in range(self.table_display.rowCount()):
+                #     self.table_display.setRowHeight(row, 26)
 
     def add_new_rows(self, table):
         scrolled_to_bottom = self.is_scrolled_to_bottom(self.table_display)
@@ -419,6 +448,7 @@ class App(QMainWindow):
 
         for i in range(current_row_count, new_row_count):
             self.table_display.insertRow(i)
+            self.table_display.setRowHeight(i, 26)
             for j in range(len(table.columns)):
                 item = get_QTableWidgetItem(table.iat[i, j], table.columns[j], self.current_table_name,
                                             light_grey if i % 2 == 0 else white)
@@ -435,8 +465,9 @@ class App(QMainWindow):
         # header = self.table_display.horizontalHeader()
         # header.setSectionResizeMode(QHeaderView.Stretch)
         # header.setSectionResizeMode(QHeaderView.Interactive)
-        for row in range(self.table_display.rowCount()):
-            self.table_display.setRowHeight(row, 26)
+
+        # for row in range(self.table_display.rowCount()):
+        #     self.table_display.setRowHeight(row, 26)
 
         if scrolled_to_bottom:
             self.table_display.scrollToBottom()
@@ -451,6 +482,7 @@ class App(QMainWindow):
         self.table_display.setHorizontalHeaderLabels(process_columns(table.columns, self.current_table_name))
 
         for i in range(len(table.index)):
+            self.table_display.setRowHeight(i, 26)
             for j in range(len(table.columns)):
                 item = get_QTableWidgetItem(table.iat[i, j], table.columns[j], self.current_table_name,
                                             light_grey if i % 2 == 0 else white)
@@ -463,8 +495,8 @@ class App(QMainWindow):
         #     self.table_display.item(bottom_row, j).setBackground(light_grey)
         #     self.table_display.item(bottom_row, j).setFlags(Qt.ItemIsEnabled)
 
-        for row in range(self.table_display.rowCount()):
-            self.table_display.setRowHeight(row, 26)
+        # for row in range(self.table_display.rowCount()):
+        #     self.table_display.setRowHeight(row, 26)
 
         if scrolled_to_bottom:
             self.table_display.scrollToBottom()

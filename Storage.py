@@ -111,7 +111,7 @@ def index_func(row):
 
 
 def create_table(columns: dict, init_sats_lines: pd.DataFrame = pd.DataFrame()):
-    #TODO: вернуть типыcom3
+    #TODO: вернуть типы
     # types = np.dtype(list(columns.items()))
     # table = pd.DataFrame(np.empty(len(init_sats_lines), dtype=types))
     table = pd.DataFrame(np.nan, index=init_sats_lines.index, columns=list(columns.keys()))
@@ -287,17 +287,31 @@ class Storage:
             a = 0
 
     def ADD_GUI_TABLES(self):
+        def row_table_cleaning(row):
+            if any(pd.isna(row)):
+                if 'is_old' in row.keys():
+                    row.is_old = np.nan
+                if 'receiving_stamp' in row.keys():
+                    row.receiving_stamp = np.nan
+                if 'xyz_stamp' in row.keys() and pd.isna(row.X):
+                    row.xyz_stamp = np.nan
+                    row.coord_score = np.nan
+                if 'pr_stamp' in row.keys() and pd.isna(row.prMes):
+                    row.pr_stamp = np.nan
+                    row.nav_score = np.nan
+            return row
 
         self.navigation_parameters1 = self.navigation_parameters[
-            ['svId', 'gnssId', 'receiving_stamp', 'cno', 'elev', 'azim', 'ephUsability', 'prMes', 'prRes', 'prRMSer',
-             'qualityInd', 'mpathIndic', 'orbitSourse', 'health', 'ephSource', 'ephAvail', 'almSource', 'almAvail',
-             'visibility', 'prValid', 'svUsed', 'diffCorr', 'smoothed', ]]
+            ['svId', 'gnssId', 'receiving_stamp', 'cno', 'prMes', 'prRes', 'prRMSer',  'elev', 'azim',
+             'ephUsability', 'ephSource', 'ephAvail', 'almUsability', 'almSource', 'almAvail',
+             'health', 'qualityInd', 'prValid',
+             'mpathIndic', 'orbitSourse', 'visibility', 'svUsed', 'diffCorr', 'smoothed', ]]
         self.navigation_parameters1.rename(columns={'receiving_stamp': 'receiving'})
-        self.almanac_parameters1 = self.almanac_parameters.copy()
-        self.almanac_data1 = self.almanac_data.copy()
+        self.almanac_parameters1 = self.almanac_parameters.apply(row_table_cleaning, axis=1, result_type='expand')
+        self.almanac_data1 = self.almanac_data.apply(row_table_cleaning, axis=1, result_type='expand')
         self.almanac_solves1 = self.almanac_solves.copy()
-        self.ephemeris_parameters1 = self.ephemeris_parameters.copy()
-        self.ephemeris_data1 = self.ephemeris_data.copy()
+        self.ephemeris_parameters1 = self.ephemeris_parameters.apply(row_table_cleaning, axis=1, result_type='expand')
+        self.ephemeris_data1 = self.ephemeris_data.apply(row_table_cleaning, axis=1, result_type='expand')
         self.ephemeris_solves1 = self.ephemeris_solves.copy()
 
 

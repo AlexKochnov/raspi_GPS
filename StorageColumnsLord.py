@@ -34,10 +34,11 @@ class StorageColumnsLord:
     general_nav_cols = stamp_columns | {name: object for name in ['receiving_stamp', 'NAV_ORB_stamp', 'RXM_RAWX_stamp',
                                                                   'NAV_SAT_stamp', 'RXM_MEASX_stamp']}
     # TODO: delete real_rho & Dt
-    data_columns = stamp_columns | {'xyz_stamp': object, 'X': np.float64, 'Y': np.float64, 'Z': np.float64,
+    data_columns = stamp_columns | {'xyz_stamp': object, 'pr_stamp': object,
+                                    'X': np.float64, 'Y': np.float64, 'Z': np.float64,
                                     'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
-                                    'pr_stamp': object, 'pseuRangeRMSErr': np.int8, 'prMes': np.float64,
-                                    'prRes': np.float32, 'real_rho': np.float64, 'Dt': np.float64,
+                                    'prRMSer': np.float16, 'prMes': np.float64, 'prRes': np.float32,
+                                    'real_rho': np.float64, 'Dt': np.float64,
                                     'coord_score': np.float16, 'nav_score': np.float16}
     # TODO: delete one optimization method
     full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int} | \
