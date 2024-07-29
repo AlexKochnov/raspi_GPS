@@ -18,15 +18,18 @@ class StorageColumnsLord:
     RXM_MEASX_columns = {'cno': np.int8, 'mpathIndic': np.int8, 'dopplerMS': np.float64, 'dopplerHz': np.float64,
                          'wholeChips': np.int16, 'fracChips': np.int16, 'codePhase': np.float64,
                          'intCodePhase': np.int8, 'pseuRangeRMSErr': np.int8, 'prRMSer': np.float16}
-    EPH_columns = {'week': np.int16, 'Toe': np.int32, 'Toc': np.int32, 'IODE1': np.int16, 'IODE2': np.int16,
-                   'IODC': np.int16, 'IDOT': np.float64, 'Wdot': np.float64, 'Crs': np.float64, 'Crc': np.float64,
-                   'Cus': np.float64, 'Cuc': np.float64, 'Cis': np.float64, 'Cic': np.float64, 'dn': np.float64,
-                   'i0': np.float64, 'e': np.float64, 'sqrtA': np.float64, 'M0': np.float64, 'W0': np.float64,
-                   'w': np.float64, 'Tgd': np.float64, 'af2': np.float64, 'af1': np.float64, 'af0': np.float64,
-                   'health': np.int8, 'accuracy': np.int8}
-    ALM_columns = {'week': np.int16, 'Toa': np.int32, 'e': np.float32, 'delta_i': np.float32, 'Wdot': np.float32,
+    EPH_columns = {'health': np.int8, 'accuracy': np.int8,
+                   'week': np.int16, 'Toe': np.int32, 'Toc': np.int32, 'Tgd': np.float64,  'Wdot': np.float64,
+                   'dn': np.float64, 'i0': np.float64, 'IDOT': np.float64, 'e': np.float64, 'sqrtA': np.float64,
+                   'M0': np.float64, 'W0': np.float64, 'w': np.float64,
+                   'Crs': np.float64, 'Crc': np.float64, 'Cus': np.float64, 'Cuc': np.float64, 'Cis': np.float64,
+                   'Cic': np.float64,
+                   'af2': np.float64, 'af1': np.float64, 'af0': np.float64,
+                   'IODE1': np.int16, 'IODE2': np.int16, 'IODC': np.int16}
+    ALM_columns = {'health': np.int8, 'Data_ID': np.int8,
+                   'week': np.int16, 'Toa': np.int32, 'e': np.float32, 'delta_i': np.float32, 'Wdot': np.float32,
                    'sqrtA': np.float32, 'W0': np.float32, 'w': np.float32, 'M0': np.float32, 'af0': np.float32,
-                   'af1': np.float32, 'health': np.int8, 'Data_ID': np.int8}
+                   'af1': np.float32, }
     # TODO: delete error
     solves_columns = {'success': np.bool_, 'X': np.float64, 'Y': np.float64, 'Z': np.float64,
                       'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
@@ -44,7 +47,7 @@ class StorageColumnsLord:
                                     'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
                                     'azim': np.float32, 'polar': np.float32, 'radius': np.float32,
                                     'prRMSer': np.float16, 'prMes': np.float64, 'prRes': np.float32,
-                                    'real_rho': np.float64, 'Dt': np.float64,
+                                    'prStedv': np.float32, 'real_rho': np.float64, 'Dt': np.float64,
                                     'coord_score': np.float16, 'nav_score': np.float16}
     # TODO: delete one optimization method
     full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int, 'method': np.str_} | solves_columns

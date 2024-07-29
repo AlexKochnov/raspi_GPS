@@ -26,6 +26,8 @@ using_methods = [
     'TC',
     'DB',
 ]
-max_calc_time = 0.05
+max_calc_time = 0.150
+
+GUI_ON = False
 
 

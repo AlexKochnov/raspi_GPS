@@ -99,34 +99,36 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
             # signal.alarm(Settings.max_calc_time)
             # timer = threading.Timer(Settings.max_calc_time, timer_handler)
             # timer.start()
-            try:
-                def get_solve_line():
-                    t = datetime.now(tz=Constants.tz_utc)
-                    res = func(data)
-                    lla = Transformations.ecef2lla(*res.x[:-1])
-                    solve = {
-                        'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
-                        'lat': lla[0], 'lon': lla[1], 'alt': lla[2],
-                        'fval': sum(res.fun ** 2) if method in ['LM', 'TRF', 'DB'] else res.fun,
-                        'success': res.success,
-                        'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
-                        'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
-                    }
-                    # solve = {f'{name}_{key}': value for key, value in solve.items()}
-                    return solve | {'method': method}
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(get_solve_line)
-                    try:
-                        SOLVE |= future.result(timeout=Settings.max_calc_time)
-                    except concurrent.futures.TimeoutError:
-                        SOLVE |= {'method': method, 'calc_time': '>limit'}
+            # try:
+            def get_solve_line():
+                t = datetime.now(tz=Constants.tz_utc)
+                res = func(data)
+                lla = Transformations.ecef2lla(*res.x[:-1])
+                solve = {
+                    'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
+                    'lat': lla[0], 'lon': lla[1], 'alt': lla[2],
+                    'fval': sum(res.fun ** 2) if method in ['LM', 'TRF', 'DB'] else res.fun,
+                    'success': res.success,
+                    'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
+                    'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
+                }
+                # solve = {f'{name}_{key}': value for key, value in solve.items()}
+                return solve | {'method': method}
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(get_solve_line)
+                try:
+                    SOLVE |= future.result(timeout=Settings.max_calc_time)
+                except concurrent.futures.TimeoutError:
+                    SOLVE |= {'method': method, 'calc_time': '>limit'}
+                except Exception as e:
+                    SOLVE |= {'method': method, 'calc_time': 'error'}
                 # signal.alarm(0)
             # except TimeoutException:
             #     SOLVE |= {'method': method, 'calc_time': '>limit'}
-            except Exception as e:
-                print(e)
-                print(tr := traceback.format_exc())
-                a = 0
+            # except Exception as e:
+            #     print(e)
+            #     print(tr := traceback.format_exc())
+            #     a = 0
             # finally:
                 # timer.cancel()
     solve_table.loc[len(solve_table)] = SOLVE
@@ -175,19 +177,19 @@ def make_init_df(*gnss_s: GNSS):
 SFRBX_DATA_PATH = 'sfrbx_data.plk'
 
 
-# def get_tables_object(storage):
-#     class DynamicObject(object):
-#         pass
-#
-#     Dyn = DynamicObject()
-#     Dyn.ephemeris_parameters = storage.ephemeris_parameters
-#     Dyn.almanac_parameters = storage.almanac_parameters
-#     Dyn.navigation_parameters = storage.navigation_parameters
-#     Dyn.ephemeris_data = storage.ephemeris_data
-#     Dyn.almanac_data = storage.almanac_data
-#     Dyn.ephemeris_solves = storage.ephemeris_solves
-#     Dyn.almanac_solves = storage.almanac_solves
-#     return Dyn
+class DynamicObject(object):
+    pass
+
+def get_DynStorage(storage):
+    Dyn = DynamicObject()
+    Dyn.ephemeris_parameters1 = storage.ephemeris_parameters1
+    Dyn.almanac_parameters1 = storage.almanac_parameters1
+    Dyn.navigation_parameters1 = storage.navigation_parameters1
+    Dyn.ephemeris_data1 = storage.ephemeris_data1
+    Dyn.almanac_data1 = storage.almanac_data1
+    Dyn.ephemeris_solves1 = storage.ephemeris_solves1
+    Dyn.almanac_solves1 = storage.almanac_solves1
+    return Dyn
 
 class Storage:
     week: int = None
@@ -199,6 +201,9 @@ class Storage:
     other_data = dict()
 
     leapS = 18
+
+    flush_flag = False
+    DynStorage = None
 
     def __init__(self):
         self.counter = 0
@@ -236,7 +241,10 @@ class Storage:
             return
         if isinstance(message, UBXMessages.UbxMessage):
             self.update_UBX(message)
-        self.ADD_GUI_TABLES()
+
+        if Settings.GUI_ON:
+            self.ADD_GUI_TABLES()
+
         if self.iTOW:
             self.TOW = self.iTOW // 1000
         if self.iTOW != self.last_iTOW:
@@ -270,6 +278,7 @@ class Storage:
                 self.check_nav_time()
             if isinstance(message, UBXMessages.RXM_RAWX):
                 self.calc_navigation_task()
+                self.flush_flag = True
         elif isinstance(message, UBXMessages.NAV_TIMEGPS | UBXMessages.NAV_POSECEF | UBXMessages.NAV_VELECEF):
             assert isinstance(message.data, dict)
             self.update_param(message.data, 'iTOW', 'week', 'leapS')
@@ -321,16 +330,16 @@ class Storage:
                 pickle.dump(self.SFRBX_GLONASS_data, file)
 
     def calc_navigation_task(self):
-        try:
-            self.ephemeris_data, self.almanac_data = \
-                make_ae_nav_data(self.navigation_parameters, self.ephemeris_parameters, self.almanac_parameters,
-                                 self.time_stamp)
-            calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.time_stamp)
-            calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.time_stamp)
-        except Exception as e:
-            print(e)
-            print(tr := traceback.format_exc())
-            a = 0
+        # try:
+        self.ephemeris_data, self.almanac_data = \
+            make_ae_nav_data(self.navigation_parameters, self.ephemeris_parameters, self.almanac_parameters,
+                             self.time_stamp)
+        calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.time_stamp)
+        calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.time_stamp)
+        # except Exception as e:
+        #     print(e)
+        #     print(tr := traceback.format_exc())
+        #     a = 0
 
     def ADD_GUI_TABLES(self):
         def row_table_cleaning(row):
@@ -347,7 +356,6 @@ class Storage:
                     row.nav_score = np.nan
             return row
 
-
         self.navigation_parameters1 = self.navigation_parameters[
             ['svId', 'gnssId', 'receiving_stamp', 'cno', 'prMes', 'prRes', 'prRMSer', 'prStedv', 'elev', 'azim',
              'ephUsability', 'ephSource', 'ephAvail', 'almUsability', 'almSource', 'almAvail',
@@ -359,6 +367,8 @@ class Storage:
         self.ephemeris_parameters1 = self.ephemeris_parameters.apply(row_table_cleaning, axis=1, result_type='expand')
         self.ephemeris_data1 = self.ephemeris_data.apply(row_table_cleaning, axis=1, result_type='expand')
         self.ephemeris_solves1 = self.ephemeris_solves.copy()
+
+        self.DynStorage = get_DynStorage(self)
 
 
     def make_SFRBX_data(self):
