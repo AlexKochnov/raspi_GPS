@@ -50,7 +50,7 @@ class StorageColumnsLord:
                                     'prStedv': np.float32, 'real_rho': np.float64, 'Dt': np.float64,
                                     'coord_score': np.float16, 'nav_score': np.float16}
     # TODO: delete one optimization method
-    full_solves_columns = {'week': int, 'TOW': int, 'sat_count': int, 'method': np.str_} | solves_columns
+    full_solves_columns = {'calc_stamp': object, 'sat_count': int, 'method': np.str_} | solves_columns
                           # {f'{Settings.using_methods[0]}_{name}': type for name, type in solves_columns.items()}
     # {f'{"SQP"}_{name}': type for name, type in solves_columns.items()} |\
     # {f'{"TRF"}_{name}': type for name, type in solves_columns.items()} | \

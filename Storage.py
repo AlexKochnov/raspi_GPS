@@ -3,6 +3,7 @@ import pickle
 import threading
 import traceback
 import numpy as np
+from numpy.linalg import inv, norm
 import pandas as pd
 from datetime import datetime
 import concurrent.futures
@@ -89,7 +90,7 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     sats = sats.sort_values(by='score', ascending=False).head(Settings.MinimizingSatellitesCount)
     # data = [(row.X, row.Y, row.Z, row.prMes) for row in sats.iterrows()]
     data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
-    SOLVE = {'week': stamp.week, 'TOW': stamp.TOW, 'sat_count': len(data)}
+    SOLVE = {'calc_stamp': stamp, 'sat_count': len(data)}
     if len(data) >= Settings.MinimumMinimizingSatellitesCount:
         for method, func in optimize_methods.items():
             # if name not in Settings.using_methods:
@@ -162,14 +163,14 @@ def create_index_table(data):
     return table
 
 
-def make_init_df(*gnss_s: GNSS):
+def make_init_df(*gnss_list: GNSS):
     def init_lines_to_df(lines: list[dict]):
         init_df = pd.DataFrame(lines).astype(SCL.stamp_columns)
         init_df.set_index(get_df_indexes(init_df), inplace=True)
         return init_df
 
     lines = []
-    for gnss in gnss_s:
+    for gnss in gnss_list:
         lines += [{'svId': j + 1, 'gnssId': gnss} for j in range(get_GNSS_len(gnss))]
     return init_lines_to_df(lines)
 
@@ -187,9 +188,116 @@ def get_DynStorage(storage):
     Dyn.navigation_parameters1 = storage.navigation_parameters1
     Dyn.ephemeris_data1 = storage.ephemeris_data1
     Dyn.almanac_data1 = storage.almanac_data1
-    Dyn.ephemeris_solves1 = storage.ephemeris_solves1
-    Dyn.almanac_solves1 = storage.almanac_solves1
+
+    Dyn.ephemeris_solves1 = storage.ephemeris_solves
+    Dyn.almanac_solves1 = storage.almanac_solves
+    Dyn.general_data1 = storage.general_data
+    Dyn.FK_coordinates_xyz = storage.FK_coordinates_xyz
     return Dyn
+
+
+def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
+    """
+    Calculate Kalman
+    :param xyz_meas: измеренное значение на текущем шаге
+    :param X_k0k0: прогноз на предыдущем шаге
+    :param P_k0k0: ковариационная матрица на предыдущем шаге
+    :return:
+    """
+    N = len(xyz_meas)
+
+    I = np.eye(N)
+    A = np.eye(N)
+    B = np.zeros((N, 1))
+    C = np.eye(N)
+    D = np.zeros((N, N))
+    Q = np.eye(N) * 1e-3
+    R = np.eye(N) * 1e-3
+
+    U = np.zeros(1)
+    # try:
+    if X_k0k0 is None or any(np.isnan(X_k0k0)):          # значение на предыдущем шаге
+        X_k0k0 = np.zeros(N)
+    if P_k0k0 is None or np.isnan(P_k0k0).any():          # ковариационная матрица
+        P_k0k0 = np.zeros((N, N))
+    if isinstance(P_k0k0, np.matrix):
+        P_k0k0 = np.array(P_k0k0)
+    if any(np.isnan(xyz_meas)):
+        return [np.nan, np.nan, np.nan], np.nan
+    else:
+        Y = np.array(xyz_meas)      # измеренное значение на текущем шаге
+    # except Exception as e:
+    #     print(e)
+    #     a=0
+
+    # прогноз
+    X_k1k0 = A @ X_k0k0 + B @ U
+    P_k1k0 = A @ P_k0k0 @ A.T + Q
+
+    # коррекция
+    Z = Y - C @ X_k1k0
+    S = C @ P_k1k0 @ C.T + R
+    K = P_k1k0 @ C.T @ inv(S)
+    X_k1k1 = X_k1k0 + K @ Z
+    P_k1k1 = (I - K @ C) @ P_k1k0 @ (I - K @ C).T + K @ R @ K.T
+    print('MATRIX:', P_k1k1)
+    return list(X_k1k1), np.matrix(P_k1k1)
+
+
+def FK_filter(storage):
+    coord_names = ['X', 'Y', 'Z']
+
+    if len(storage.general_data) < 1 or len(storage.ephemeris_solves) < 1 or len(storage.almanac_solves) < 1:
+        return
+    a=0
+    lines = [
+        #TODO: поправить синхронизацию и добавить проверку времени
+        # storage.general_data[storage.general_data['receiving_stamp'] == storage.time_stamp][coord_names].iloc[-1],
+        # storage.ephemeris_solves[storage.ephemeris_solves['calc_stamp'] == storage.time_stamp][coord_names].iloc[-1],
+        # storage.almanac_solves[storage.almanac_solves['calc_stamp'] == storage.time_stamp][coord_names].iloc[-1],
+        storage.general_data.iloc[-1][['receiving_stamp'] + [f'ecef{name}' for name in coord_names]],
+        storage.ephemeris_solves.iloc[-1][['calc_stamp'] + coord_names],
+        storage.almanac_solves.iloc[-1][['calc_stamp'] + coord_names],
+    ]
+    # def get_last_line(table):
+    #     if len(table):
+    #         return table.iloc[-1]
+    #     return None
+    if len(storage.FK_coordinates_xyz) < 1:
+        NoneData = True
+    else:
+        NoneData = False
+    n = len(storage.FK_coordinates_xyz)
+    # storage.FK_coordinates_xyz.loc[n] = {'receiving_stamp': storage.time_stamp} | {f'P_{s}': None for s in ['rec', 'eph', 'alm']}
+    data = {'receiving_stamp': storage.time_stamp}
+    try:
+        for i, source in enumerate(['rec', 'eph', 'alm']):
+            cols = [f'{name}_{source}' for name in coord_names]
+            if NoneData is False:
+                line = storage.FK_coordinates_xyz.iloc[-1, :]
+                last_xyz = line[cols].to_list()
+                last_P = line[f'P_{source}']
+            else:
+                last_xyz, last_P = None, None
+            res_xyz, res_P = linear_kalman(lines[i][1:].to_list(), last_xyz, last_P)
+            # storage.FK_coordinates_xyz.loc[n, cols[0]] = res_xyz[0]
+            # storage.FK_coordinates_xyz.loc[n, cols[1]] = res_xyz[1]
+            # storage.FK_coordinates_xyz.loc[n, cols[2]] = res_xyz[2]
+            # storage.FK_coordinates_xyz.loc[n, f'P_{source}'] = res_P
+            data |= {cols[0]: res_xyz[0], cols[1]: res_xyz[1], cols[2]: res_xyz[2],
+                     f'P_{source}': res_P, f'normP_{source}': np.linalg.norm(res_P)}
+            #        # {'receiving_stamp': lines[i][0]}
+            # storage.FK_coordinates_xyz.loc[n] = data
+            # print("LINE:", storage.FK_coordinates_xyz.iloc[-1])
+            # storage.FK_coordinates_xyz.iloc[-1, storage.FK_coordinates_xyz.columns.get_loc(coord_cols)] = res_xyz
+            # storage.FK_coordinates_xyz.iloc[-1, storage.FK_coordinates_xyz.columns.get_loc(f'P_{source}')] = res_P
+        storage.FK_coordinates_xyz.loc[n] = data
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
+        a=0
+
+
 
 class Storage:
     week: int = None
@@ -218,6 +326,17 @@ class Storage:
         self.almanac_data = create_table(SCL.data_columns, init0)
         self.ephemeris_solves = create_table(SCL.full_solves_columns)
         self.almanac_solves = create_table(SCL.full_solves_columns)
+        self.general_data = pd.DataFrame(columns=[
+            'receiving_stamp', 'week', 'iTOW',
+            'ecefX', 'ecefY', 'ecefZ', 'pAcc',
+            'fTOW', 'tAcc', 'leapS', 'towValid', 'weekValid', 'leapSValid',
+            'tau_c', 'tau_GPS', 'N4', 'NA', 'B1', 'B2', 'KP',
+        ])
+        self.FK_coordinates_xyz = pd.DataFrame(
+            columns=['receiving_stamp'] +
+                    [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['X', 'Y', 'Z', 'P', 'normP']]
+        )
+        # self.FK_coordinates_xyz[[f'P_{source}' for source in ['rec', 'eph', 'alm']]].astype(object)
 
         # TODO: integrate and delete
         if os.path.exists(SFRBX_DATA_PATH):
@@ -278,6 +397,7 @@ class Storage:
                 self.check_nav_time()
             if isinstance(message, UBXMessages.RXM_RAWX):
                 self.calc_navigation_task()
+                FK_filter(self)
                 self.flush_flag = True
         elif isinstance(message, UBXMessages.NAV_TIMEGPS | UBXMessages.NAV_POSECEF | UBXMessages.NAV_VELECEF):
             assert isinstance(message.data, dict)
@@ -285,6 +405,7 @@ class Storage:
             if 'leapS' in message.data.keys():
                 Constants.leapS = message.data['leapS']
             self.other_data[message.__class__.__name__.lower()] = message.data
+            self.update_general_data(message.data, message.receiving_stamp)
         elif isinstance(message, UBXMessages.RXM_SFRBX):
             assert isinstance(message.data, dict)
             try:  # TODO: править очень жестко
@@ -302,6 +423,7 @@ class Storage:
                 elif message.data['gnssId'] == GNSS.GLONASS:
                     if message.data['id'] == -1:
                         self.SFRBX_GLONASS_data.update(message.signal)
+                        self.update_general_data(message.signal, message.receiving_stamp)
                     elif message.data['id'] == 0:
                         update_table_line(self.SFRBX_GLONASS_eph, message.signal | \
                                           {f'sfN{message.data["StringN"]}': message.data['superframeN']},
@@ -328,6 +450,19 @@ class Storage:
                 pickle.dump(self.SFRBX_GLONASS_alm, file)
                 pickle.dump(self.SFRBX_GPS_data, file)
                 pickle.dump(self.SFRBX_GLONASS_data, file)
+
+    def update_general_data(self, data: dict, stamp: TimeStamp):
+        table = self.general_data
+        ind = table.index[table.receiving_stamp == stamp]
+        if not len(ind):
+            data['receiving_stamp'] = stamp
+            table.loc[len(table)] = data
+            return
+        ind = ind[0]
+        for key, value in data.items():
+            if key in table.columns:
+                table.at[ind, key] = value
+
 
     def calc_navigation_task(self):
         # try:
@@ -363,10 +498,11 @@ class Storage:
         self.navigation_parameters1.rename(columns={'receiving_stamp': 'receiving'})
         self.almanac_parameters1 = self.almanac_parameters.apply(row_table_cleaning, axis=1, result_type='expand')
         self.almanac_data1 = self.almanac_data.apply(row_table_cleaning, axis=1, result_type='expand')
-        self.almanac_solves1 = self.almanac_solves.copy()
+        # self.almanac_solves1 = self.almanac_solves.copy()
         self.ephemeris_parameters1 = self.ephemeris_parameters.apply(row_table_cleaning, axis=1, result_type='expand')
         self.ephemeris_data1 = self.ephemeris_data.apply(row_table_cleaning, axis=1, result_type='expand')
-        self.ephemeris_solves1 = self.ephemeris_solves.copy()
+        # self.ephemeris_solves1 = self.ephemeris_solves.copy()
+        # self.general_data1 = self.general_data.copy()
 
         self.DynStorage = get_DynStorage(self)
 

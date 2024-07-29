@@ -330,7 +330,7 @@ class NAV_TIMEGPS(UbxMessage):
         self.data = {
             'iTOW': iTOW,
             'fTOW': fTOW,
-            'weel': week,
+            'week': week,
             'leapS': leapS,
             'tAcc': tAcc,
             'towValid': get_bytes_from_flag(flags, 0),
@@ -348,10 +348,10 @@ class NAV_POSECEF(UbxMessage):
         iTOW, ecefX, ecefY, ecefZ, pAcc = struct.unpack(self.format, msg)
         self.data = {
             'iTOW': iTOW,
-            'ecefX': ecefX,
-            'ecefY': ecefY,
-            'ecefZ': ecefZ,
-            'pAcc': pAcc,
+            'ecefX': ecefX * 1e-2,
+            'ecefY': ecefY * 1e-2,
+            'ecefZ': ecefZ * 1e-2,
+            'pAcc': pAcc * 1e-2,
         }
 
 

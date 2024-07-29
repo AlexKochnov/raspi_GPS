@@ -25,7 +25,8 @@ class TimeStamp:
         """
         type = kwargs.get('type', GNSS.GPS)
         if not args and not kwargs:
-            self.TOW, self.week = self.dt2gps(datetime.now(tz=tz_utc), STEP)
+            self.dt = datetime.now(tz=tz_utc)
+            self.TOW, self.week = self.dt2gps(self.dt, STEP)
         elif len(args) == 2 and all(isinstance(arg, (int, float)) for arg in args):
             if type == GNSS.GPS:
                 self.TOW, self.week = float(args[0]), int(args[1])

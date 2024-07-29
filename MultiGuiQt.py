@@ -15,7 +15,7 @@ from GNSS import GNSS
 from Storage import Storage, get_DynStorage
 from Reader import Reader
 
-from table_description import TABLE_DESCRIPTIONS, TABLE_DESCRIPTIONS2
+from table_description import TABLE_DESCRIPTIONS, TABLE_DESCRIPTIONS2, TABLE_DESCRIPTIONS3
 
 import logging
 
@@ -48,53 +48,98 @@ data_cols = ['svId', 'gnssId', 'xyz_stamp', 'pr_stamp', 'X', 'Y', 'Z', 'lat', 'l
              'prMes', 'prRes', 'prRMSer', 'prStedv', 'coord_score', 'nav_score', 'real_rho', 'Dt']
 
 
-def process_columns(columns, title):
+def process_columns(column_list, title):
     def check_column(column):
         if title == "Навигационные данные":
             match column:
-                case 'receiving_stamp': return column + ', s'
-                case 'cno': return column + ', dBHz'
-                case 'azim' | 'elev': return column + ', °'
-                case 'prMes' | 'prRes' | 'prRMSer' | 'prStedv': return column + ', m'
-                case 'ephUsability': return column + ', hours'
-                case 'almUsability': return column + ', days'
-                case _: return column
+                case 'receiving_stamp':
+                    return column + ', s'
+                case 'cno':
+                    return column + ', dBHz'
+                case 'azim' | 'elev':
+                    return column + ', °'
+                case 'prMes' | 'prRes' | 'prRMSer' | 'prStedv':
+                    return column + ', m'
+                case 'ephUsability':
+                    return column + ', hours'
+                case 'almUsability':
+                    return column + ', days'
+                case _:
+                    return column
         elif title == "Параметры эфемерид" or title == "Параметры альманах":
             match column:
-                case 'Toe' | 'Toc' | 'Toa' | 'Tgd': return column + ', s'
-                case 'af0': return column + ', s'
-                case 'af1': return column + ', s/s'
-                case 'af2': return column + ', s/s^2'
-                case 'sqrtA': return column + ', m^0.5'
-                case 'Crs' | 'Crc': return column + ', m'
-                case 'M0' | 'W0' | 'i0' | 'w' | 'delta_i' | 'Cuc' | 'Cus' | 'Cic' | 'Cis': return column + ', rad'
-                case 'dn' | 'Wdot' | 'IDOT': return column + ', rad/s'
-                case _: return column
+                case 'Toe' | 'Toc' | 'Toa' | 'Tgd':
+                    return column + ', s'
+                case 'af0':
+                    return column + ', s'
+                case 'af1':
+                    return column + ', s/s'
+                case 'af2':
+                    return column + ', s/s^2'
+                case 'sqrtA':
+                    return column + ', m^0.5'
+                case 'Crs' | 'Crc':
+                    return column + ', m'
+                case 'M0' | 'W0' | 'i0' | 'w' | 'delta_i' | 'Cuc' | 'Cus' | 'Cic' | 'Cis':
+                    return column + ', rad'
+                case 'dn' | 'Wdot' | 'IDOT':
+                    return column + ', rad/s'
+                case _:
+                    return column
         elif title == "Данные эфемерид" or title == 'Данные альманах':
             match column:
-                case 'xyz_stamp' | 'pr_stamp': return column + ', s'
+                case 'xyz_stamp' | 'pr_stamp':
+                    return column + ', s'
                 case 'X' | 'Y' | 'Z' | 'real_rho' | 'prMes' | 'prRes' | 'prRMSer' | 'radius' | 'prStedv':
                     return column + ', m'
                 case 'alt':
                     return column + ', km'
-                case 'lat' | 'lon': return column + ', °'
-                case 'polar' | 'azim': return column + ', °'
+                case 'lat' | 'lon':
+                    return column + ', °'
+                case 'polar' | 'azim':
+                    return column + ', °'
                 # case 'lon': return 'azim, °'
-                case 'Dt': return column + ', ms'
+                case 'Dt':
+                    return column + ', ms'
         elif title == 'Результаты по эфемеридам' or title == 'Результаты по альманах':
             match column:
-                case 'X' | 'Y' | 'Z' | 'cdt' | 'error' | 'alt': return column + ', m'
-                case 'lat' | 'lon': return column + ', °'
-                case 'dt' | 'calc_time': return column + ', ms'
-                case 'fval': return column + ', m^2'
+                case 'X' | 'Y' | 'Z' | 'cdt' | 'error' | 'alt':
+                    return column + ', m'
+                case 'lat' | 'lon':
+                    return column + ', °'
+                case 'dt' | 'calc_time':
+                    return column + ', ms'
+                case 'fval':
+                    return column + ', m^2'
+                case 'calc_stamp':
+                    return column + ', s'
+        elif title == 'Общие данные':
+            match column:
+                case 'ecefX' | 'ecefY' | 'ecefZ' | 'pAcc':
+                    return column + ', m'
+                case 'receiving_stamp' | 'leapS' | 'tau_c' | 'tau_GPS' | 'B1':
+                    return column + ', s'
+                case 'B2':
+                    return column + ', s/asd'
+                case 'fTOW' | 'tAcc':
+                    return column + ', ns'
+                case 'iTOW':
+                    return column + ', us'
+        elif title == 'Отфильтровано':
+            match column:
+                case 'receiving_stamp': return column + ', s'
+                case 'P_rec' | 'P_eph' | 'P_alm': return 'diag ' + column + ', m'
+                case _: return column + ', m'
         return column
+
     # try:
-    cols = [check_column(col) for col in columns]
+    cols = [check_column(col) for col in column_list]
     return cols
     # except Exception as e:
     #     print(e)
     #     a=0
     # return columns
+
 
 def get_color(val, N1, N2, reverse=False):
     if val <= N1:
@@ -114,13 +159,13 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
     except Exception as e:
         pass
     color = base_color
-    if column in ['svId', 'gnssId', 'receiving_stamp', 'xyz_stamp', 'pr_stamp']:
+    if column in ['svId', 'gnssId', 'receiving_stamp', 'xyz_stamp', 'pr_stamp', 'calc_stamp']:
         match column:
             case 'svId':
                 data = int(data)
             case 'gnssId':
                 data = data.name
-            case 'receiving_stamp' | 'xyz_stamp' | 'pr_stamp':
+            case 'receiving_stamp' | 'xyz_stamp' | 'pr_stamp' | 'calc_stamp':
                 data = data.TOW
     elif table_title == "Навигационные данные":
         match column:
@@ -153,20 +198,28 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 color = get_color(data, 1, 2) if data else turquoise
             case 'orbitSourse':
                 match int(data):
-                    case 0: data, color = '-', turquoise
-                    case 1: data, color = 'E', green
-                    case 2: data, color = 'A', green
-                    case _: data = '?'
+                    case 0:
+                        data, color = '-', turquoise
+                    case 1:
+                        data, color = 'E', green
+                    case 2:
+                        data, color = 'A', green
+                    case _:
+                        data = '?'
             case 'health':
                 data, color = [('?', turquoise), ('+', green), ('-', red)][int(data)]
             case 'ephAvail' | 'almAvail':
                 data, color = ('+', green) if data else ('-', red)
             case 'visibility':
                 match int(data):
-                    case 0: data, color = '?', turquoise
-                    case 1: data, color = '-', red
-                    case 2: data, color = '±', yellow
-                    case 3: data, color = '+', green
+                    case 0:
+                        data, color = '?', turquoise
+                    case 1:
+                        data, color = '-', red
+                    case 2:
+                        data, color = '±', yellow
+                    case 3:
+                        data, color = '+', green
             case 'prValid' | 'svUsed' | 'diffCorr' | 'smoothed':
                 data, color = ('+', green) if data else ('-', red)
     elif table_title == "Параметры эфемерид" or table_title == "Параметры альманах":
@@ -195,11 +248,11 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
             case 'lat' | 'lon' | 'radius':
                 data = f'{data:.2f}'
             case 'alt':
-                data = f'{data/1000:.1f}'
+                data = f'{data / 1000:.1f}'
             case 'polar' | 'azim':
                 data = f'{data:.5f}'
             case 'Dt':
-                data = f'{data*1000:.4f}'
+                data = f'{data * 1000:.4f}'
             case 'prStedv':
                 color = get_color(data, 5, 25)
                 data = f'{data:.2f}'
@@ -220,19 +273,36 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 data = f'{data:.5f}'
             case 'dt' | 'calc_time':
                 try:
-                    data = f'{data*1000:.5f}'
+                    data = f'{data * 1000:.5f}'
                 except:
                     pass
             case 'fval':
                 data = f'{data:.2e}'
             case 'success':
                 data, color = ('+', green) if data else ('-', red)
+    elif table_title == 'Общие данные':
+        match column:
+            case 'ecefX' | 'ecefY' | 'ecefZ' | 'pAcc':
+                data = f'{data:.2f}'
+            case 'leapS' | 'iTOW' | 'fTOW' | 'tAcc' | 'week' | 'N4' | 'NA' | 'KP':
+                data = int(data)
+            case 'receiving_stamp':
+                data = int(data.TOW)
+            case 'towValid' | 'weekValid' | 'leapSValid':
+                data, color = ('+', green) if data else ('-', red)
+    elif table_title == 'Отфильтровано':
+        if 'X_' in column or 'Y_' in column or 'Z_' in column:
+            data = f'{data:.2f}'
+        elif 'normP_' in column:
+            data = f'{data:.5e}'
+        elif 'P_' in column:
+            data = '[' + ', '.join([f'{elem:.3e}' for elem in np.diag(data)]) + ']'
+
 
     item = QTableWidgetItem(str(data))
     item.setBackground(color)
     item.setTextAlignment(Qt.AlignCenter)
     return item
-
 
 
 class DataReaderThread(QThread):
@@ -290,7 +360,6 @@ class StorageWorker(QObject):
         self.APP = APP
         # self.result_ready.connect(self.APP.handle_result_of_storage_update)
 
-
     @pyqtSlot(object)
     def update(self, parsed):
         if self.storage:
@@ -309,6 +378,7 @@ class App(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.description_window = None
         self.DynStorage = None
         self.data_reader_thread = None
         self.setWindowTitle("GPS Data Interface for UBX")
@@ -325,6 +395,7 @@ class App(QMainWindow):
         self.current_table_name = ""
 
         self.init_ui()
+        # self.main_layout.setEnabled(False)
         self.showMaximized()
 
         # Создание рабочего класса и потока
@@ -343,11 +414,10 @@ class App(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
+        self.main_layout = QVBoxLayout(central_widget)
 
         menu_font = QFont()
         menu_font.setPointSize(12)
-
 
         self.port_entry = QLineEdit()
         self.port_entry.setFont(menu_font)
@@ -363,10 +433,11 @@ class App(QMainWindow):
         # self.menu_layout.addWidget(self.connect_button)
 
         self.menu_line1 = QHBoxLayout()
-        self.buttons1 ={
+        self.buttons1 = {
             "Сообщения": self.show_chat,
             "Навигационные данные": self.show_navigation_data,
-            "Общие данные": self.show_general_table,
+            "Общие данные": self.show_general_data,
+            "Отфильтровано": self.show_filtered,
         }
         self.menu_line1.addWidget(self.port_entry)
         self.menu_line1.addWidget(self.connect_button)
@@ -399,7 +470,7 @@ class App(QMainWindow):
         self.menu_layout.addLayout(self.menu_line1)
         self.menu_layout.addLayout(self.menu_line2)
 
-        main_layout.addLayout(self.menu_layout)
+        self.main_layout.addLayout(self.menu_layout)
 
         chat_font = QFont()
         chat_font.setPointSize(10)
@@ -432,7 +503,7 @@ class App(QMainWindow):
         self.method_title.setFont(menu_font)
         self.method_title.setMaximumWidth(150)
 
-        #описание таблицы
+        # описание таблицы
         self.desc_button = QPushButton("Описание таблицы")
         self.desc_button.setFont(menu_font)
         self.desc_button.clicked.connect(self.show_column_descriptions)
@@ -445,9 +516,9 @@ class App(QMainWindow):
         self.table_buttons_layout.addStretch()
         self.table_buttons_layout.addWidget(self.desc_button)
 
-        main_layout.addWidget(self.chat_display)
-        main_layout.addLayout(self.table_buttons_layout)
-        main_layout.addWidget(self.table_display)
+        self.main_layout.addWidget(self.chat_display)
+        self.main_layout.addLayout(self.table_buttons_layout)
+        self.main_layout.addWidget(self.table_display)
 
         # main_layout.addWidget(self.chat_display)
         # main_layout.addWidget(self.table_title)
@@ -455,9 +526,6 @@ class App(QMainWindow):
 
         self.show_chat()
 
-    def show_general_table(self):
-        #TODO: доделать
-        pass
     def combo_changed(self, index):
         # for name, title in optimize_methods.items():
         #     if title == index:
@@ -480,26 +548,28 @@ class App(QMainWindow):
 
     def show_column_descriptions(self):
         if self.current_table is not None:
-            if self.current_table_name in ["Навигационные данные", "Параметры эфемерид", "Параметры альманах",
-                                       "Данные эфемерид", "Данные альманах"]:
-                descriptions = [TABLE_DESCRIPTIONS.get(col.split(',')[0], "Описание недоступно")
-                                for col in self.current_table.columns]
-            else:
-                descriptions = [TABLE_DESCRIPTIONS2.get(col.split(',')[0], "Описание недоступно")
-                                for col in self.current_table.columns]
-            desc_text = "<br>".join(f"<b>{col}</b>: {desc}" for col, desc in zip(self.current_table.columns,
-                                                                                 descriptions))
+            match self.current_table_name:
+                case "Навигационные данные" | "Параметры эфемерид" | "Параметры альманах" | "Данные эфемерид" | \
+                     "Данные альманах":
+                    descr_source = TABLE_DESCRIPTIONS
+                case "Общие данные":
+                    descr_source = TABLE_DESCRIPTIONS3
+                case _:
+                    descr_source = TABLE_DESCRIPTIONS2
+            descriptions = [descr_source.get(col.split(',')[0], "Описание недоступно")
+                            for col in self.current_table.columns]
+            # desc_text = "<br>".join(f"<b>{col}</b>: {desc}" for col, desc in zip(self.current_table.columns,
+            #                                                                      descriptions))
             # QMessageBox.information(self, f"Описание таблицы \"{self.current_table_name}\"", desc_text)
-
             self.description_window = DescriptionTableWindow(self)
             self.description_window.set_table_data(self.current_table.columns, descriptions)
             self.description_window.exec_()
-
 
     @pyqtSlot()
     def connect(self):
         port = self.port_entry.text()
         try:
+            self.main_layout.setEnabled(False)
             self.reader = Reader(port)
             self.storage = Storage()
 
@@ -516,6 +586,7 @@ class App(QMainWindow):
 
             self.connect_button.setEnabled(False)
             self.port_entry.setEnabled(False)
+            self.main_layout.setEnabled(True)
         except Exception as e:
             QMessageBox.warning(self, "Ошибка подключения",
                                 f"Не удалось подключиться к {port}: {e}" + traceback.format_exc())
@@ -570,11 +641,10 @@ class App(QMainWindow):
             self.storage.flush_flag = False
             self.update_current_table()
 
-
         # if .update(parsed):
         #     if self.current_table is not None:
         #         self.update_current_table()
-                # pass
+        # pass
 
     def handle_result_of_storage_update(self, result):
         # self.DynStorage = result
@@ -614,9 +684,13 @@ class App(QMainWindow):
             scrolled_to_bottom = self.is_scrolled_to_bottom(self.table_display)
 
             self.table_display.setColumnCount(len(table.columns))
-            self.table_display.setRowCount(len(table.index))# + 1)  # +1 for the bottom header row
-            columns = process_columns(table.columns, self.current_table_name)
-            self.table_display.setHorizontalHeaderLabels(columns)
+            self.table_display.setRowCount(len(table.index))  # + 1)  # +1 for the bottom header row
+            try:
+                columns = process_columns(table.columns, self.current_table_name)
+                self.table_display.setHorizontalHeaderLabels(columns)
+            except Exception as e:
+                print(e)
+                a=0
 
             for i in range(len(table.index)):
                 for j in range(len(table.columns)):
@@ -686,29 +760,45 @@ class App(QMainWindow):
                 self.table_display.setColumnWidth(column, new_width)
 
     def show_navigation_data(self):
-        self.show_table(self.DynStorage.navigation_parameters1, "Навигационные данные")
+        if self.DynStorage:
+            self.show_table(self.DynStorage.navigation_parameters1, "Навигационные данные")
+
+    def show_general_data(self):
+        if self.DynStorage:
+            self.show_table(self.DynStorage.general_data1, "Общие данные")
+
+    def show_filtered(self):
+        if self.DynStorage:
+            self.show_table(self.DynStorage.FK_coordinates_xyz, "Отфильтровано")
 
     def show_ephemeris_parameters(self):
-        self.show_table(self.DynStorage.ephemeris_parameters1, "Параметры эфемерид")
+        if self.DynStorage:
+            self.show_table(self.DynStorage.ephemeris_parameters1, "Параметры эфемерид")
 
     def show_almanac_parameters(self):
-        self.show_table(self.DynStorage.almanac_parameters1, "Параметры альманах")
+        if self.DynStorage:
+            self.show_table(self.DynStorage.almanac_parameters1, "Параметры альманах")
 
     def show_ephemeris_data(self):
-        self.show_table(self.DynStorage.ephemeris_data1[data_cols], "Данные эфемерид")
+        if self.DynStorage:
+            self.show_table(self.DynStorage.ephemeris_data1[data_cols], "Данные эфемерид")
 
     def show_ephemeris_solves(self):
-        self.show_table(self.DynStorage.ephemeris_solves1, "Результаты по эфемеридам")
+        if self.DynStorage:
+            self.show_table(self.DynStorage.ephemeris_solves1, "Результаты по эфемеридам")
 
     def show_almanac_data(self):
         self.show_table(self.DynStorage.almanac_data1[data_cols], "Данные альманах")
 
     def show_almanac_solves(self):
-        self.show_table(self.DynStorage.almanac_solves1, "Результаты по альманах")
+        if self.DynStorage:
+            self.show_table(self.DynStorage.almanac_solves1, "Результаты по альманах")
 
     def update_current_table(self):
         table_map = {
             "Навигационные данные": self.DynStorage.navigation_parameters1,
+            "Общие данные": self.DynStorage.general_data1,
+            "Отфильтровано": self.DynStorage.FK_coordinates_xyz,
             "Параметры эфемерид": self.DynStorage.ephemeris_parameters1,
             "Параметры альманах": self.DynStorage.almanac_parameters1,
             "Данные эфемерид": self.DynStorage.ephemeris_data1[data_cols],
@@ -718,7 +808,8 @@ class App(QMainWindow):
         }
         if self.current_table_name in table_map:
             table = table_map[self.current_table_name]
-            if self.current_table_name in ["Результаты по эфемеридам", "Результаты по альманах"]:
+            if self.current_table_name in \
+                    ["Результаты по эфемеридам", "Результаты по альманах", "Общие данные", "Отфильтровано"]:
                 self.add_new_rows(table)
             else:
                 self.update_table_cells(table)
@@ -728,7 +819,7 @@ class App(QMainWindow):
     def add_new_rows(self, table):
         scrolled_to_bottom = self.is_scrolled_to_bottom(self.table_display)
 
-        current_row_count = self.table_display.rowCount()# - 1  # -1 for the bottom header row
+        current_row_count = self.table_display.rowCount()  # - 1  # -1 for the bottom header row
         new_row_count = len(table.index)
 
         for i in range(current_row_count, new_row_count):
@@ -752,8 +843,8 @@ class App(QMainWindow):
         # header.setSectionResizeMode(QHeaderView.Stretch)
         # header.setSectionResizeMode(QHeaderView.Interactive)
 
-        # for row in range(self.table_display.rowCount()):
-        #     self.table_display.setRowHeight(row, 26)
+        for row in range(self.table_display.rowCount()):
+            self.table_display.setRowHeight(row, 26)
 
         if scrolled_to_bottom:
             self.table_display.scrollToBottom()
@@ -763,7 +854,7 @@ class App(QMainWindow):
         scrolled_to_bottom = self.is_scrolled_to_bottom(self.table_display)
         self.table_display.clearContents()
 
-        self.table_display.setRowCount(len(table.index))# + 1)  # +1 for the bottom header row
+        self.table_display.setRowCount(len(table.index))  # + 1)  # +1 for the bottom header row
         self.table_display.setColumnCount(len(table.columns))
         self.table_display.setHorizontalHeaderLabels(process_columns(table.columns, self.current_table_name))
 
