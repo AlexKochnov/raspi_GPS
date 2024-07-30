@@ -45,7 +45,7 @@ turquoise = QColor(color_power, 255, 255)
 purple = QColor(250, color_power, 255)
 
 data_cols = ['svId', 'gnssId', 'xyz_stamp', 'pr_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'azim', 'polar', 'radius',
-             'prMes', 'prRes', 'prRMSer', 'prStedv', 'coord_score', 'nav_score', 'real_rho', 'Dt']
+             'prMes', 'prRes', 'prRMSer', 'prStedv', 'coord_score', 'nav_score', 'used', 'real_rho', 'Dt']
 
 
 def process_columns(column_list, title):
@@ -110,7 +110,7 @@ def process_columns(column_list, title):
                 case 'dt' | 'calc_time':
                     return column + ', ms'
                 case 'fval':
-                    return column + ', m^2'
+                    return column + ', m'
                 case 'calc_stamp':
                     return column + ', s'
         elif title == 'Общие данные':
@@ -125,10 +125,11 @@ def process_columns(column_list, title):
                     return column + ', ns'
                 case 'iTOW':
                     return column + ', us'
-        elif title == 'Отфильтровано':
+        elif 'Отфильтровано' in title:
             match column:
                 case 'receiving_stamp': return column + ', s'
                 case 'P_rec' | 'P_eph' | 'P_alm': return 'diag ' + column + ', m'
+                case 'lat_rec' | 'lat_eph' | 'lat_alm' | 'lon_rec' | 'lon_eph' | 'lon_alm': return column + ', °'
                 case _: return column + ', m'
         return column
 
@@ -256,6 +257,8 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
             case 'prStedv':
                 color = get_color(data, 5, 25)
                 data = f'{data:.2f}'
+            case 'used':
+                data, color = ('+', green) if data else ('-', red)
             case 'coord_score' | 'nav_score' | 'prRes' | 'prRMSer':
                 if column == 'prRes':
                     color = get_color(abs(float(data)), 10, 40)
@@ -275,11 +278,18 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 try:
                     data = f'{data * 1000:.5f}'
                 except:
-                    pass
+                    if 'limit' in data:
+                        color = yellow
+                    if 'error' in data:
+                        color = red
             case 'fval':
                 data = f'{data:.2e}'
             case 'success':
                 data, color = ('+', green) if data else ('-', red)
+            case 'sat_count':
+                data = int(data)
+                if data < Settings.MinimumMinimizingSatellitesCount:
+                    color = yellow
     elif table_title == 'Общие данные':
         match column:
             case 'ecefX' | 'ecefY' | 'ecefZ' | 'pAcc':
@@ -290,9 +300,11 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 data = int(data.TOW)
             case 'towValid' | 'weekValid' | 'leapSValid':
                 data, color = ('+', green) if data else ('-', red)
-    elif table_title == 'Отфильтровано':
-        if 'X_' in column or 'Y_' in column or 'Z_' in column:
+    elif 'Отфильтровано' in table_title:
+        if 'X_' in column or 'Y_' in column or 'Z_' in column or 'alt_' in column:
             data = f'{data:.2f}'
+        if 'lat_' in column or 'lon_' in column:
+            data = f'{data:.6f}'
         elif 'normP_' in column:
             data = f'{data:.5e}'
         elif 'P_' in column:
@@ -437,7 +449,8 @@ class App(QMainWindow):
             "Сообщения": self.show_chat,
             "Навигационные данные": self.show_navigation_data,
             "Общие данные": self.show_general_data,
-            "Отфильтровано": self.show_filtered,
+            "Отфильтровано XYZ": self.show_filtered_xyz,
+            "Отфильтровано LLA": self.show_filtered_lla,
         }
         self.menu_line1.addWidget(self.port_entry)
         self.menu_line1.addWidget(self.connect_button)
@@ -767,9 +780,13 @@ class App(QMainWindow):
         if self.DynStorage:
             self.show_table(self.DynStorage.general_data1, "Общие данные")
 
-    def show_filtered(self):
+    def show_filtered_xyz(self):
         if self.DynStorage:
-            self.show_table(self.DynStorage.FK_coordinates_xyz, "Отфильтровано")
+            self.show_table(self.DynStorage.FK_coordinates_xyz, "Отфильтровано XYZ")
+
+    def show_filtered_lla(self):
+        if self.DynStorage:
+            self.show_table(self.DynStorage.FK_coordinates_lla, "Отфильтровано LLA")
 
     def show_ephemeris_parameters(self):
         if self.DynStorage:
@@ -798,7 +815,8 @@ class App(QMainWindow):
         table_map = {
             "Навигационные данные": self.DynStorage.navigation_parameters1,
             "Общие данные": self.DynStorage.general_data1,
-            "Отфильтровано": self.DynStorage.FK_coordinates_xyz,
+            "Отфильтровано XYZ": self.DynStorage.FK_coordinates_xyz,
+            "Отфильтровано LLA": self.DynStorage.FK_coordinates_lla,
             "Параметры эфемерид": self.DynStorage.ephemeris_parameters1,
             "Параметры альманах": self.DynStorage.almanac_parameters1,
             "Данные эфемерид": self.DynStorage.ephemeris_data1[data_cols],
@@ -806,10 +824,11 @@ class App(QMainWindow):
             "Данные альманах": self.DynStorage.almanac_data1[data_cols],
             "Результаты по альманах": self.DynStorage.almanac_solves1,
         }
+
         if self.current_table_name in table_map:
             table = table_map[self.current_table_name]
             if self.current_table_name in \
-                    ["Результаты по эфемеридам", "Результаты по альманах", "Общие данные", "Отфильтровано"]:
+                    ["Результаты по эфемеридам", "Результаты по альманах", "Общие данные", "Отфильтровано XYZ", "Отфильтровано LLA"]:
                 self.add_new_rows(table)
             else:
                 self.update_table_cells(table)

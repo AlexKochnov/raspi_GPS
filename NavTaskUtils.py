@@ -30,6 +30,8 @@ def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parame
     almanac_data = pd.merge(alm_coord_data, nav_data, on=['svId', 'gnssId']). \
         drop(columns=['eph_score']).rename(columns={'alm_score': 'coord_score'})
     almanac_data.Dt += almanac_data.prMes / Constants.c
+    ephemeris_data['used'] = False
+    almanac_data['used'] = False
     return ephemeris_data, almanac_data
 
 

@@ -475,3 +475,4 @@ class SatellitesCoordinateCalculator:
 
     def get(self, t1, N=0):
         return self.next_func(t1, N)
+

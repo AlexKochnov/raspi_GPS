@@ -48,7 +48,7 @@ class StorageColumnsLord:
                                     'azim': np.float32, 'polar': np.float32, 'radius': np.float32,
                                     'prRMSer': np.float16, 'prMes': np.float64, 'prRes': np.float32,
                                     'prStedv': np.float32, 'real_rho': np.float64, 'Dt': np.float64,
-                                    'coord_score': np.float16, 'nav_score': np.float16}
+                                    'coord_score': np.float16, 'nav_score': np.float16, 'used': np.bool_}
     # TODO: delete one optimization method
     full_solves_columns = {'calc_stamp': object, 'sat_count': int, 'method': np.str_} | solves_columns
                           # {f'{Settings.using_methods[0]}_{name}': type for name, type in solves_columns.items()}

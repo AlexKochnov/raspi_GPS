@@ -87,11 +87,15 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
                 (stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
     sats = sats.dropna()
     sats['score'] = sats.coord_score + sats.nav_score
-    sats = sats.sort_values(by='score', ascending=False).head(Settings.MinimizingSatellitesCount)
+    # head = 4 + np.random.randint(4) #
+    sats = sats.sort_values(by='score', ascending=False).head(Settings.MaximumMinimizingSatellitesCount)
+    data_table['used'] = data_table.apply(lambda row: row.svId in sats.svId.values, axis=1)
     # data = [(row.X, row.Y, row.Z, row.prMes) for row in sats.iterrows()]
-    data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
-    SOLVE = {'calc_stamp': stamp, 'sat_count': len(data)}
-    if len(data) >= Settings.MinimumMinimizingSatellitesCount:
+    # data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
+    # if np.random.randint(20) == 5:
+    #     a=0
+    SOLVE = {'calc_stamp': stamp, 'sat_count': len(sats), 'success': False}
+    if len(sats) >= Settings.MinimumMinimizingSatellitesCount:
         for method, func in optimize_methods.items():
             # if name not in Settings.using_methods:
             if method != Settings.used_method:#(METHOD if METHOD else Settings.used_method):
@@ -103,16 +107,19 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
             # try:
             def get_solve_line():
                 t = datetime.now(tz=Constants.tz_utc)
-                res = func(data)
+                # res = func(sats[['X', 'Y', 'Z', 'prMes']])
+                res = func(np.array(sats[['X', 'Y', 'Z', 'prMes']].values.T))
                 lla = Transformations.ecef2lla(*res.x[:-1])
                 solve = {
                     'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
                     'lat': lla[0], 'lon': lla[1], 'alt': lla[2],
-                    'fval': sum(res.fun ** 2) if method in ['LM', 'TRF', 'DB'] else res.fun,
+                    'fval': np.linalg.norm(res.fun) if method in ['LM', 'TRF', 'DB'] else res.fun,
                     'success': res.success,
                     'error': np.linalg.norm(np.array(res.x[:3]) - np.array(Constants.ECEF)),
                     'calc_time': (datetime.now(tz=Constants.tz_utc) - t).total_seconds(),
                 }
+                if method == 'TC':
+                    a=0
                 # solve = {f'{name}_{key}': value for key, value in solve.items()}
                 return solve | {'method': method}
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -181,6 +188,7 @@ SFRBX_DATA_PATH = 'sfrbx_data.plk'
 class DynamicObject(object):
     pass
 
+
 def get_DynStorage(storage):
     Dyn = DynamicObject()
     Dyn.ephemeris_parameters1 = storage.ephemeris_parameters1
@@ -189,10 +197,11 @@ def get_DynStorage(storage):
     Dyn.ephemeris_data1 = storage.ephemeris_data1
     Dyn.almanac_data1 = storage.almanac_data1
 
-    Dyn.ephemeris_solves1 = storage.ephemeris_solves
-    Dyn.almanac_solves1 = storage.almanac_solves
-    Dyn.general_data1 = storage.general_data
-    Dyn.FK_coordinates_xyz = storage.FK_coordinates_xyz
+    Dyn.ephemeris_solves1 = storage.ephemeris_solves.copy()
+    Dyn.almanac_solves1 = storage.almanac_solves.copy()
+    Dyn.general_data1 = storage.general_data.copy()
+    Dyn.FK_coordinates_xyz = storage.FK_coordinates_xyz.copy()
+    Dyn.FK_coordinates_lla = storage.FK_coordinates_lla.copy()
     return Dyn
 
 
@@ -240,63 +249,52 @@ def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
     K = P_k1k0 @ C.T @ inv(S)
     X_k1k1 = X_k1k0 + K @ Z
     P_k1k1 = (I - K @ C) @ P_k1k0 @ (I - K @ C).T + K @ R @ K.T
-    print('MATRIX:', P_k1k1)
+    # print('MATRIX:', P_k1k1)
     return list(X_k1k1), np.matrix(P_k1k1)
 
 
-def FK_filter(storage):
-    coord_names = ['X', 'Y', 'Z']
+def FK_filter(storage, xyz_flag=True):
+    coord_names = ['X', 'Y', 'Z'] if xyz_flag else ['lat', 'lon', 'alt']
+    FK_table = storage.FK_coordinates_xyz if xyz_flag else storage.FK_coordinates_lla
 
     if len(storage.general_data) < 1 or len(storage.ephemeris_solves) < 1 or len(storage.almanac_solves) < 1:
         return
-    a=0
+    coords_xyz = ['X', 'Y', 'Z']
     lines = [
         #TODO: поправить синхронизацию и добавить проверку времени
         # storage.general_data[storage.general_data['receiving_stamp'] == storage.time_stamp][coord_names].iloc[-1],
         # storage.ephemeris_solves[storage.ephemeris_solves['calc_stamp'] == storage.time_stamp][coord_names].iloc[-1],
         # storage.almanac_solves[storage.almanac_solves['calc_stamp'] == storage.time_stamp][coord_names].iloc[-1],
-        storage.general_data.iloc[-1][['receiving_stamp'] + [f'ecef{name}' for name in coord_names]],
-        storage.ephemeris_solves.iloc[-1][['calc_stamp'] + coord_names],
-        storage.almanac_solves.iloc[-1][['calc_stamp'] + coord_names],
+        storage.general_data.iloc[-1][['receiving_stamp'] + [f'ecef{name}' for name in coords_xyz]],
+        storage.ephemeris_solves.iloc[-1][['calc_stamp'] + coords_xyz],
+        storage.almanac_solves.iloc[-1][['calc_stamp'] + coords_xyz],
     ]
-    # def get_last_line(table):
-    #     if len(table):
-    #         return table.iloc[-1]
-    #     return None
-    if len(storage.FK_coordinates_xyz) < 1:
-        NoneData = True
-    else:
-        NoneData = False
-    n = len(storage.FK_coordinates_xyz)
+    NoneData = True if len(FK_table) < 1 else False
+    n = len(FK_table)
     # storage.FK_coordinates_xyz.loc[n] = {'receiving_stamp': storage.time_stamp} | {f'P_{s}': None for s in ['rec', 'eph', 'alm']}
     data = {'receiving_stamp': storage.time_stamp}
-    try:
-        for i, source in enumerate(['rec', 'eph', 'alm']):
-            cols = [f'{name}_{source}' for name in coord_names]
-            if NoneData is False:
-                line = storage.FK_coordinates_xyz.iloc[-1, :]
-                last_xyz = line[cols].to_list()
-                last_P = line[f'P_{source}']
-            else:
-                last_xyz, last_P = None, None
-            res_xyz, res_P = linear_kalman(lines[i][1:].to_list(), last_xyz, last_P)
-            # storage.FK_coordinates_xyz.loc[n, cols[0]] = res_xyz[0]
-            # storage.FK_coordinates_xyz.loc[n, cols[1]] = res_xyz[1]
-            # storage.FK_coordinates_xyz.loc[n, cols[2]] = res_xyz[2]
-            # storage.FK_coordinates_xyz.loc[n, f'P_{source}'] = res_P
-            data |= {cols[0]: res_xyz[0], cols[1]: res_xyz[1], cols[2]: res_xyz[2],
-                     f'P_{source}': res_P, f'normP_{source}': np.linalg.norm(res_P)}
-            #        # {'receiving_stamp': lines[i][0]}
-            # storage.FK_coordinates_xyz.loc[n] = data
-            # print("LINE:", storage.FK_coordinates_xyz.iloc[-1])
-            # storage.FK_coordinates_xyz.iloc[-1, storage.FK_coordinates_xyz.columns.get_loc(coord_cols)] = res_xyz
-            # storage.FK_coordinates_xyz.iloc[-1, storage.FK_coordinates_xyz.columns.get_loc(f'P_{source}')] = res_P
-        storage.FK_coordinates_xyz.loc[n] = data
-    except Exception as e:
-        print(e)
-        print(traceback.format_exc())
-        a=0
-
+    # try:
+    for i, source in enumerate(['rec', 'eph', 'alm']):
+        cols = [f'{name}_{source}' for name in coord_names]
+        if NoneData is False:
+            line = FK_table.iloc[-1, :]
+            last_coords = line[cols].to_list()
+            last_P = line[f'P_{source}']
+        else:
+            last_coords, last_P = None, None
+        coords = lines[i][1:].to_list() if xyz_flag else Transformations.ecef2lla(*lines[i][1:].to_list())
+        res_coords, res_P = linear_kalman(coords, last_coords, last_P)
+        # storage.FK_coordinates_xyz.loc[n, cols[0]] = res_xyz[0]
+        # storage.FK_coordinates_xyz.loc[n, cols[1]] = res_xyz[1]
+        # storage.FK_coordinates_xyz.loc[n, cols[2]] = res_xyz[2]
+        # storage.FK_coordinates_xyz.loc[n, f'P_{source}'] = res_P
+        data |= {cols[0]: res_coords[0], cols[1]: res_coords[1], cols[2]: res_coords[2],
+                 f'P_{source}': res_P, f'normP_{source}': np.linalg.norm(res_P)}
+    FK_table.loc[n] = data
+    # except Exception as e:
+    #     print(e)
+    #     print(traceback.format_exc())
+    #     a=0
 
 
 class Storage:
@@ -335,6 +333,10 @@ class Storage:
         self.FK_coordinates_xyz = pd.DataFrame(
             columns=['receiving_stamp'] +
                     [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['X', 'Y', 'Z', 'P', 'normP']]
+        )
+        self.FK_coordinates_lla = pd.DataFrame(
+            columns=['receiving_stamp'] +
+                    [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['lat', 'lon', 'alt', 'P', 'normP']]
         )
         # self.FK_coordinates_xyz[[f'P_{source}' for source in ['rec', 'eph', 'alm']]].astype(object)
 
@@ -398,12 +400,15 @@ class Storage:
             if isinstance(message, UBXMessages.RXM_RAWX):
                 self.calc_navigation_task()
                 FK_filter(self)
+                FK_filter(self, xyz_flag=False)
                 self.flush_flag = True
         elif isinstance(message, UBXMessages.NAV_TIMEGPS | UBXMessages.NAV_POSECEF | UBXMessages.NAV_VELECEF):
             assert isinstance(message.data, dict)
             self.update_param(message.data, 'iTOW', 'week', 'leapS')
-            if 'leapS' in message.data.keys():
+            if isinstance(message, UBXMessages.NAV_TIMEGPS):
                 Constants.leapS = message.data['leapS']
+            if isinstance(message, UBXMessages.NAV_POSECEF):
+                Constants.ECEF = tuple(message.data[f'ecef{sym}'] for sym in 'XYZ')
             self.other_data[message.__class__.__name__.lower()] = message.data
             self.update_general_data(message.data, message.receiving_stamp)
         elif isinstance(message, UBXMessages.RXM_SFRBX):

@@ -3,7 +3,7 @@ BaseBaudRate = 9600
 SerialPort = "/dev/ttyS0"
 timeout = 1
 
-MinimizingSatellitesCount = 8
+MaximumMinimizingSatellitesCount = 8
 MinimumMinimizingSatellitesCount = 4
 
 ReaderPoolStep = 200
@@ -26,7 +26,7 @@ using_methods = [
     'TC',
     'DB',
 ]
-max_calc_time = 0.150
+max_calc_time = 0.4
 
 GUI_ON = False
 
