@@ -177,7 +177,7 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 data = int(data)
                 data, color = ('-', red) if data == 0 else (('?', turquoise) if data == 31 else (data, green))
                 if isinstance(data, int) and column == 'ephUsability':
-                    data *= 15
+                    data  = f'{data*0.25:.2f}'
             case 'ephSource' | 'almSource':
                 data, color = ('GNSS', green) if data == 1 else (('-', base_color) if data == 0 else ('other', red))
             case 'prMes':
