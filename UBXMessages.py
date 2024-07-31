@@ -172,7 +172,7 @@ class NAV_SAT(UbxMessage):
                 'doCorrUsed': get_bytes_from_flag(flags, 22),
                 'clasCorrUsed': get_bytes_from_flag(flags, 23),
             } | get_stamps(self, svId, GNSS(gnssId)))
-
+        return
 
 class NAV_ORB(UbxMessage):
     format = '<LBBBB'

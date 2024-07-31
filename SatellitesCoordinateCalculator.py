@@ -8,6 +8,7 @@ import pandas as pd
 
 import Constants
 from GNSS import GNSS
+from TimeStamp import TimeStamp
 
 
 def check_gps_time(time):
@@ -226,11 +227,13 @@ def get_glo_dNA(N4, NA, N):
     return N - NA - round((N-NA)/k)*k
 
 
-def calc_glo_alm(alm, N4, NA, t1, N, hard=True):
+def calc_glo_alm(alm, stamp: TimeStamp, hard=True):
     GM = Constants.mu
     ae = Constants.ae_glonass
     J20 = Constants.J20_glonass
     OmegaEath = Constants.OmegaEarthDot
+
+    N4, N, t1 = stamp.to_glonass()
 
     # NA = eph.NA
     # N4 = eph.N4
@@ -241,6 +244,7 @@ def calc_glo_alm(alm, N4, NA, t1, N, hard=True):
     e = alm.eps_n
     w_A = alm.omega_n
     lambda_A = alm.lambda_n
+    NA = alm.NA
 
     # 1 - интервал прогноза dt_pr в сек
     dNa = get_glo_dNA(N4=N4, NA=NA, N=N)
@@ -464,15 +468,15 @@ class SatellitesCoordinateCalculator:
     def choose_func(self, data, gnssId, mode):
         match (gnssId, mode):
             case (GNSS.GPS, CalcMode.alm):
-                return lambda t1, N: calc_gps_alm(data, t1, N)
+                return lambda stamp: calc_gps_alm(data, stamp.TOW, stamp.week)
             case (GNSS.GPS, CalcMode.eph):
-                return lambda t1, N: calc_gps_eph(data, t1, N)
+                return lambda stamp: calc_gps_eph(data, stamp.TOW, stamp.week)
             case (GNSS.GLONASS, CalcMode.alm):
-                return lambda t1, N: calc_glo_alm(data, t1, N, hard=True)
+                return lambda stamp: calc_glo_alm(data, stamp, hard=True)
             case (GNSS.GLONASS, CalcMode.eph):
                 self.runer = RK45Solver(*get_glo_eph_simple_func(data))
-                return lambda t1, N: self.runer.get(t1)
+                return lambda stamp: self.runer.get(stamp.to_glonass()[-1])
 
-    def get(self, t1, N=0):
-        return self.next_func(t1, N)
+    def get(self, stamp):
+        return self.next_func(stamp)
 

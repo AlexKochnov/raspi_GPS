@@ -479,9 +479,25 @@ class App(QMainWindow):
             btn.clicked.connect(command)
             self.menu_line2.addWidget(btn)
 
+        self.menu_line3 = QHBoxLayout()
+        self.GLOtitle = QLabel()
+        self.GLOtitle.setFont(menu_font)
+        self.GLOtitle.setText("GLONASS system:")
+        self.menu_line3.addWidget(self.GLOtitle)
+        self.buttons3 = {
+            "GLO Параметры эфемерид": self.show_ephemeris_parameters_glo,
+            "GLO Параметры альманах": self.show_almanac_parameters_glo,
+        }
+        for text, command in self.buttons3.items():
+            btn = QPushButton(text)
+            btn.setFont(menu_font)
+            btn.clicked.connect(command)
+            self.menu_line3.addWidget(btn)
+
         self.menu_layout = QVBoxLayout()
         self.menu_layout.addLayout(self.menu_line1)
         self.menu_layout.addLayout(self.menu_line2)
+        self.menu_layout.addLayout(self.menu_line3)
 
         self.main_layout.addLayout(self.menu_layout)
 
@@ -796,6 +812,16 @@ class App(QMainWindow):
         if self.DynStorage:
             self.show_table(self.DynStorage.almanac_parameters1, "Параметры альманах")
 
+    def show_ephemeris_parameters_glo(self):
+        if self.DynStorage:
+            self.show_table(self.DynStorage.SFRBX_GLONASS_eph, "GLO Параметры эфемерид")
+            print('GLO eph')
+
+    def show_almanac_parameters_glo(self):
+        if self.DynStorage:
+            self.show_table(self.DynStorage.SFRBX_GLONASS_alm, "GLO Параметры альманах")
+            print('GLO alm')
+
     def show_ephemeris_data(self):
         if self.DynStorage:
             self.show_table(self.DynStorage.ephemeris_data1[data_cols], "Данные эфемерид")
@@ -823,12 +849,15 @@ class App(QMainWindow):
             "Результаты по эфемеридам": self.DynStorage.ephemeris_solves1,
             "Данные альманах": self.DynStorage.almanac_data1[data_cols],
             "Результаты по альманах": self.DynStorage.almanac_solves1,
+            "GLO Параметры эфемерид": self.DynStorage.SFRBX_GLONASS_eph,
+            "GLO Параметры альманах": self.DynStorage.SFRBX_GLONASS_alm,
         }
 
         if self.current_table_name in table_map:
             table = table_map[self.current_table_name]
             if self.current_table_name in \
                     ["Результаты по эфемеридам", "Результаты по альманах", "Общие данные", "Отфильтровано XYZ", "Отфильтровано LLA"]:
+                print(self.current_table_name)
                 self.add_new_rows(table)
             else:
                 self.update_table_cells(table)
@@ -923,3 +952,4 @@ if __name__ == "__main__":
         print(e)
         print(traceback.format_exc())
         logging.error("Unhandled exception occurred", exc_info=True)
+

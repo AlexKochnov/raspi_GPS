@@ -26,7 +26,7 @@ class TimeStamp:
         type = kwargs.get('type', GNSS.GPS)
         if not args and not kwargs:
             self.dt = datetime.now(tz=tz_utc)
-            self.TOW, self.week = self.dt2gps(self.dt, STEP)
+            self.TOW, self.week = self.dt2gps(self.dt)
         elif len(args) == 2 and all(isinstance(arg, (int, float)) for arg in args):
             if type == GNSS.GPS:
                 self.TOW, self.week = float(args[0]), int(args[1])
@@ -49,6 +49,25 @@ class TimeStamp:
     def gps_to_glonass_time(week, tow):
         pass
 
+    @staticmethod
+    def gps2dt(week, TOW):
+        return Constants.gps_epoch + timedelta(seconds=TOW, weeks=week)
+
+    @staticmethod
+    def dt2glonass(dt):
+        delta = dt - Constants.glonass_epoch
+        N4 = delta.days // Constants.glonass_4years.days + 1
+        N = (delta.days % Constants.glonass_4years.days) + 1
+        t = (delta - timedelta(days=delta.days)).total_seconds()
+        t = TimeStamp.round_step(t, STEP)
+        return N4, N, t
+
+    def to_glonass(self):
+        return self.dt2glonass(self.dt)
+
+    def to_gps(self):
+        return self.week, self.TOW
+
     def __str__(self):
         return f'<TS: {self.week}.{self.TOW}>'
 
@@ -56,11 +75,15 @@ class TimeStamp:
         return str(self)
 
     @staticmethod
-    def dt2gps(timestamp: datetime, step=1):
+    def round_step(data, step=STEP):
+        return round(data / step) * step
+
+    @staticmethod
+    def dt2gps(timestamp: datetime):
         dt = (timestamp - gps_epoch).total_seconds() + leapS
         TOW = dt % week_seconds
         week = int(dt // week_seconds)
-        TOW = math.floor(TOW / step) * step
+        TOW = TimeStamp.round_step(TOW)
         return TOW, week
 
     def __add__(self, other: Union[int, float]):

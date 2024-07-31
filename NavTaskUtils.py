@@ -12,12 +12,13 @@ from TimeStamp import TimeStamp
 """
 
 
-def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parameters, time_stamp):
+def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parameters, time_stamp, gps_flag=True):
     nav_cols = ['svId', 'gnssId', 'pr_stamp', 'prRMSer', 'prMes', 'prRes', 'prStedv', 'nav_score', 'alm_score',
                 'eph_score']
     coord_cols = ['svId', 'gnssId', 'xyz_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'azim', 'polar', 'radius',
                   'real_rho', 'Dt']
     nav_data = pd.DataFrame(navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
+    # eph_func = SCC.calc_gps_eph if gps_flag else else SCC.calc
     eph_coord_data = pd.DataFrame(
         ephemeris_parameters.apply(lambda row: calc_coords(row, time_stamp, SCC.calc_gps_eph), axis=1).to_list(),
         columns=coord_cols)

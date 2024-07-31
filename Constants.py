@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pytz import timezone
 import pymap3d as pm
@@ -7,6 +7,8 @@ import pymap3d as pm
 tz_moscow = timezone('Europe/Moscow')
 tz_utc = timezone('utc')
 gps_epoch = datetime(1980, 1, 6, 0, 0, 0, tzinfo=tz_utc)
+glonass_epoch = datetime(1996, 1, 1, 0, 0, 0, tzinfo=tz_utc)
+glonass_4years = timedelta(days=1461)
 
 week_seconds = 7 * 24 * 3600
 leapS = 18

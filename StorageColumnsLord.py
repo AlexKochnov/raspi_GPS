@@ -15,7 +15,7 @@ class StorageColumnsLord:
                         'prValid': np.bool_, 'cpValid': np.bool_, 'halfCyc': np.bool_, 'subHalfCyc': np.bool_}
     # RXM_SVSI_columns = {'azim': np.int16, 'elev': np.int8, 'ura': np.int8, 'healthy': np.bool_, 'ephVal': np.bool_,
     #                     'almVal': np.bool_, 'notAvail': np.bool_, 'almAge': np.int8, 'ephAge': np.int8}
-    RXM_MEASX_columns = {'cno': np.int8, 'mpathIndic': np.int8, 'dopplerMS': np.float64, 'dopplerHz': np.float64,
+    RXM_MEASX_columns = {'mpathIndic': np.int8, 'dopplerMS': np.float64, 'dopplerHz': np.float64,
                          'wholeChips': np.int16, 'fracChips': np.int16, 'codePhase': np.float64,
                          'intCodePhase': np.int8, 'pseuRangeRMSErr': np.int8, 'prRMSer': np.float16}
     EPH_columns = {'health': np.int8, 'accuracy': np.int8,

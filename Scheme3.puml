@@ -1,0 +1,185 @@
+@startuml
+'https://plantuml.com/class-diagram
+
+namespace MainGuiThread {
+    class GUI {
+        + dynamic_storage: DynamicStorage
+        + menu: Menu
+        + field
+        + active_table
+        + active_table_name
+        + draw_table()
+        + update_fixed_table()
+        + update_added_table()
+    }
+
+    class Menu {
+        + line1: list[Buttons, Labels]
+        + line2: list[]
+        + line3: list[]
+        + create_button(label, tabel or func)
+        + create_label(label)
+        + create_edit(label, func)
+    }
+    enum Buttons {
+        + attr_name = label, table
+        ...
+    }
+    enum Labels {
+        + attr_name = label
+        ...
+    }
+    GUI <-- Menu
+    Menu <-- Buttons
+    Menu <-- Labels
+
+}
+
+
+namespace storage_thread{
+
+    class Storage {
+        + reader: Reader
+        + reader_thread: Thread
+        + cycle_messgages: list[Message]
+        + time_stamp: TimeStamp
+        + GPS:GnssSystem
+        + GLONASS: GnssSystem
+        + rec_positions: list[Position]
+        + update(message)
+        + update_cycle()
+        + get_tables() -> DynamicStorage
+        + filtrator: Filtrator
+        + LK_filter(last_prediction, measurements)
+    }
+
+    class Filtrator {
+        positions: dict[source, list[Position]]
+        LKF_filtered_xyz: dict[source, np.array[np.array]]
+        LKF_filtered_lla: dict[source, np.array[np.array]]
+    }
+
+    class GnssSystem {
+        + gnssId: GNSS
+        + system_params: Struct
+        + satellites: dict[int, Satellite]
+        + alm_positions: list[Position]
+        + eph_positions: list[Position]
+    }
+
+    class Satellite {
+        + almanac: Struct[SCC, ...]
+        + ephemeris: Struct[SCC, ...]
+        + alm_positions: list[Position]
+        + eph_positions: list[Position]
+        + parameters: Struct
+        + update(data: dict, Message)
+    }
+
+    class Position {
+        + stamp: TimeStamp
+        + xyz: np.array
+        + lla()
+        + par()
+    }
+
+    class RK45
+
+    interface SatelliteCoordinateCalculator {
+        + __init__(Satellite, gnssId, methodType)
+        + coordinate_func: function
+        + get_coord(stamp: TimeStamp) -> Position
+        + choose_func(source: Source)
+    }
+
+    interface Minimizing{
+        + residual()
+        + jac()
+        + solve_navigation_task(satellites)
+    }
+
+    class StorageThread {
+        + storage: Storage
+        + next()
+    }
+
+    class DynamicStorage {
+        + tables: dict[str, pd.DataFrame]
+        + cycle_messages: list[Message]
+        + parse_data_to_table()
+    }
+
+    Storage <-- GnssSystem
+    Storage <.. Position
+    GnssSystem <.. Position
+    GnssSystem <-- Satellite
+    GnssSystem <.. Minimizing
+    Storage <-- Filtrator
+    Satellite <-- SatelliteCoordinateCalculator
+    Satellite <.. Position
+    SatelliteCoordinateCalculator <.. RK45
+
+    StorageThread <-- DynamicStorage
+    DynamicStorage <.. Storage
+    StorageThread <-- Storage
+    GUI <-- StorageThread
+
+}
+
+
+
+
+
+
+
+
+
+namespace reader_thread {
+    class Reader {
+        + stream: Serial
+        + next()
+        + tune_module()
+        + pool_next()
+        + send()
+        + read_next_message()
+    }
+
+    Reader <-- Messages
+
+    abstract Messages {
+        + pool_messages: list
+        + tune_messages: list
+        + set_rate()
+        + check_rate()
+    }
+    Messages <.. UBXMessages
+    Messages <.. NMEAMessages
+    Messages <.. UtilsMessages
+
+}
+
+
+Storage <-- Reader
+
+namespace Other {
+    abstract Constants {
+    }
+    abstract Settings {
+    }
+
+    enum GNSS {
+        + GPS
+        + GLONASS
+        ...
+    }
+    enum Source {
+        + receiver
+        + GPS_alm
+        + GPS_eph
+        + GLONASS_alm
+        + GLONASS_eph
+        ...
+    }
+}
+
+@enduml

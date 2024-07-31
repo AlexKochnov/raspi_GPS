@@ -182,7 +182,7 @@ def make_init_df(*gnss_list: GNSS):
     return init_lines_to_df(lines)
 
 
-SFRBX_DATA_PATH = 'sfrbx_data.plk'
+SFRBX_DATA_PATH = 'sfrbx_data_2.plk'
 
 
 class DynamicObject(object):
@@ -202,6 +202,9 @@ def get_DynStorage(storage):
     Dyn.general_data1 = storage.general_data.copy()
     Dyn.FK_coordinates_xyz = storage.FK_coordinates_xyz.copy()
     Dyn.FK_coordinates_lla = storage.FK_coordinates_lla.copy()
+
+    Dyn.SFRBX_GLONASS_alm = storage.SFRBX_GLONASS_alm
+    Dyn.SFRBX_GLONASS_eph = storage.SFRBX_GLONASS_eph
     return Dyn
 
 
@@ -250,6 +253,8 @@ def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
     X_k1k1 = X_k1k0 + K @ Z
     P_k1k1 = (I - K @ C) @ P_k1k0 @ (I - K @ C).T + K @ R @ K.T
     # print('MATRIX:', P_k1k1)
+    # if np.random.randint(20) == 17:
+    #     a=0
     return list(X_k1k1), np.matrix(P_k1k1)
 
 
@@ -427,6 +432,8 @@ class Storage:
                                           message.signal['SV_ID'], GNSS.GPS, None)
                 elif message.data['gnssId'] == GNSS.GLONASS:
                     if message.data['id'] == -1:
+                        if 'NA' in message.signal.keys():
+                            self.SFRBX_GLONASS_alm['NA'] = message.signal['NA']
                         self.SFRBX_GLONASS_data.update(message.signal)
                         self.update_general_data(message.signal, message.receiving_stamp)
                     elif message.data['id'] == 0:
@@ -526,7 +533,7 @@ class Storage:
                                               columns=['svId', 'gnssId', 'receiving_stamp', 'sfN0', 'sfN1',
                                                        'n', 'lambda_n', 'delta_i_n', 'eps_n', 'M_n',
                                                        'tau_n', 'Cn', 'Hn', 't_lambda_n', 'delta_T_n', 'delta_T_dot_n',
-                                                       'omega_n', 'ln'])
+                                                       'omega_n', 'ln', 'NA'])
         self.SFRBX_GLONASS_eph = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GLONASS} for j in range(1, 25)],
                                               columns=['svId', 'gnssId', 'receiving_stamp', 'sfN1', 'sfN2', 'sfN3',
                                                        'sfN4', 'tk', 'tb', 'tau', 'dTau', 'gamma', 'N_T', 'F_T', 'E',
