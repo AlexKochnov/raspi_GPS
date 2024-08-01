@@ -396,8 +396,8 @@ class App(QMainWindow):
         self.setWindowTitle("GPS Data Interface for UBX")
 
         self.messages = []
-        self.max_messages = 5000
-        self.max_message_len = 1000
+        self.max_messages = 2000
+        self.max_message_len = 500
         self.max_solves = 200
 
         self.storage: Storage = None
@@ -892,7 +892,7 @@ class App(QMainWindow):
         # header.setSectionResizeMode(QHeaderView.Interactive)
 
         for row in range(self.table_display.rowCount()):
-            self.table_display.setRowHeight(row, 26)
+            self.table_display.setRowHeight(row, 20)
 
         if scrolled_to_bottom:
             self.table_display.scrollToBottom()
@@ -907,7 +907,7 @@ class App(QMainWindow):
         self.table_display.setHorizontalHeaderLabels(process_columns(table.columns, self.current_table_name))
 
         for i in range(len(table.index)):
-            self.table_display.setRowHeight(i, 26)
+            self.table_display.setRowHeight(i, 20)
             for j in range(len(table.columns)):
                 item = get_QTableWidgetItem(table.iat[i, j], table.columns[j], self.current_table_name,
                                             light_grey if i % 2 == 0 else white)

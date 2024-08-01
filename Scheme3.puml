@@ -5,18 +5,24 @@ namespace MainGuiThread {
     class GUI {
         + dynamic_storage: DynamicStorage
         + menu: Menu
-        + field
+        + field: Field
+    }
+
+    class Field {
+        + header_line: list[Button, Label, ...]
+        + table
+        + chat
         + active_table
         + active_table_name
-        + draw_table()
+        + create_table()
+        + update_table()
         + update_fixed_table()
         + update_added_table()
     }
 
     class Menu {
-        + line1: list[Buttons, Labels]
-        + line2: list[]
-        + line3: list[]
+        + line: list[Button, Label]
+        + system_lines: list[list[Button, Label]]]
         + create_button(label, tabel or func)
         + create_label(label)
         + create_edit(label, func)
@@ -33,6 +39,9 @@ namespace MainGuiThread {
     Menu <-- Buttons
     Menu <-- Labels
 
+    GUI <-- Field
+    Field <-- Buttons
+    Field <-- Labels
 }
 
 
@@ -45,45 +54,90 @@ namespace storage_thread{
         + time_stamp: TimeStamp
         + GPS:GnssSystem
         + GLONASS: GnssSystem
-        + rec_positions: list[Position]
+        + satellites: list[Satellite]
+        + pseudoranges: PseudoRanges
+        + rec_positions: HistoricalPosition
         + update(message)
         + update_cycle()
         + get_tables() -> DynamicStorage
-        + filtrator: Filtrator
+'        + filtrator: Filtrator
         + LK_filter(last_prediction, measurements)
     }
 
-    class Filtrator {
-        positions: dict[source, list[Position]]
-        LKF_filtered_xyz: dict[source, np.array[np.array]]
-        LKF_filtered_lla: dict[source, np.array[np.array]]
+    class PseudoRanges {
+        + measurements: list[BasePR]
+        + filtered: list[FilteredLine]
+        + get(svId, gnssId)
     }
+    class BasePR {
+        + stamp: TimeStamp
+        + prs: list[float]
+    }
+
+'    class Filtrator {
+'        + positions: dict[Source, HistoricalPosition]
+'        + LKF_filtered_xyz: dict[Source, HistoricalPosition]
+'        + LKF_filtered_lla: dict[Source, HistoricalPosition]
+'    }
+'
+'    class HistoricalFilteredPosition {
+'        + history: list[FilteredPosition]
+'        + update(stamp, data, P)
+'        + last(
+'    }
+'
+'    class FilteredPosition {
+'        + stamp: TimeStamp
+'        + data: np.array or np.matrix
+'        + P: np.array or np.matrix
+'    }
+'
+'    Filtrator <-- HistoricalFilteredPosition
+'    HistoricalFilteredPosition <-- FilteredPosition
 
     class GnssSystem {
         + gnssId: GNSS
         + system_params: Struct
         + satellites: dict[int, Satellite]
-        + alm_positions: list[Position]
-        + eph_positions: list[Position]
+        + alm_positions: Position
+        + eph_positions: Position
     }
 
     class Satellite {
         + almanac: Struct[SCC, ...]
         + ephemeris: Struct[SCC, ...]
-        + alm_positions: list[Position]
-        + eph_positions: list[Position]
+        + alm_positions: Position
+        + eph_positions: Position
         + parameters: Struct
-        + update(data: dict, Message)
+        + scores
+        + update_parameters(data: dict, Message)
+        + update()
     }
 
     class Position {
-        + stamp: TimeStamp
-        + xyz: np.array
-        + lla()
-        + par()
+        + __init__(history_len)
+        + measurements: list[BasePosition]
+        + xyz_filtered: list[FilteredLine]
+        + lla_filtered: list[FilteredLine]
+        + update(stamp, xyz)
+        + last_position()
+        + last_filtered_xyz()
+        + last_filtered_lla()
     }
 
-    class RK45
+    class FilteredLine {
+        + stamp: TimeStamp
+        + data: np.array
+        + P: np.matrix
+    }
+
+    class BasePosition {
+        + lla()
+        + par()
+        + stamp: TimeStamp
+        + xyz: np.array
+    }
+
 
     interface SatelliteCoordinateCalculator {
         + __init__(Satellite, gnssId, methodType)
@@ -104,33 +158,51 @@ namespace storage_thread{
     }
 
     class DynamicStorage {
-        + tables: dict[str, pd.DataFrame]
+        + tables: dict[pd.DataFrame[TableCell]]
         + cycle_messages: list[Message]
         + parse_data_to_table()
     }
 
+    class TableCell {
+        + data: float, int
+        + cell: str, float, int
+        + updated: bool
+        + color: Colors
+        + check(data)
+    }
+
+
+    enum CellParsers{
+        + PrMes: function -> cell, color
+        ...
+    }
+
+
+    TableCell <-- CellParsers
+
     Storage <-- GnssSystem
     Storage <.. Position
     GnssSystem <.. Position
+    Position <-- BasePosition
     GnssSystem <-- Satellite
     GnssSystem <.. Minimizing
-    Storage <-- Filtrator
+'    Storage <-- Filtrator
     Satellite <-- SatelliteCoordinateCalculator
     Satellite <.. Position
-    SatelliteCoordinateCalculator <.. RK45
+    SatelliteCoordinateCalculator <-- RK45
+    Position <-- FilteredLine
 
     StorageThread <-- DynamicStorage
     DynamicStorage <.. Storage
+    DynamicStorage <-- TableCell
     StorageThread <-- Storage
     GUI <-- StorageThread
 
+    Storage <.. PseudoRanges
+    PseudoRanges <-- BasePR
+    PseudoRanges <-- FilteredLine
+
 }
-
-
-
-
-
-
 
 
 
@@ -152,9 +224,37 @@ namespace reader_thread {
         + set_rate()
         + check_rate()
     }
-    Messages <.. UBXMessages
+'    Messages <.. UBXMessages
     Messages <.. NMEAMessages
     Messages <.. UtilsMessages
+    UBXMessages <|-- Message
+    NMEAMessages <|-- Message
+
+
+    RXM_RAWX <|-- UBXMessages
+    NAV_SAT <|-- UBXMessages
+    NAV_ORB <|-- UBXMessages
+    RXM_SVSI <|-- UBXMessages
+    RXM_MEASX <|-- UBXMessages
+    RXM_SFRBX <|-- UBXMessages
+    NAV_TIMEGPS <|-- UBXMessages
+    NAV_POSECEF <|-- UBXMessages
+    NAV_VELECEF <|-- UBXMessages
+    AID_EPH <|-- UBXMessages
+    AID_ALM <|-- UBXMessages
+
+    Messages <-- RXM_RAWX
+    Messages <-- NAV_SAT
+    Messages <-- NAV_ORB
+    Messages <-- RXM_SVSI
+    Messages <-- RXM_MEASX
+    Messages <-- RXM_SFRBX
+    Messages <-- NAV_TIMEGPS
+    Messages <-- NAV_POSECEF
+    Messages <-- NAV_VELECEF
+    Messages <-- AID_EPH
+    Messages <-- AID_ALM
+
 
 }
 
@@ -168,17 +268,41 @@ namespace Other {
     }
 
     enum GNSS {
-        + GPS
-        + GLONASS
+        + GPS = 0
+        + GLONASS = 6
         ...
+        + default = -1
     }
     enum Source {
-        + receiver
-        + GPS_alm
-        + GPS_eph
-        + GLONASS_alm
-        + GLONASS_eph
+        + receiver = -100
+        + GPS_alm = 1000
+        + GPS_eph = 2000
+        + GLONASS_alm = 1600
+        + GLONASS_eph = 2600
         ...
+    }
+
+    enum DataType {
+        ALM = 1000
+        EPH = 2000
+    }
+
+    abstract Kalman {
+        + LinearFilter(FilteredLine) -> FilteredLine
+    }
+
+    class TimeStamp {
+        + dt: datetime.datetime
+        + week: int
+        + TOW: float
+        + N4: int
+        + N: int
+        + t: float
+        + __init__(*args, **kwargs, type=GNSS.default)
+        + dt2gps()
+        + dt2glonass()
+        + gps2dt()
+        + glonass2dt()
     }
 }
 
