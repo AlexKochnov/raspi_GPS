@@ -26,8 +26,8 @@ c = 299792458
 
 ## ПЗ-90
 az = 6378137
-alpha = 1 / 298.25784
-bz = az - alpha * az
+alphaz = 1 / 298.25784
+bz = az - alphaz * az
 
 ## WGS-84
 a = 6378136

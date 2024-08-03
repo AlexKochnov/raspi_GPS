@@ -448,9 +448,10 @@ class Storage:
                 print(e)
                 print(traceback.format_exc())
                 a = 0
-        if self.counter % 30 == 0:
+        if self.counter % 100 == 0:
             pass
             self.navigation_parameters.to_csv('nav_params.csv')
+            self.general_data.to_csv('general_data.csv')
             # self.ephemeris_solves.to_csv('eph_solves.csv')
             # self.ephemeris_data.to_csv(f'epd_data{self.counter}.csv')
             # self.almanac_data.to_csv(f'alm_data{self.counter}.csv')
