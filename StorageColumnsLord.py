@@ -33,7 +33,6 @@ class StorageColumnsLord:
     # TODO: delete error
     solves_columns = {'success': np.bool_, 'X': np.float64, 'Y': np.float64, 'Z': np.float64,
                       'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
-
                       'cdt': np.float64, 'dt': np.float64,
                       'fval': np.float64, 'error': np.float64, 'calc_time': np.float32}
 
@@ -47,7 +46,7 @@ class StorageColumnsLord:
                                     'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
                                     'azim': np.float32, 'polar': np.float32, 'radius': np.float32,
                                     'prRMSer': np.float16, 'prMes': np.float64, 'prRes': np.float32,
-                                    'prStedv': np.float32, 'real_rho': np.float64, 'Dt': np.float64,
+                                    'prStedv': np.float32, 'real_rho': np.float64, 'Dt': np.float64, 'af_dt': np.float64,
                                     'coord_score': np.float16, 'nav_score': np.float16, 'used': np.bool_}
     # TODO: delete one optimization method
     full_solves_columns = {'calc_stamp': object, 'sat_count': int, 'method': np.str_} | solves_columns

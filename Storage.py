@@ -108,7 +108,8 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
             def get_solve_line():
                 t = datetime.now(tz=Constants.tz_utc)
                 # res = func(sats[['X', 'Y', 'Z', 'prMes']])
-                res = func(np.array(sats[['X', 'Y', 'Z', 'prMes']].values.T))
+                sats['prMesCorrected'] = sats['prMes'] + Constants.c * sats['af_dt']
+                res = func(np.array(sats[['X', 'Y', 'Z', 'prMesCorrected']].values.T))
                 lla = Transformations.ecef2lla(*res.x[:-1])
                 solve = {
                     'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
@@ -312,6 +313,8 @@ class Storage:
     other_data = dict()
 
     leapS = 18
+    rcvTow = 0
+    fTOW = 0
 
     flush_flag = False
     DynStorage = None
@@ -331,6 +334,7 @@ class Storage:
         self.almanac_solves = create_table(SCL.full_solves_columns)
         self.general_data = pd.DataFrame(columns=[
             'receiving_stamp', 'week', 'iTOW',
+            'rcvTow', 'clkB', 'clkD',
             'ecefX', 'ecefY', 'ecefZ', 'pAcc',
             'fTOW', 'tAcc', 'leapS', 'towValid', 'weekValid', 'leapSValid',
             'tau_c', 'tau_GPS', 'N4', 'NA', 'B1', 'B2', 'KP',
@@ -403,13 +407,27 @@ class Storage:
                 self.navigation_parameters.update(create_index_table(message.satellites))
                 self.check_nav_time()
             if isinstance(message, UBXMessages.RXM_RAWX):
+                self.update_param(message.data, 'rcvTow')
+                # self.time_stamp.TOW = message.data['rcvTow']
+                # self.update_general_data({'rcvTow': message.data['rcvTow']}, message.receiving_stamp)
+                # self.general_data.iloc[-1].rcvTow = message.data['rcvTow']
+                try:
+                    self.general_data.at[self.general_data.index[-1], 'rcvTow'] = message.data['rcvTow']
+                except Exception as e:
+                    print(e)
+                    print(traceback.format_exc())
+
                 self.calc_navigation_task()
                 FK_filter(self)
                 FK_filter(self, xyz_flag=False)
                 self.flush_flag = True
-        elif isinstance(message, UBXMessages.NAV_TIMEGPS | UBXMessages.NAV_POSECEF | UBXMessages.NAV_VELECEF):
+        # elif isinstance(message, UBXMessages.NAV_CLOCK):
+        #     self.general_data.at[self.general_data.index[-1], 'clkB'] = message.data['clkB']
+        #     self.general_data.at[self.general_data.index[-1], 'clkD'] = message.data['clkD']
+        elif isinstance(message, UBXMessages.NAV_TIMEGPS | UBXMessages.NAV_POSECEF | UBXMessages.NAV_VELECEF | \
+                        UBXMessages.NAV_CLOCK):
             assert isinstance(message.data, dict)
-            self.update_param(message.data, 'iTOW', 'week', 'leapS')
+            self.update_param(message.data, 'iTOW', 'week', 'leapS', 'fTOW')
             if isinstance(message, UBXMessages.NAV_TIMEGPS):
                 Constants.leapS = message.data['leapS']
             if isinstance(message, UBXMessages.NAV_POSECEF):
@@ -479,9 +497,12 @@ class Storage:
 
     def calc_navigation_task(self):
         # try:
+        calc_time_stamp = self.time_stamp
+        calc_time_stamp.TOW = self.rcvTow + self.fTOW * 1e-9
+        print(self.rcvTow, self.fTOW, self.fTOW * 1e-9, self.rcvTow + self.fTOW * 1e-9)
         self.ephemeris_data, self.almanac_data = \
             make_ae_nav_data(self.navigation_parameters, self.ephemeris_parameters, self.almanac_parameters,
-                             self.time_stamp)
+                             calc_time_stamp)
         calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.time_stamp)
         calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.time_stamp)
         # except Exception as e:
@@ -507,7 +528,9 @@ class Storage:
         self.navigation_parameters1 = self.navigation_parameters[
             ['svId', 'gnssId', 'receiving_stamp', 'cno', 'prMes', 'prRes', 'prRMSer', 'prStedv', 'elev', 'azim',
              'ephUsability', 'ephSource', 'ephAvail', 'almUsability', 'almSource', 'almAvail',
-             'health', 'qualityInd', 'prValid', 'mpathIndic', 'orbitSourse', 'visibility', 'svUsed']]
+             'health', 'qualityInd', 'prValid', 'mpathIndic', 'orbitSourse', 'visibility', 'svUsed',
+             # 'wholeChips', 'fracChips', 'codePhase', 'intCodePhase',
+                                      ]]
         self.navigation_parameters1.rename(columns={'receiving_stamp': 'receiving'})
         self.almanac_parameters1 = self.almanac_parameters.apply(row_table_cleaning, axis=1, result_type='expand')
         self.almanac_data1 = self.almanac_data.apply(row_table_cleaning, axis=1, result_type='expand')

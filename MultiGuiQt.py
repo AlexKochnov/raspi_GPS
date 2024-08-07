@@ -45,7 +45,7 @@ turquoise = QColor(color_power, 255, 255)
 purple = QColor(250, color_power, 255)
 
 data_cols = ['svId', 'gnssId', 'xyz_stamp', 'pr_stamp', 'X', 'Y', 'Z', 'lat', 'lon', 'alt', 'azim', 'polar', 'radius',
-             'prMes', 'prRes', 'prRMSer', 'prStedv', 'coord_score', 'nav_score', 'used', 'real_rho', 'Dt']
+             'prMes', 'prRes', 'prRMSer', 'prStedv', 'coord_score', 'nav_score', 'used', 'real_rho', 'Dt', 'af_dt']
 
 
 def process_columns(column_list, title):
@@ -117,7 +117,7 @@ def process_columns(column_list, title):
             match column:
                 case 'ecefX' | 'ecefY' | 'ecefZ' | 'pAcc':
                     return column + ', m'
-                case 'receiving_stamp' | 'leapS' | 'tau_c' | 'tau_GPS' | 'B1':
+                case 'receiving_stamp' | 'leapS' | 'tau_c' | 'tau_GPS' | 'B1' | 'rcvTow':
                     return column + ', s'
                 case 'B2':
                     return column + ', s/asd'
@@ -186,7 +186,7 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 data = f'{data:.1f}'
                 color = get_color(abs(float(data)), 10, 40)
             case 'prRMSer':
-                color = purple if int(data) == 120 else get_color(abs(data), 5, 30)
+                color = purple if int(data) == 120 else get_color(abs(data), 10, 40)
                 data = f'{data:.1f}'
             case 'prStedv':
                 color = get_color(data, 5, 25)
@@ -247,7 +247,7 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
             case 'X' | 'Y' | 'Z' | 'real_rho' | 'prMes':
                 data = f'{data:.2f}'
             case 'lat' | 'lon' | 'radius':
-                data = f'{data:.2f}'
+                data = f'{data:.3f}'
             case 'alt':
                 data = f'{data / 1000:.1f}'
             case 'polar' | 'azim':

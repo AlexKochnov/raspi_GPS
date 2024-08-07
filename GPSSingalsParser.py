@@ -1,5 +1,7 @@
 import traceback
 
+from numpy import pi
+
 GPS_PREAMBLE = 0b10001011
 
 
@@ -107,6 +109,7 @@ def parse_sf_1(subframe) -> dict:
     return {
         'week': parse(61, 10) + 1024 * 2,
         'accuracy': parse(73, 4),
+        # 'CA': parse(71, 2),
         'health': parse(7, 6),
         'IODC': parse2(83, 2, 211, 8),
         'Tgd': parse(197, 8, True) * 2 ** (- 31),
@@ -123,8 +126,8 @@ def parse_sf_2(subframe) -> dict:
     return {
         'IODE1': parse(61, 8),
         'Crs': parse(69, 16, True) * 2 ** (- 5),
-        'dn': parse(91, 16, True) * 2 ** (- 43),
-        'M0': parse2(107, 8, 121, 24, True) * 2 ** (- 31),
+        'dn': parse(91, 16, True) * 2 ** (- 43) * pi,
+        'M0': parse2(107, 8, 121, 24, True) * 2 ** (- 31) * pi,
         'Cuc': parse(151, 16, True) * 2 ** (- 29),
         'e': parse2(167, 8, 181, 24) * 2 ** (- 33),
         'Cus': parse(211, 16, True) * 2 ** (- 29),
@@ -138,14 +141,14 @@ def parse_sf_3(subframe) -> dict:
     parse2 = get_parse_function2(subframe)
     return {
         'Cic': parse(61, 16, True) * 2 ** (- 29),
-        'W0': parse2(77, 8, 91, 24, True) * 2 ** (- 31),
+        'W0': parse2(77, 8, 91, 24, True) * 2 ** (- 31) * pi,
         'Cis': parse(121, 16, True) * 2 ** (- 29),
-        'i0': parse2(137, 8, 151, 24, True) * 2 ** (- 31),
+        'i0': parse2(137, 8, 151, 24, True) * 2 ** (- 31) * pi,
         'Crc': parse(181, 16, True) * 2 ** (- 5),
-        'w': parse2(197, 8, 211, 24, True) * 2 ** (- 31),
-        'Wdot': parse(241, 24, True) * 2 ** (- 43),
+        'w': parse2(197, 8, 211, 24, True) * 2 ** (- 31) * pi,
+        'Wdot': parse(241, 24, True) * 2 ** (- 43) * pi,
         'IODE2': parse(271, 8),
-        'IDOT': parse(279, 14, True) * 2 ** (- 43),
+        'IDOT': parse(279, 14, True) * 2 ** (- 43) * pi,
     }
 
 
@@ -157,13 +160,13 @@ def parse_sf_alm(subframe) -> dict:
         'SV_ID': parse(63, 6),
         'e': parse(69, 16) * 2 ** (-21),
         'Toa': parse(91, 8) * 2 ** 12,
-        'delta_i': parse(99, 16, True) * 2 ** (-19),
-        'Wdot': parse(121, 16, True) * 2 ** (-38),
+        'delta_i': parse(99, 16, True) * 2 ** (-19) * pi,
+        'Wdot': parse(121, 16, True) * 2 ** (-38) * pi,
         'health': parse(137, 8),
         'sqrtA': parse(151, 24) * 2 ** (-11),
-        'W0': parse(181, 24, True) * 2 ** (-23),
-        'w': parse(211, 24, True) * 2 ** (-23),
-        'M0': parse(241, 24, True) * 2 ** (-23),
+        'W0': parse(181, 24, True) * 2 ** (-23) * pi,
+        'w': parse(211, 24, True) * 2 ** (-23) * pi,
+        'M0': parse(241, 24, True) * 2 ** (-23) * pi,
         'af1': parse(279, 11, True) * 2 ** (-38),
         'af0': parse2(271, 8, 290, 3, True) * 2 ** (-20),
     }

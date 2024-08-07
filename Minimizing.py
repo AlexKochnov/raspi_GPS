@@ -53,15 +53,15 @@ def solve_navigation_task_SLSQP(satellites, bounds=None, Y0=None):
     L = 50e6
     if bounds is None:
         bounds = [(-L, L), (-L, L), (-L, L), (-L, L)]
-    cdt = np.linalg.norm(satellites[:3, 0] - np.array(Constants.ECEF)) - satellites[-1, 0]
-    Y0 = np.array(list(Constants.ECEF) + [-cdt])
+    # cdt = np.linalg.norm(satellites[:3, 0] - np.array(Constants.ECEF)) - satellites[-1, 0]
+    # Y0 = np.array(list(Constants.ECEF) + [-cdt])
     con = {'type': 'ineq', 'fun': constraint}
     result = minimize(
         get_func(satellites),
         np.array(Y0) if Y0 is not None else np.array([Constants.ae_glonass, 0, 0, 0]),
         method='SLSQP',
         bounds=bounds,
-        constraints=[con],
+        # constraints=[con],
         jac=get_jac(satellites),
         options={'disp': True, 'maxiter': 500},
         tol=1e-5,
@@ -76,8 +76,8 @@ def solve_navigation_task_TC(satellites, Y0=None):
 
     con = {'type': 'ineq', 'fun': constraint}
     N = len(satellites.T)
-    cdt = sum([np.linalg.norm(satellites[:3, i] - np.array(Constants.ECEF)) - satellites[-1, i] for i in range(N)])/N
-    Y0 = np.array(list(Constants.ECEF) + [-cdt])
+    # cdt = sum([np.linalg.norm(satellites[:3, i] - np.array(Constants.ECEF)) - satellites[-1, i] for i in range(N)])/N
+    # Y0 = np.array(list(Constants.ECEF) + [-cdt])
     # Y0 -= 1e2
     # print(Y0, Y0[-1]/Constants.c)
     result = minimize(

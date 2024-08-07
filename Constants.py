@@ -17,6 +17,7 @@ STEP = 1
 ApproximateGPSAltitude = 20200
 ApproximateEarthRadius = 6400
 
+F = -4.442807633 * 1e-10    # = -2sqrt(mu) / c^2 sec/sqrt(m)
 OmegaEarthDot = 7.2921151467 * 1e-5
 mu = 3.986004418 * 1e14
 ae_glonass = 6378136
@@ -42,7 +43,7 @@ LLA = [55.690555555555555, 37.858333333333334, 140] # Дом
 # import pymap3d as pm
 ECEF = pm.geodetic2ecef(*LLA)
 # ECEF = Transformations.lla2ecef(*LLA)
-
+sat_calc_coord_delay = 0
 
 
 

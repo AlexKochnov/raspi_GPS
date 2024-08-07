@@ -50,19 +50,22 @@ namespace storage_thread{
     class Storage {
         + reader: Reader
         + reader_thread: Thread
-        + cycle_messgages: list[Message]
-        + time_stamp: TimeStamp
-        + Filtrator
-        + GPS:GnssSystem
-        + GLONASS: GnssSystem
-        + satellites: list[Satellite]
-        + pseudoranges: PseudoRanges
-        + rec_positions: HistoricalPosition
         + update(message)
-        + update_cycle()
+        ---
+        + cycle_messgages: list[Message]
         + get_tables() -> DynamicStorage
-'        + filtrator: Filtrator
+        ---
+        + time_stamp: TimeStamp
+        + used_gnns_systems: list[GNSS]
+        + system_params: dict[GNSS]
+        + satellites: dict[id, Satellite]
+        + pseudoranges: PseudoRanges
+        + receiver_positions: dict[Source, LKPosition]
+        + update_cycle()
+        ---
         + LK_filter(last_prediction, measurements)
+        + FK_filter()
+
     }
 
     class PseudoRanges {
@@ -75,18 +78,6 @@ namespace storage_thread{
         + prs: list[float]
     }
 
-    class Filtrator {
-        + positions: dict[Source, LKPosition]
-         ...
-    }
-
-    class GnssSystem {
-        + gnssId: GNSS
-        + system_params: Struct
-        + satellites: dict[int, Satellite]
-        + alm_positions: LKPosition
-        + eph_positions: LKPosition
-    }
 
     class Satellite {
         + alm_calculator: SCC
@@ -147,12 +138,6 @@ namespace storage_thread{
         ~ calc_glo_eph()
     }
 
-    interface Minimizing{
-        ~ residual()
-        ~ jac()
-        ~ solve_navigation_task(satellites)
-    }
-
     class StorageThread {
         + storage: Storage
         + next()
@@ -181,14 +166,9 @@ namespace storage_thread{
 
     TableCell <-- CellParsers
 
-    Storage <-- GnssSystem
-    Storage <-- Position
     Storage <-- PseudoRanges
-    Storage <-- Filtrator
-
-    GnssSystem <-- LKPosition
-    GnssSystem <-- Satellite
-    GnssSystem <.. Minimizing
+    Storage <-- LKPosition
+    Storage <-- Satellite
 
     Satellite <-- SatelliteCoordinateCalculator
     Satellite <-- Position
@@ -197,7 +177,6 @@ namespace storage_thread{
 
     Position <-- FilteredLine
     Position <-- BasePosition
-
 
     StorageThread <-- DynamicStorage
     StorageThread <-- Storage
@@ -211,7 +190,6 @@ namespace storage_thread{
 
     PseudoRanges <-- BasePR
     PseudoRanges <-- FilteredLine
-
 }
 
 
@@ -319,40 +297,6 @@ namespace Other {
 
     }
 
-    enum GNSS {
-        + GPS = 0
-        + SBAS = 1
-        + Galileo = 2
-        + BeiDou = 3
-        + IMEA = 4
-        + QZSS = 5
-        + GLONASS = 6
-        + default = -1
-    }
-    enum Source {
-        + receiver = -100
-        + GPS_alm = 1000
-        + GPS_eph = 2000
-        + GLONASS_alm = 1600
-        + GLONASS_eph = 2600
-        ...
-    }
-
-    enum DataType {
-        + ALM = 1000
-        + EPH = 2000
-    }
-
-    enum FormatCoords {
-        + XYZ = 0x01 << 14
-        + LLA = 0x10 << 14
-        + Both = 0x11 < 14
-    }
-
-    abstract Kalman {
-        ~ LinearFilter(FilteredLine) -> FilteredLine
-    }
-
     class TimeStamp {
         + dt: datetime.datetime
         + week: int
@@ -368,6 +312,50 @@ namespace Other {
         ~ BASE_TIME_STAMP = TimeStamp
         ~ calc_julian_day()
     }
+
+    namespace Utils {
+        enum GNSS {
+            + GPS = 0
+            + SBAS = 1
+            + Galileo = 2
+            + BeiDou = 3
+            + IMEA = 4
+            + QZSS = 5
+            + GLONASS = 6
+            + default = -1
+        }
+        enum Source {
+            + receiver = -100
+            + GPS_alm = 1000
+            + GPS_eph = 2000
+            + GLONASS_alm = 1600
+            + GLONASS_eph = 2600
+            ...
+        }
+
+        enum DataType {
+            + ALM = 1000
+            + EPH = 2000
+        }
+
+        enum FormatCoords {
+            + XYZ = 0x01 << 14
+            + LLA = 0x10 << 14
+            + Both = 0x11 << 14
+        }
+    }
+
+    abstract Kalman {
+        ~ LinearFilter(last_prediction, measurements) -> FilteredLine
+    }
+
+    interface Minimizing{
+        ~ residual()
+        ~ jac()
+        ~ solve_navigation_task(satellites)
+    }
+
+
 }
 
 

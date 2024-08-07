@@ -1,5 +1,6 @@
 from enum import Enum
 
+import UBXMessages
 from UBXMessages import *
 from NMEAMessages import *
 
@@ -66,25 +67,26 @@ class MSG(Enum):
 
     PUBX_SVSTATUS = 0xF1, 0x03
 
-    NAV_TIMEGPS = 0x01, 0x20
-    NAV_ORB = 0x01, 0x34
-    NAV_SAT = 0x01, 0x35
+    NAV_TIMEGPS = UBXMessages.NAV_TIMEGPS.header
+    NAV_ORB = UBXMessages.NAV_ORB.header
+    NAV_SAT = UBXMessages.NAV_SAT.header
     NAV_DGPS = 0x01, 0x31
     NAV_SVINFO = 0x01, 0x30
-    NAV_POSECEF = 0x01, 0x01
-    NAV_VELECEF = 0x01, 0x11
+    NAV_POSECEF = UBXMessages.NAV_POSECEF.header
+    NAV_VELECEF = UBXMessages.NAV_VELECEF.header
+    NAV_CLOCK = UBXMessages.NAV_CLOCK.header
 
-    RXM_RAWX = 0x02, 0x15
+    RXM_RAWX = UBXMessages.RXM_RAWX.header
     RXM_SVSI = 0x02, 0x20
-    RXM_MEASX = 0x02, 0x14
-    RXM_SFRBX = 0x02, 0x13
+    RXM_MEASX = UBXMessages.RXM_MEASX.header
+    RXM_SFRBX = UBXMessages.RXM_SFRBX.header
 
     MON_RXBUF = 0x0A, 0x07
     MON_TXBUF = 0x0A, 0x08
 
 
 ALL = set(MSG)
-ON_LIST = {MSG.NAV_SAT, MSG.NAV_ORB, MSG.NAV_SVINFO, MSG.NAV_TIMEGPS, MSG.NAV_POSECEF,
+ON_LIST = {MSG.NAV_SAT, MSG.NAV_ORB, MSG.NAV_SVINFO, MSG.NAV_TIMEGPS, MSG.NAV_POSECEF, MSG.NAV_DGPS, MSG.NAV_CLOCK,
            MSG.RXM_RAWX, MSG.RXM_MEASX, MSG.RXM_SFRBX, #MSG.RXM_SVSI,
            MSG.NMEA_RMC,
            MSG.MON_RXBUF, MSG.MON_TXBUF}

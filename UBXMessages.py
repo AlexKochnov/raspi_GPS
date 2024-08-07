@@ -104,7 +104,7 @@ class RXM_RAWX(UbxMessage):
             'rcvTow': rcvTow,
             'week': week,
             'leapS': leapS,
-            'recStat': recStat,
+            # 'recStat': recStat,
             'leapSec': get_bytes_from_flag(recStat, 0),
             'clkReset': get_bytes_from_flag(recStat, 1),
         }
@@ -336,6 +336,22 @@ class NAV_TIMEGPS(UbxMessage):
             'towValid': get_bytes_from_flag(flags, 0),
             'weekValid': get_bytes_from_flag(flags, 1),
             'leapSValid': get_bytes_from_flag(flags, 2),
+        }
+
+
+class NAV_CLOCK(UbxMessage):
+    format = '<LllLL'
+    header = (0x01, 0x22)
+
+    def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
+        super().__init__(receiving_TOW)
+        iTOW, clkB, clkD, tAcc, fAcc = struct.unpack(self.format, msg)
+        self.data = {
+            'iTOW': iTOW,
+            'clkB': clkB,
+            'clkD': clkD,
+            'tAcc': tAcc,
+            'fAcc': fAcc,
         }
 
 
