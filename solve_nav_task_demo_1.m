@@ -26,6 +26,9 @@ LLA = [55.569861111111116, 38.805027777777774, 140];
 
 ECEF = MYlla2ecef(LLA);
 
+Rres = norm(MYlla2ecef([LLA(1), LLA(2), 0]))
+% print(Rres);
+
 
 % x0 = [0, 0, 0, 0];
 
@@ -104,6 +107,8 @@ function print_result(result, fval)
     fprintf("function value: %f\n", fval)
     lla = MYecef2lla(result(1:3));
     fprintf("lat: %f, lon: %f, alt: %f\n", lla(1), lla(2), lla(3));
+    disp(norm(result))
+    % disp(norm(result) - )
 end
 
 function [c, ceq] = contrains(x)

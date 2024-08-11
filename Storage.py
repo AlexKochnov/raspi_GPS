@@ -467,9 +467,14 @@ class Storage:
                 print(traceback.format_exc())
                 a = 0
         if self.counter % 100 == 0:
-            pass
-            self.navigation_parameters.to_csv('nav_params.csv')
-            self.general_data.to_csv('general_data.csv')
+            match self.counter % 1000:
+                case 100: self.general_data.to_csv('general_data.csv')
+                case 200: self.almanac_solves.to_csv('almanac_solves.csv')
+                case 300: self.ephemeris_solves.to_csv('ephemeris_solves.csv')
+                case 400: self.FK_coordinates_xyz.to_csv('FK_coordinates_xyz.csv')
+                case 500: self.FK_coordinates_lla.to_csv('FK_coordinates_lla.csv')
+            # self.navigation_parameters.to_csv('nav_params.csv')
+            # self.general_data.to_csv('general_data.csv')
             # self.ephemeris_solves.to_csv('eph_solves.csv')
             # self.ephemeris_data.to_csv(f'epd_data{self.counter}.csv')
             # self.almanac_data.to_csv(f'alm_data{self.counter}.csv')
@@ -494,21 +499,12 @@ class Storage:
             if key in table.columns:
                 table.at[ind, key] = value
 
-
     def calc_navigation_task(self):
-        # try:
-        calc_time_stamp = self.time_stamp
-        calc_time_stamp.TOW = self.rcvTow + self.fTOW * 1e-9
-        print(self.rcvTow, self.fTOW, self.fTOW * 1e-9, self.rcvTow + self.fTOW * 1e-9)
         self.ephemeris_data, self.almanac_data = \
             make_ae_nav_data(self.navigation_parameters, self.ephemeris_parameters, self.almanac_parameters,
-                             calc_time_stamp)
+                             self.time_stamp, self.rcvTow + self.fTOW * 1e-9)
         calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.time_stamp)
         calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.time_stamp)
-        # except Exception as e:
-        #     print(e)
-        #     print(tr := traceback.format_exc())
-        #     a = 0
 
     def ADD_GUI_TABLES(self):
         def row_table_cleaning(row):
@@ -541,7 +537,6 @@ class Storage:
         # self.general_data1 = self.general_data.copy()
 
         self.DynStorage = get_DynStorage(self)
-
 
     def make_SFRBX_data(self):
         self.SFRBX_GPS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
