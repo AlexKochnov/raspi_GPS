@@ -54,12 +54,14 @@ def calc_gps_alm(ALM: pd.DataFrame or None, time, N):
         Ek = Ek + (Mk - Ek + e * sin(Ek)) / (1 - e * cos(Ek))
     Ek = Ek1
 
-    nu_k = atan2(
-        sqrt(1 - e * e) * sin(Ek),
-        (cos(Ek) - e)
-    )
+    # nu_k = atan2(
+    #     sqrt(1 - e * e) * sin(Ek),
+    #     (cos(Ek) - e)
+    # )
+    nu_k = 2 * atan(sqrt((1.+e)/(1.-e)) * tan(Ek/2.))
 
-    p = a * (1 - e * e)
+
+    # p = a * (1 - e * e)
 
     # r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
     r_k = a * (1 - e * cos(Ek))
@@ -67,8 +69,8 @@ def calc_gps_alm(ALM: pd.DataFrame or None, time, N):
 
     ik = i0 + di
     Omega_k = Omega0 + (OmegaDot - Constants.OmegaEarthDot) * tk - Constants.OmegaEarthDot * Toa
-    Vr = sqrt(Constants.mu / p) * e * sin(nu_k)
-    Vn = sqrt(Constants.mu / p) * (1 + e * cos(nu_k))
+    # Vr = sqrt(Constants.mu / p) * e * sin(nu_k)
+    # Vn = sqrt(Constants.mu / p) * (1 + e * cos(nu_k))
     u_k = omega + nu_k
 
     X = r_k * (cos(u_k) * cos(Omega_k) - sin(u_k) * sin(Omega_k) * cos(ik))
@@ -140,10 +142,12 @@ def calc_gps_eph(EPH: pd.DataFrame or None, time, N):
         Ek = Ek + (Mk - Ek + e * sin(Ek)) / (1 - e * cos(Ek))
     Ek = Ek1
 
-    nu_k = atan2(
-        sqrt(1 - e * e) * sin(Ek),
-        (cos(Ek) - e)
-    )
+    # nu_k = atan2(
+    #     sqrt(1 - e * e) * sin(Ek),
+    #     (cos(Ek) - e)
+    # )
+    nu_k = 2 * atan(sqrt((1.+e)/(1.-e)) * tan(Ek/2.))
+
     Phi_k = nu_k + omega  # аргумент lat
     # r_k = a * (1 - e * cos(Ek)) / (1 + e * cos(Ek))
     r_k = a * (1 - e * cos(Ek))

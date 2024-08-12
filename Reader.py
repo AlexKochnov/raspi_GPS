@@ -1,7 +1,7 @@
 import struct
 from time import sleep
-from serial import Serial
 import traceback
+from serial import Serial
 
 import Constants
 import Save
@@ -151,7 +151,8 @@ class Reader:
 
 if __name__ == '__main__':
 
-    reader = Reader("COM3")
+    # reader = Reader("COM3")
+    reader = Reader()
     storage = Storage()
 
     for parsed in reader:

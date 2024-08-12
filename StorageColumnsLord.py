@@ -9,7 +9,7 @@ class StorageColumnsLord:
     NAV_SAT_columns = {'cno': np.int8, 'elev': np.int8, 'azim': np.int16, 'prRes': np.float32, 'qualityInd': np.int8,
                        'svUsed': np.bool_, 'health': np.int8, 'diffCorr': np.bool_, 'smoothed': np.bool_,
                        'orbitSourse': np.int8, 'ephAvail': np.bool_, 'almAvail': np.bool_}
-    RXM_RAWX_columns = {'prMes': np.float64, 'cpMes': np.float64, 'doMes': np.float64,
+    RXM_RAWX_columns = {'prMes': np.float64, 'cpMes': np.float64, 'doMes': np.float64, 'rcvTOW': np.float64,
                         'freqId': np.int8, 'locktime': np.uint16, 'cno': np.int8,
                         'prStedv': np.float32, 'cpStedv': np.float32, 'doStedv': np.float32,
                         'prValid': np.bool_, 'cpValid': np.bool_, 'halfCyc': np.bool_, 'subHalfCyc': np.bool_}

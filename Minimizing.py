@@ -5,7 +5,7 @@ import numpy as np
 from scipy.optimize import minimize, least_squares, differential_evolution, curve_fit
 from numpy.linalg import norm
 import Constants
-from numba import jit
+# from numba import jit
 
 import Transformations
 

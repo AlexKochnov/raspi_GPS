@@ -99,7 +99,7 @@ def process_columns(column_list, title):
                 case 'polar' | 'azim':
                     return column + ', °'
                 # case 'lon': return 'azim, °'
-                case 'Dt':
+                case 'Dt' | 'af_dt':
                     return column + ', ms'
         elif title == 'Результаты по эфемеридам' or title == 'Результаты по альманах':
             match column:
@@ -166,8 +166,10 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 data = int(data)
             case 'gnssId':
                 data = data.name
-            case 'receiving_stamp' | 'xyz_stamp' | 'pr_stamp' | 'calc_stamp':
-                data = data.TOW
+            case 'receiving_stamp' | 'calc_stamp':
+                data = int(data.TOW)
+            case 'xyz_stamp' | 'pr_stamp':
+                data = f'{data.TOW:.9f}'
     elif table_title == "Навигационные данные":
         match column:
             case 'cno':
@@ -252,8 +254,8 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                 data = f'{data / 1000:.1f}'
             case 'polar' | 'azim':
                 data = f'{data:.5f}'
-            case 'Dt':
-                data = f'{data * 1000:.4f}'
+            case 'Dt' | 'af_dt':
+                data = f'{data * 1000:.6f}'
             case 'prStedv':
                 color = get_color(data, 5, 25)
                 data = f'{data:.2f}'
@@ -264,6 +266,8 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
                     color = get_color(abs(float(data)), 10, 40)
                 elif column == 'prRMSer':
                     color = purple if int(data) == 120 else get_color(abs(data), 5, 30)
+                elif column == 'nav_score':
+                    color = get_color(data, 1, 15, reverse=True)
                 else:
                     if data < 1:
                         color = red
@@ -669,6 +673,8 @@ class App(QMainWindow):
             self.DynStorage = self.storage.DynStorage
             self.storage.flush_flag = False
             self.update_current_table()
+            # if np.random.randint(20) == 5:
+            #     a = 0
 
         # if .update(parsed):
         #     if self.current_table is not None:

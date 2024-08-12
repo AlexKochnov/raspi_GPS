@@ -83,12 +83,11 @@ optimize_methods = {
 
 def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp):
     sats = data_table.copy()
-    sats = sats[(sats.nav_score > 0) & (sats.coord_score > 0) &
-                (stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
     sats = sats.dropna()
-    sats['score'] = sats.coord_score + sats.nav_score
+    sats = sats[(sats.nav_score > 15) & (sats.coord_score > 0) &
+                (stamp - sats.xyz_stamp < 3) & (stamp - sats.pr_stamp < 3)]
     # head = 4 + np.random.randint(4) #
-    sats = sats.sort_values(by='score', ascending=False).head(Settings.MaximumMinimizingSatellitesCount)
+    sats = sats.sort_values(by='nav_score', ascending=False).head(Settings.MaximumMinimizingSatellitesCount)
     data_table['used'] = data_table.apply(lambda row: row.svId in sats.svId.values, axis=1)
     # data = [(row.X, row.Y, row.Z, row.prMes) for row in sats.iterrows()]
     # data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
@@ -403,6 +402,10 @@ class Storage:
         elif isinstance(message, UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX | \
                                  UBXMessages.RXM_MEASX):
             self.update_param(message.data, 'iTOW', 'week')
+            if isinstance(message, UBXMessages.RXM_RAWX):
+                for i in range(len(message.satellites)):
+                    message.satellites[i]['rcvTOW'] = \
+                        TimeStamp(week=self.week, TOW=message.data['rcvTow'] + self.fTOW * 1e-9)
             if message.satellites:
                 self.navigation_parameters.update(create_index_table(message.satellites))
                 self.check_nav_time()
@@ -412,7 +415,8 @@ class Storage:
                 # self.update_general_data({'rcvTow': message.data['rcvTow']}, message.receiving_stamp)
                 # self.general_data.iloc[-1].rcvTow = message.data['rcvTow']
                 try:
-                    self.general_data.at[self.general_data.index[-1], 'rcvTow'] = message.data['rcvTow']
+                    if len(self.general_data):
+                        self.general_data.at[self.general_data.index[-1], 'rcvTow'] = message.data['rcvTow']
                 except Exception as e:
                     print(e)
                     print(traceback.format_exc())

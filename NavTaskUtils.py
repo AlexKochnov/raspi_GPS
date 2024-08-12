@@ -19,6 +19,10 @@ def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parame
                   'real_rho', 'Dt', 'af_dt']
     nav_data = pd.DataFrame(navigation_parameters.apply(calc_nav, axis=1).to_list(), columns=nav_cols)
     # eph_func = SCC.calc_gps_eph if gps_flag else else SCC.calc
+    # T = TimeStamp(TOW=rcvTOW, week=time_stamp.week)
+    # print(T)
+    # nav_data.pr_stamp = nav_data.pr_stamp.apply(lambda st: T if st == time_stamp else st)
+    # print(nav_data.pr_stamp)
     eph_coord_data = pd.DataFrame(
         ephemeris_parameters.apply(lambda row: calc_coords(row, time_stamp, rcvTOW, SCC.calc_gps_eph), axis=1).to_list(),
         columns=coord_cols)
@@ -36,12 +40,34 @@ def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parame
     return ephemeris_data, almanac_data
 
 
-def calc_nav_score(nav_row):
-    quality = 2 if nav_row.qualityInd > 4 else (1 if nav_row.qualityInd == 4 else 0)
-    score = (nav_row.health == 1) * (nav_row.visibility >= 2) * quality * (nav_row.prValid == True)
-    if score:
-        score *= 100*nav_row.cno / (abs(nav_row.prRes) + 1) / (5 + nav_row.prRMSer) #TODO: RMS error (not index)
+def get_scores(data, *args, BiggerBetter=True):
+    score = 0
+    if BiggerBetter:
+        for arg in sorted(args):
+            if data >= arg:
+                score += 1
+    else:
+        for arg in sorted(args)[::-1]:
+            if data <= arg:
+                score += 1
     return score
+
+
+def calc_nav_score(nav_row):
+    # quality = 2 if nav_row.qualityInd > 4 else (1 if nav_row.qualityInd == 4 else 0)
+    # score = (nav_row.health == 1) * (nav_row.visibility >= 2) * quality * (nav_row.prValid == True)
+    # if score:
+    #     score *= 100*nav_row.cno / (abs(nav_row.prRes) + 1) / (5 + nav_row.prRMSer) #TODO: RMS error (not index)
+    # return score
+    S_quality = get_scores(nav_row.qualityInd, 4, 5)
+    S_cno = get_scores(nav_row.cno, 20, 30)
+    S_prRes = get_scores(abs(nav_row.prRes), 10, 40, BiggerBetter=False)
+    S_prRMSer = get_scores(nav_row.prRMSer, 10, 40, BiggerBetter=False)
+    S_prStedv = get_scores(nav_row.prStedv, 10, 40, BiggerBetter=False)
+    S_visibility = get_scores(nav_row.visibility, 2, 3)
+    if (nav_row.health == 1) and (nav_row.prValid == True):
+        return S_quality * S_cno * S_prRes * S_prRMSer * S_prStedv * S_visibility
+    return 0
 
 
 def calc_eph_score(nav_row):
@@ -79,9 +105,10 @@ def calc_coords(param_row, stamp: TimeStamp, rcvTOW, coord_func):
         lla = (np.nan, np.nan, np.nan)
         azim, polar, radius = (np.nan, np.nan, np.nan)
     rho = np.linalg.norm(np.array(xyz) - np.array(Constants.ECEF))
-    return param_row.svId, param_row.gnssId, stamp, *xyz, *lla, azim, polar, radius, rho, -rho / Constants.c + af_dt, af_dt
+    return (param_row.svId, param_row.gnssId, TimeStamp(TOW=rcvTOW, week=stamp.week), *xyz, *lla, azim, polar, radius,
+            rho, -rho / Constants.c + af_dt, af_dt)
 
 
 def calc_nav(nav_row):
-    return (nav_row.svId, nav_row.gnssId, nav_row.receiving_stamp, nav_row.prRMSer, nav_row.prMes, nav_row.prRes,
+    return (nav_row.svId, nav_row.gnssId, nav_row.rcvTOW, nav_row.prRMSer, nav_row.prMes, nav_row.prRes,
             nav_row.prStedv, calc_nav_score(nav_row), calc_alm_score(nav_row), calc_eph_score(nav_row))
