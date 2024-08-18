@@ -83,11 +83,17 @@ optimize_methods = {
 
 def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp):
     sats = data_table.copy()
+    pd.set_option('display.max_colwidth', None)
+    # print(sats)
     sats = sats.dropna()
-    sats = sats[(sats.nav_score > 15) & (sats.coord_score > 0) &
-                (stamp - sats.xyz_stamp < 3) & (stamp - sats.pr_stamp < 3)]
+    # if len(sats):
+    #     print(max(stamp - sats.xyz_stamp), max(stamp - sats.pr_stamp))
+    sats = sats[(sats.nav_score > 3) & (sats.coord_score > 0) &
+                (stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
     # head = 4 + np.random.randint(4) #
     sats = sats.sort_values(by='nav_score', ascending=False).head(Settings.MaximumMinimizingSatellitesCount)
+    # print(stamp)
+    # print(sats)
     data_table['used'] = data_table.apply(lambda row: row.svId in sats.svId.values, axis=1)
     # data = [(row.X, row.Y, row.Z, row.prMes) for row in sats.iterrows()]
     # data = [(row['X'], row['Y'], row['Z'], row['prMes']) for index, row in sats.iterrows()]
@@ -200,8 +206,24 @@ def get_DynStorage(storage):
     Dyn.ephemeris_solves1 = storage.ephemeris_solves.copy()
     Dyn.almanac_solves1 = storage.almanac_solves.copy()
     Dyn.general_data1 = storage.general_data.copy()
+
     Dyn.FK_coordinates_xyz = storage.FK_coordinates_xyz.copy()
     Dyn.FK_coordinates_lla = storage.FK_coordinates_lla.copy()
+
+    # try:
+    #     tables = [table.rename(columns=lambda x: f'{x}_{name}' if x in ['X', 'Y', 'Z'] else x)
+    #               for name, table in storage.filtered_tables_xyz.items()]
+    #     Dyn.FK_coordinates_xyz = pd.merge(tables[0], tables[1], on='receiving_stamp')
+    #     Dyn.FK_coordinates_xyz.merge(tables[2], on='receiving_stamp')
+    #     # Dyn.FK_coordinates_lla = pd.merge(storage.filtered_tables_lla.items(), on='receiving_stamp',
+    #     #                                   suffixes=[f'_{name}' for name in storage.filtered_tables_lla.keys()])
+    #     tables = [table.rename(columns=lambda x: f'{x}_{name}' if x in ['lat', 'lon', 'alt'] else x)
+    #               for name, table in storage.filtered_tables_xyz.items()]
+    #     Dyn.FK_coordinates_lla = pd.merge(tables[0], tables[1], on='receiving_stamp')
+    #     Dyn.FK_coordinates_lla.merge(tables[2], on='receiving_stamp')
+    # except Exception as e:
+    #     print(e)
+    #     a=0
 
     Dyn.SFRBX_GLONASS_alm = storage.SFRBX_GLONASS_alm
     Dyn.SFRBX_GLONASS_eph = storage.SFRBX_GLONASS_eph
@@ -235,7 +257,7 @@ def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
     if isinstance(P_k0k0, np.matrix):
         P_k0k0 = np.array(P_k0k0)
     if any(np.isnan(xyz_meas)):
-        return [np.nan, np.nan, np.nan], np.nan
+        return False, [np.nan, np.nan, np.nan], np.nan
     else:
         Y = np.array(xyz_meas)      # измеренное значение на текущем шаге
     # except Exception as e:
@@ -255,8 +277,61 @@ def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
     # print('MATRIX:', P_k1k1)
     # if np.random.randint(20) == 17:
     #     a=0
-    return list(X_k1k1), np.matrix(P_k1k1)
+    return True, list(X_k1k1), np.matrix(P_k1k1)
 
+
+def FK_filter1(storage):
+    if len(storage.general_data) < 1 or len(storage.ephemeris_solves) < 1 or len(storage.almanac_solves) < 1:
+        return
+    types = ['xyz', 'lla']
+    sources = ['rec', 'alm', 'eph']
+    for type in types:
+        for source in sources:
+            try:
+                if source == 'rec':
+                    measurements_xyz = storage.general_data.iloc[-1][['receiving_stamp', 'ecefX', 'ecefY', 'ecefZ']].values.tolist()
+                elif source == 'alm':
+                    measurements_xyz = storage.almanac_solves.iloc[-1][['calc_stamp', 'X', 'Y', 'Z']].values.tolist()
+                else:
+                    measurements_xyz = storage.ephemeris_solves.iloc[-1][['calc_stamp', 'X', 'Y', 'Z']].values.tolist()
+                stamp = measurements_xyz[0]
+
+                if type == 'xyz':
+                    if len(storage.filtered_tables_xyz[source]) > 0:
+                        last_filtered_values = storage.filtered_tables_xyz[source].iloc[-1][['X', 'Y', 'Z', 'P']].values.tolist()
+                    else:
+                        last_filtered_values = None
+                    measurements = measurements_xyz[1:4]
+                else:
+                    if len(storage.filtered_tables_lla[source]) > 0:
+                        last_filtered_values = storage.filtered_tables_lla[source].iloc[-1][['lat', 'lon', 'alt', 'P']].values.tolist()
+                    else:
+                        last_filtered_values = None
+                    measurements = Transformations.ecef2lla(*measurements_xyz[1:4])
+                if last_filtered_values is None:
+                    last_coords, last_P = None, None
+                else:
+                    last_coords, last_P = last_filtered_values[1:3], last_filtered_values[4]
+
+                res_coords, res_P = linear_kalman(measurements, last_coords, last_P)
+
+                if type == 'xyz':
+                    storage.filtered_tables_xyz[source].loc[len(storage.filtered_tables_xyz[source])] = \
+                        {'receiving_stamp': stamp, 'X': res_coords[0], 'Y': res_coords[1], 'Z': res_coords[2],
+                         'P': res_P, 'normP': np.linalg.norm(res_P)}
+                else:
+                    storage.filtered_tables_xyz[source].loc[len(storage.filtered_tables_xyz[source])] = \
+                        {'receiving_stamp': stamp, 'lat': res_coords[0], 'lon': res_coords[1], 'alt': res_coords[2],
+                         'P': res_P, 'normP': np.linalg.norm(res_P)}
+            except Exception as e:
+                print(e)
+                print(measurements, last_coords, last_P)
+                a=0
+
+
+
+
+    pass
 
 def FK_filter(storage, xyz_flag=True):
     coord_names = ['X', 'Y', 'Z'] if xyz_flag else ['lat', 'lon', 'alt']
@@ -274,32 +349,39 @@ def FK_filter(storage, xyz_flag=True):
         storage.ephemeris_solves.iloc[-1][['calc_stamp'] + coords_xyz],
         storage.almanac_solves.iloc[-1][['calc_stamp'] + coords_xyz],
     ]
-    NoneData = True if len(FK_table) < 1 else False
+    # NoneData = True if len(FK_table) < 1 else False
     n = len(FK_table)
     # storage.FK_coordinates_xyz.loc[n] = {'receiving_stamp': storage.time_stamp} | {f'P_{s}': None for s in ['rec', 'eph', 'alm']}
     data = {'receiving_stamp': storage.time_stamp}
     # try:
     for i, source in enumerate(['rec', 'eph', 'alm']):
         cols = [f'{name}_{source}' for name in coord_names]
-        if NoneData is False:
-            line = FK_table.iloc[-1, :]
-            last_coords = line[cols].to_list()
-            last_P = line[f'P_{source}']
-        else:
-            last_coords, last_P = None, None
+        # if NoneData is False:
+        #     line = FK_table.iloc[-1, :]
+        #     last_coords = line[cols].to_list()
+        #     last_P = line[f'P_{source}']
+        # else:
+        #     last_coords, last_P = None, None
+        last_coords, last_P = storage.last_filtered_coordinates['xyz' if xyz_flag else 'lla'][i]
+
         coords = lines[i][1:].to_list() if xyz_flag else Transformations.ecef2lla(*lines[i][1:].to_list())
-        res_coords, res_P = linear_kalman(coords, last_coords, last_P)
+        flag, res_coords, res_P = linear_kalman(coords, last_coords, last_P)
         # storage.FK_coordinates_xyz.loc[n, cols[0]] = res_xyz[0]
         # storage.FK_coordinates_xyz.loc[n, cols[1]] = res_xyz[1]
         # storage.FK_coordinates_xyz.loc[n, cols[2]] = res_xyz[2]
         # storage.FK_coordinates_xyz.loc[n, f'P_{source}'] = res_P
         data |= {cols[0]: res_coords[0], cols[1]: res_coords[1], cols[2]: res_coords[2],
                  f'P_{source}': res_P, f'normP_{source}': np.linalg.norm(res_P)}
+        if flag:
+            storage.last_filtered_coordinates['xyz' if xyz_flag else 'lla'][i] = [res_coords, res_P]
     FK_table.loc[n] = data
     # except Exception as e:
     #     print(e)
     #     print(traceback.format_exc())
     #     a=0
+
+
+
 
 
 class Storage:
@@ -347,6 +429,20 @@ class Storage:
                     [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['lat', 'lon', 'alt', 'P', 'normP']]
         )
         # self.FK_coordinates_xyz[[f'P_{source}' for source in ['rec', 'eph', 'alm']]].astype(object)
+
+        self.last_filtered_coordinates = {
+            'xyz': [[None, None]] * 3,
+            'lla': [[None, None]] * 3,
+        }
+
+        # self.filtered_tables_xyz = dict()
+        # self.filtered_tables_lla = dict()
+        # sources = ['rec', 'alm', 'eph']
+        # for source in sources:
+        #     self.filtered_tables_xyz[source] = pd.DataFrame(
+        #         columns=['receiving_stamp', 'X', 'Y', 'Z', 'P', 'normP'])
+        #     self.filtered_tables_lla[source] = pd.DataFrame(
+        #         columns=['receiving_stamp', 'lat', 'lon', 'alt', 'P', 'normP'])
 
         # TODO: integrate and delete
         if os.path.exists(SFRBX_DATA_PATH):
@@ -422,6 +518,7 @@ class Storage:
                     print(traceback.format_exc())
 
                 self.calc_navigation_task()
+                # FK_filter1(self)
                 FK_filter(self)
                 FK_filter(self, xyz_flag=False)
                 self.flush_flag = True
