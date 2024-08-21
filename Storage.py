@@ -81,17 +81,20 @@ optimize_methods = {
 # def timer_handler():
 #     raise TimeoutException()
 
-def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp):
+def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp, type):
     sats = data_table.copy()
     pd.set_option('display.max_colwidth', None)
     # print(sats)
     sats = sats.dropna()
     # if len(sats):
     #     print(max(stamp - sats.xyz_stamp), max(stamp - sats.pr_stamp))
-    sats = sats[(sats.nav_score > 3) & (sats.coord_score > 0) &
+    #TODO: вернуть проверку на время
+    sats = sats[(sats.nav_score > 7) & (sats.coord_score > 0) &
                 (stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
     # head = 4 + np.random.randint(4) #
     sats = sats.sort_values(by='nav_score', ascending=False).head(Settings.MaximumMinimizingSatellitesCount)
+    if len(sats) > 5 and type == 'eph':
+        sats.to_csv(f'data/{type}_{len(sats)}_{datetime.now().timestamp()}.csv')
     # print(stamp)
     # print(sats)
     data_table['used'] = data_table.apply(lambda row: row.svId in sats.svId.values, axis=1)
@@ -101,6 +104,7 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     #     a=0
     SOLVE = {'calc_stamp': stamp, 'sat_count': len(sats), 'success': False}
     if len(sats) >= Settings.MinimumMinimizingSatellitesCount:
+
         for method, func in optimize_methods.items():
             # if name not in Settings.using_methods:
             if method != Settings.used_method:#(METHOD if METHOD else Settings.used_method):
@@ -287,46 +291,47 @@ def FK_filter1(storage):
     sources = ['rec', 'alm', 'eph']
     for type in types:
         for source in sources:
-            try:
-                if source == 'rec':
-                    measurements_xyz = storage.general_data.iloc[-1][['receiving_stamp', 'ecefX', 'ecefY', 'ecefZ']].values.tolist()
-                elif source == 'alm':
-                    measurements_xyz = storage.almanac_solves.iloc[-1][['calc_stamp', 'X', 'Y', 'Z']].values.tolist()
-                else:
-                    measurements_xyz = storage.ephemeris_solves.iloc[-1][['calc_stamp', 'X', 'Y', 'Z']].values.tolist()
-                stamp = measurements_xyz[0]
+            # try:
+            if source == 'rec':
+                measurements_xyz = storage.general_data.iloc[-1][['receiving_stamp', 'ecefX', 'ecefY', 'ecefZ']].values.tolist()
+            elif source == 'alm':
+                measurements_xyz = storage.almanac_solves.iloc[-1][['calc_stamp', 'X', 'Y', 'Z']].values.tolist()
+            else:
+                measurements_xyz = storage.ephemeris_solves.iloc[-1][['calc_stamp', 'X', 'Y', 'Z']].values.tolist()
+            stamp = measurements_xyz[0]
 
-                if type == 'xyz':
-                    if len(storage.filtered_tables_xyz[source]) > 0:
-                        last_filtered_values = storage.filtered_tables_xyz[source].iloc[-1][['X', 'Y', 'Z', 'P']].values.tolist()
-                    else:
-                        last_filtered_values = None
-                    measurements = measurements_xyz[1:4]
+            if type == 'xyz':
+                if len(storage.filtered_tables_xyz[source]) > 0:
+                    last_filtered_values = storage.filtered_tables_xyz[source].iloc[-1][['X', 'Y', 'Z', 'P']].values.tolist()
                 else:
-                    if len(storage.filtered_tables_lla[source]) > 0:
-                        last_filtered_values = storage.filtered_tables_lla[source].iloc[-1][['lat', 'lon', 'alt', 'P']].values.tolist()
-                    else:
-                        last_filtered_values = None
-                    measurements = Transformations.ecef2lla(*measurements_xyz[1:4])
-                if last_filtered_values is None:
-                    last_coords, last_P = None, None
+                    last_filtered_values = None
+                measurements = measurements_xyz[1:4]
+            else:
+                if len(storage.filtered_tables_lla[source]) > 0:
+                    last_filtered_values = storage.filtered_tables_lla[source].iloc[-1][['lat', 'lon', 'alt', 'P']].values.tolist()
                 else:
-                    last_coords, last_P = last_filtered_values[1:3], last_filtered_values[4]
+                    last_filtered_values = None
+                measurements = Transformations.ecef2lla(*measurements_xyz[1:4])
+            if last_filtered_values is None:
+                last_coords, last_P = None, None
+            else:
+                last_coords, last_P = last_filtered_values[1:3], last_filtered_values[4]
 
-                res_coords, res_P = linear_kalman(measurements, last_coords, last_P)
+            res_coords, res_P = linear_kalman(measurements, last_coords, last_P)
 
-                if type == 'xyz':
-                    storage.filtered_tables_xyz[source].loc[len(storage.filtered_tables_xyz[source])] = \
-                        {'receiving_stamp': stamp, 'X': res_coords[0], 'Y': res_coords[1], 'Z': res_coords[2],
-                         'P': res_P, 'normP': np.linalg.norm(res_P)}
-                else:
-                    storage.filtered_tables_xyz[source].loc[len(storage.filtered_tables_xyz[source])] = \
-                        {'receiving_stamp': stamp, 'lat': res_coords[0], 'lon': res_coords[1], 'alt': res_coords[2],
-                         'P': res_P, 'normP': np.linalg.norm(res_P)}
-            except Exception as e:
-                print(e)
-                print(measurements, last_coords, last_P)
-                a=0
+            if type == 'xyz':
+                storage.filtered_tables_xyz[source].loc[len(storage.filtered_tables_xyz[source])] = \
+                    {'receiving_stamp': stamp, 'X': res_coords[0], 'Y': res_coords[1], 'Z': res_coords[2],
+                     'P': res_P, 'normP': np.linalg.norm(res_P)}
+            else:
+                storage.filtered_tables_xyz[source].loc[len(storage.filtered_tables_xyz[source])] = \
+                    {'receiving_stamp': stamp, 'lat': res_coords[0], 'lon': res_coords[1], 'alt': res_coords[2],
+                     'P': res_P, 'normP': np.linalg.norm(res_P)}
+            # except Exception as e:
+            #     print(e)
+            #     print(measurements, last_coords, last_P)
+            #     print
+            #     a=0
 
 
 
@@ -510,12 +515,12 @@ class Storage:
                 # self.time_stamp.TOW = message.data['rcvTow']
                 # self.update_general_data({'rcvTow': message.data['rcvTow']}, message.receiving_stamp)
                 # self.general_data.iloc[-1].rcvTow = message.data['rcvTow']
-                try:
-                    if len(self.general_data):
-                        self.general_data.at[self.general_data.index[-1], 'rcvTow'] = message.data['rcvTow']
-                except Exception as e:
-                    print(e)
-                    print(traceback.format_exc())
+                # try:
+                if len(self.general_data):
+                    self.general_data.at[self.general_data.index[-1], 'rcvTow'] = message.data['rcvTow']
+                # except Exception as e:
+                #     print(e)
+                #     print(traceback.format_exc())
 
                 self.calc_navigation_task()
                 # FK_filter1(self)
@@ -604,8 +609,8 @@ class Storage:
         self.ephemeris_data, self.almanac_data = \
             make_ae_nav_data(self.navigation_parameters, self.ephemeris_parameters, self.almanac_parameters,
                              self.time_stamp, self.rcvTow + self.fTOW * 1e-9)
-        calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.time_stamp)
-        calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.time_stamp)
+        calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.time_stamp, 'eph')
+        calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.time_stamp, 'alm')
 
     def ADD_GUI_TABLES(self):
         def row_table_cleaning(row):

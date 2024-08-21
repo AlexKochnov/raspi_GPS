@@ -3,33 +3,41 @@ clc
 clear variables
 global x0 L lb ub sats sats_alm sats_eph
 
-sats_alm = readtable('alm_data.csv');
-sats_eph = readtable('eph_data.csv');
+% sats_alm = readtable('alm_data.csv');
+% sats_eph = readtable('eph_data.csv');
+sats_alm = readtable('data/alm_6_.csv');
+sats_eph = readtable('data/eph_6_2.csv');
 
-sats_alm = sats_alm(sats_alm.prMes > 0 & sats_alm.nav_score >0 & sats_alm.coord_score>0 &~isnan(sats_alm.X), :);
-sats_alm = sortrows(sats_alm, 'nav_score');
-sats_alm = sats_alm(1:8, :);
-sats_eph = sats_eph(sats_eph.prMes > 0 & sats_eph.nav_score >0 & sats_eph.coord_score>0 & ~isnan(sats_eph.X), :);
-
+% sats_alm = sats_alm(sats_alm.prMes > 0 & sats_alm.nav_score >0 & sats_alm.coord_score>0 &~isnan(sats_alm.X), :);
+% sats_alm = sortrows(sats_alm, 'nav_score');
+% sats_alm = sats_alm(1:8, :);
+% sats_eph = sats_eph(sats_eph.prMes > 0 & sats_eph.nav_score >0 & sats_eph.coord_score>0 & ~isnan(sats_eph.X), :);
 
 
 % sats = [table.X, table.Y, table.Z, table.prMes]
 global C ECEF H Re
 C = 299792458;
 H = 140;
-Re = 6363768; % вычислен для 140 метров тут https://rechneronline.de/earth-radius/, уже содержит 140 метро
+Re = 6363726; % вычислен для 140 метров тут https://rechneronline.de/earth-radius/, уже содержит 140 метро
 
-% lla2ecef = @MYlla2ecef;
-% ecef2lla = @MYecef2lla;
+sats_alm.prCorrected = sats_alm.prMes + sats_alm.af_dt * C
+sats_eph.prCorrected = sats_eph.prMes + sats_eph.af_dt * C
 
-LLA = [55.569861111111116, 38.805027777777774, H];
+min_func = @minimize_func;
 
-ECEF = MYlla2ecef(LLA);
+lla2ecef = @MYlla2ecef;
+ecef2lla = @MYecef2lla;
+
+LLA = [55.690555555555555, 37.858333333333334, 140];
+
+ECEF = lla2ecef(LLA);
 x0 = [ECEF, 4e-3*C];
+% x0 = [Re 0 0 0];
+% contrains(x0)
 
 % contrains(x0)
 
-okno = 100000;
+okno = 1000000;
 lb = [ECEF - okno .* sign(ECEF), -1e-2]'; % dt
 ub = [ECEF + okno .* sign(ECEF), +1e-2]';
 
@@ -106,7 +114,8 @@ function result = process(new_mode)
     sqp_options.Display = 'iter-detailed';
     sqp_options.MaxIterations = 50000;
     sqp_options.MaxFunctionEvaluations = 1e+6;
-    [result, fval, exitflag, output] = fmincon(@(params) minimize_func(params, sats), x0*0, [], [], [], [], lb, ub, @contrains, sqp_options);
+    [result, fval, exitflag, output] = fmincon(@(params) norm(minimize_func(params, sats)), x0*0, [], [], [], [], lb, ub, @contrains, sqp_options);
+    print_result(result, fval);
 
     % opts = optimoptions('ga');
     % opts.ConstraintTolerance = 1e-10; % Точность выхода по ограничениями линейным и нелинейным
@@ -121,15 +130,14 @@ function result = process(new_mode)
     % opts.MaxTime = 60*30; % Можно задать максимальное время
     % opts.Display = 'iter';
     % opts.UseParallel = false;    
-    % [result, fval, exitflag, output] = ga(@(params) minimize_func(params, sats), 4, [], [], [], [], [], [], @contrains, opts);
-    
-    print_result(result, fval);
+    % [result, fval, exitflag, output] = ga(@(params) norm(minimize_func(params, sats)), 4, [], [], [], [], [], [], @contrains, opts);
+    % print_result(result, fval);
     % fprintf("расстоение от границы запрещенной зоны: %f\n", contrains(result))
     
-    % fprintf("\n<strong>METHOD:</strong> Levenberg-Marquardt \n")
-    % LM_options = optimoptions('lsqnonlin', 'Algorithm', 'levenberg-marquardt', 'Display', 'none');
-    % [result, resnorm, residual, exitflag, output] = lsqnonlin(@(params) minimize_func(params, sats), x0, lb, ub, LM_options);
-    % print_result(result, norm(minimize_func(result, sats)));
+    fprintf("\n<strong>METHOD:</strong> Levenberg-Marquardt \n")
+    LM_options = optimoptions('lsqnonlin', 'Algorithm', 'levenberg-marquardt', 'Display', 'none');
+    [res, resnorm, residual, exitflag, output] = lsqnonlin(@(params) minimize_func(params, sats), x0, lb, ub, LM_options);
+    print_result(res, norm(minimize_func(res, sats)));
     
     % fprintf("\n<strong>METHOD:</strong> GO - глобальная оптимизация \n")
     % go_options = optimoptions('fmincon', 'Algorithm', 'interior-point', 'Display', 'none');
@@ -144,19 +152,19 @@ function dists = minimize_func(params, sats)
     y = params(2);
     z = params(3);
     dt = params(4); 
-    dists = sats.prMes - ( sqrt((sats.X - x).^2 + (sats.Y - y).^2 + (sats.Z - z).^2 ) + 299792458 * dt );
-    dists = sats.prMes - ( sqrt((sats.X - x).^2 + (sats.Y - y).^2 + (sats.Z - z).^2 ) + dt );
-    dists = sum(dists.^2);
+    dists = sats.prCorrected - ( sqrt((sats.X - x).^2 + (sats.Y - y).^2 + (sats.Z - z).^2 ) + 299792458 * dt );
+    dists = sats.prCorrected - ( sqrt((sats.X - x).^2 + (sats.Y - y).^2 + (sats.Z - z).^2 ) + dt );
+    % dists = sum(dists.^2);
 end
 
 function print_result(result, fval)
     global C  ECEF Re ATT
     fprintf("true coords: (%f, %f, %f) m\n R= %f, R0 = %f, dR = %f \n", ECEF(1), ECEF(2), ECEF(3), sqrt(sum(ECEF.^2)), Re, abs(Re - sqrt(sum(ECEF.^2))))
-    fprintf("computed coords: (%f, %f, %f) m, dt=%f s\n R= %f, dR = %f \n", ...
+    fprintf("computed coords: (%f, %f, %f) m, dt=%f s\n R= %f, d R = %f \n", ...
         result(1), result(2), result(3), result(4)/C, sqrt(sum(result(1:3).^2)), abs(Re - sqrt(sum(result(1:3).^2))))
     fprintf("calced error, m: %f\n" , (sqrt(sum((ECEF - result(1:3)).^2))))
-    % fprintf("function value: %f\n", fval)
-    lla = MYecef2lla(result(1:3));
+    fprintf("function value: %f\n", fval)
+    lla = ecef2lla(result(1:3));
     fprintf("lat: %f, lon: %f, alt: %f\n", lla(1), lla(2), lla(3));
 end
 
@@ -170,7 +178,6 @@ end
 
 
 function xyz = MYlla2ecef(lla)
-    % Константы
     global Re;
     a = 6378137.0; % Полуось WGS-84 в метрах
     a = Re;
@@ -196,31 +203,38 @@ function xyz = MYlla2ecef(lla)
 end
 
 function lla = MYecef2lla(xyz)
-    % Константы
-    a = 6378137.0; % Полуось WGS-84 в метрах
-    f = 1 / 298.257223563; % Сжатие WGS-84
-    e2 = 2 * f - f^2; % Квадрат эксцентриситета
-
-    x = xyz(:, 1);
-    y = xyz(:, 2);
-    z = xyz(:, 3);
-
-    lon = atan2(y, x); % Долгота
-
-    % Инициализация переменных
-    p = sqrt(x.^2 + y.^2);
-    lat = atan2(z, p * (1 - e2)); % Первая итерация широты
-    lat_prev = lat + 1;
-
-    while max(abs(lat - lat_prev)) > 1e-12
-        lat_prev = lat;
-        N = a ./ sqrt(1 - e2 * sin(lat).^2);
-        alt = p ./ cos(lat) - N;
-        lat = atan2(z, p * (1 - e2 * (N ./ (N + alt))));
-    end
-
-    N = a ./ sqrt(1 - e2 * sin(lat).^2);
-    alt = p ./ cos(lat) - N;
-
-    lla = [rad2deg(lat), rad2deg(lon), alt];
+    x = xyz(:,1);
+    y = xyz(:,2);
+    z = xyz(:,3);
+    
+    
+    % WGS84 ellipsoid constants:
+    a = 6378137;
+    es = (8.1819190842622e-2)^2;
+    
+    % calculations:
+    b   = sqrt(a^2*(1-es));
+    ep  = (a^2-b^2)/b^2;
+    
+    p   = sqrt(x.^2+y.^2);
+    th  = atan2(a*z,b*p);
+    lon = atan2(y,x);
+    lat = atan2((z+ep^2.*b.*sin(th).^3),(p-es^2.*a.*cos(th).^3));
+    N   = a./sqrt(1-es.*sin(lat).^2);
+    alt = p./cos(lat)-N;
+    
+    % return lon in range [0,2*pi)
+    %lon = mod(lon,2*pi); %atan2 should handle this fine
+    
+    % correct for numerical instability in altitude near exact poles:
+    % (after this correction, error is about 2 millimeters, which is about
+    % the same as the numerical precision of the overall function)
+    
+    k=abs(x)<1 & abs(y)<1;
+    alt(k) = abs(z(k))-b;
+    
+    lla = zeros(size(xyz));
+    lla(:,1) = lat*(180/pi);
+    lla(:,2) = lon*(180/pi);
+    lla(:,3) = alt;
 end

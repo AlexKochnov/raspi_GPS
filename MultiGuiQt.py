@@ -133,12 +133,12 @@ def process_columns(column_list, title):
                 case _: return column + ', m'
         return column
 
-    # try:
-    cols = [check_column(col) for col in column_list]
-    return cols
-    # except Exception as e:
-    #     print(e)
-    #     a=0
+    try:
+        cols = [check_column(col) for col in column_list]
+        return cols
+    except Exception as e:
+        print(e)
+        a=0
     # return columns
 
 
@@ -720,12 +720,12 @@ class App(QMainWindow):
 
             self.table_display.setColumnCount(len(table.columns))
             self.table_display.setRowCount(len(table.index))  # + 1)  # +1 for the bottom header row
-            try:
-                columns = process_columns(table.columns, self.current_table_name)
-                self.table_display.setHorizontalHeaderLabels(columns)
-            except Exception as e:
-                print(e)
-                a=0
+            # try:
+            columns = process_columns(table.columns, self.current_table_name)
+            self.table_display.setHorizontalHeaderLabels(columns)
+            # except Exception as e:
+            #     print(e)
+            #     a=0
 
             for i in range(len(table.index)):
                 for j in range(len(table.columns)):
