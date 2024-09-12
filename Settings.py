@@ -30,4 +30,6 @@ max_calc_time = 0.4
 
 GUI_ON = False
 
+LastDtDelay = 0
+
 

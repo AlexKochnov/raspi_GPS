@@ -455,6 +455,7 @@ class App(QMainWindow):
             "Общие данные": self.show_general_data,
             "Отфильтровано XYZ": self.show_filtered_xyz,
             "Отфильтровано LLA": self.show_filtered_lla,
+            "Федеративное": self.show_filtered_ffk,
         }
         self.menu_line1.addWidget(self.port_entry)
         self.menu_line1.addWidget(self.connect_button)
@@ -804,11 +805,15 @@ class App(QMainWindow):
 
     def show_filtered_xyz(self):
         if self.DynStorage:
-            self.show_table(self.DynStorage.FK_coordinates_xyz, "Отфильтровано XYZ")
+            self.show_table(self.DynStorage.LFK_coordinates_xyz, "Отфильтровано XYZ")
 
     def show_filtered_lla(self):
         if self.DynStorage:
-            self.show_table(self.DynStorage.FK_coordinates_lla, "Отфильтровано LLA")
+            self.show_table(self.DynStorage.LFK_coordinates_lla, "Отфильтровано LLA")
+
+    def show_filtered_ffk(self):
+        if self.DynStorage:
+            self.show_table(self.DynStorage.FFK_filtered, "Федеративное")
 
     def show_ephemeris_parameters(self):
         if self.DynStorage:
@@ -821,12 +826,10 @@ class App(QMainWindow):
     def show_ephemeris_parameters_glo(self):
         if self.DynStorage:
             self.show_table(self.DynStorage.SFRBX_GLONASS_eph, "GLO Параметры эфемерид")
-            print('GLO eph')
 
     def show_almanac_parameters_glo(self):
         if self.DynStorage:
             self.show_table(self.DynStorage.SFRBX_GLONASS_alm, "GLO Параметры альманах")
-            print('GLO alm')
 
     def show_ephemeris_data(self):
         if self.DynStorage:
@@ -837,7 +840,8 @@ class App(QMainWindow):
             self.show_table(self.DynStorage.ephemeris_solves1, "Результаты по эфемеридам")
 
     def show_almanac_data(self):
-        self.show_table(self.DynStorage.almanac_data1[data_cols], "Данные альманах")
+        if self.DynStorage:
+            self.show_table(self.DynStorage.almanac_data1[data_cols], "Данные альманах")
 
     def show_almanac_solves(self):
         if self.DynStorage:
@@ -847,8 +851,9 @@ class App(QMainWindow):
         table_map = {
             "Навигационные данные": self.DynStorage.navigation_parameters1,
             "Общие данные": self.DynStorage.general_data1,
-            "Отфильтровано XYZ": self.DynStorage.FK_coordinates_xyz,
-            "Отфильтровано LLA": self.DynStorage.FK_coordinates_lla,
+            "Отфильтровано XYZ": self.DynStorage.LFK_coordinates_xyz,
+            "Отфильтровано LLA": self.DynStorage.LFK_coordinates_lla,
+            "Федеративное": self.DynStorage.FFK_filtered,
             "Параметры эфемерид": self.DynStorage.ephemeris_parameters1,
             "Параметры альманах": self.DynStorage.almanac_parameters1,
             "Данные эфемерид": self.DynStorage.ephemeris_data1[data_cols],

@@ -152,7 +152,7 @@ function dists = minimize_func(params, sats)
     y = params(2);
     z = params(3);
     dt = params(4); 
-    dists = sats.prCorrected - ( sqrt((sats.X - x).^2 + (sats.Y - y).^2 + (sats.Z - z).^2 ) + 299792458 * dt );
+    % dists = sats.prCorrected - ( sqrt((sats.X - x).^2 + (sats.Y - y).^2 + (sats.Z - z).^2 ) + 299792458 * dt );
     dists = sats.prCorrected - ( sqrt((sats.X - x).^2 + (sats.Y - y).^2 + (sats.Z - z).^2 ) + dt );
     % dists = sum(dists.^2);
 end

@@ -89,7 +89,7 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     # if len(sats):
     #     print(max(stamp - sats.xyz_stamp), max(stamp - sats.pr_stamp))
     #TODO: вернуть проверку на время
-    sats = sats[(sats.nav_score > 7) & (sats.coord_score > 0) &
+    sats = sats[(sats.nav_score > 15) & (sats.coord_score > 0) &
                 (stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
     # head = 4 + np.random.randint(4) #
     sats = sats.sort_values(by='nav_score', ascending=False).head(Settings.MaximumMinimizingSatellitesCount)
@@ -136,6 +136,8 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
                 future = executor.submit(get_solve_line)
                 try:
                     SOLVE |= future.result(timeout=Settings.max_calc_time)
+                    if SOLVE['error'] < 1e4:
+                        Settings.LastDtDelay = SOLVE['dt']
                 except concurrent.futures.TimeoutError:
                     SOLVE |= {'method': method, 'calc_time': '>limit'}
                 except Exception as e:
@@ -211,8 +213,9 @@ def get_DynStorage(storage):
     Dyn.almanac_solves1 = storage.almanac_solves.copy()
     Dyn.general_data1 = storage.general_data.copy()
 
-    Dyn.FK_coordinates_xyz = storage.FK_coordinates_xyz.copy()
-    Dyn.FK_coordinates_lla = storage.FK_coordinates_lla.copy()
+    Dyn.LFK_coordinates_xyz = storage.LFK_coordinates_xyz.copy()
+    Dyn.LFK_coordinates_lla = storage.LFK_coordinates_lla.copy()
+    Dyn.FFK_filtered = storage.FFK_filtered.copy()
 
     # try:
     #     tables = [table.rename(columns=lambda x: f'{x}_{name}' if x in ['X', 'Y', 'Z'] else x)
@@ -338,9 +341,9 @@ def FK_filter1(storage):
 
     pass
 
-def FK_filter(storage, xyz_flag=True):
+def LFK(storage, xyz_flag=True):
     coord_names = ['X', 'Y', 'Z'] if xyz_flag else ['lat', 'lon', 'alt']
-    FK_table = storage.FK_coordinates_xyz if xyz_flag else storage.FK_coordinates_lla
+    FK_table = storage.LFK_coordinates_xyz if xyz_flag else storage.LFK_coordinates_lla
 
     if len(storage.general_data) < 1 or len(storage.ephemeris_solves) < 1 or len(storage.almanac_solves) < 1:
         return
@@ -386,7 +389,38 @@ def FK_filter(storage, xyz_flag=True):
     #     a=0
 
 
+def FFK(storage, xyz_flag):
+    if xyz_flag:
+        if len(storage.LFK_coordinates_xyz):
+            last_line = storage.LFK_coordinates_xyz.iloc[-1]
+            names = ['X', 'Y', 'Z', 'P']
+        else:
+            return None
+    else:
+        if len(storage.LFK_coordinates_lla):
+            last_line = storage.LFK_coordinates_lla.iloc[-1]
+            names = ['lat', 'lon', 'alt', 'P']
+        else:
+            return None
+    sources = ['rec', 'alm', 'eph']
+    datas = [last_line[[f'{elem}_{source}' for elem in names]] for source in sources]
+    ind, val = min(enumerate(datas), key=lambda row: np.linalg.norm(row[1].iloc[3]))
+    return last_line['receiving_stamp'], sources[ind], val[:3].values, np.linalg.norm(val[3])
 
+def FFK_combo(storage):
+    n = storage.FFK_filtered
+    storage.FFK_filtered.loc[n] = {'receiving_stamp': storage.time_stamp}
+    xyz_data = FFK(storage, True)
+    if xyz_data is not None:
+        ts, source, (x, y, z), val = xyz_data
+        storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts, ['X', 'Y', 'Z', 'xyz_source', 'xyz_val']] \
+            = [x, y, z, source, val]
+    lla_data = FFK(storage, False)
+    if lla_data is not None:
+        ts, source, (lat, lon, alt), val = xyz_data
+        storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts, ['X', 'Y', 'Z', 'xyz_source', 'xyz_val']] \
+            = [lat, lon, alt, source, val]
+    pass
 
 
 class Storage:
@@ -425,11 +459,11 @@ class Storage:
             'fTOW', 'tAcc', 'leapS', 'towValid', 'weekValid', 'leapSValid',
             'tau_c', 'tau_GPS', 'N4', 'NA', 'B1', 'B2', 'KP',
         ])
-        self.FK_coordinates_xyz = pd.DataFrame(
+        self.LFK_coordinates_xyz = pd.DataFrame(
             columns=['receiving_stamp'] +
                     [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['X', 'Y', 'Z', 'P', 'normP']]
         )
-        self.FK_coordinates_lla = pd.DataFrame(
+        self.LFK_coordinates_lla = pd.DataFrame(
             columns=['receiving_stamp'] +
                     [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['lat', 'lon', 'alt', 'P', 'normP']]
         )
@@ -439,6 +473,12 @@ class Storage:
             'xyz': [[None, None]] * 3,
             'lla': [[None, None]] * 3,
         }
+
+        self.FFK_filtered = pd.DataFrame(
+            columns=['receiving_stamp',
+                     'X', 'Y', 'Z', 'xyz_source', 'xyz_val',
+                     'lat', 'lon', 'alt', 'lla_source', 'lla_val']
+        )
 
         # self.filtered_tables_xyz = dict()
         # self.filtered_tables_lla = dict()
@@ -493,6 +533,7 @@ class Storage:
 
     def update_UBX(self, message):
         self.time_stamp: TimeStamp = message.receiving_stamp
+        # print(message.receiving_stamp.dt)
         if isinstance(message, UBXMessages.AID_ALM | UBXMessages.AID_EPH):
             table = self.almanac_parameters if isinstance(message, UBXMessages.AID_ALM) else self.ephemeris_parameters
             data = message.stamp | {'receiving_stamp': message.receiving_stamp}
@@ -524,8 +565,9 @@ class Storage:
 
                 self.calc_navigation_task()
                 # FK_filter1(self)
-                FK_filter(self)
-                FK_filter(self, xyz_flag=False)
+                LFK(self)
+                LFK(self, xyz_flag=False)
+                FFK_combo(self)
                 self.flush_flag = True
         # elif isinstance(message, UBXMessages.NAV_CLOCK):
         #     self.general_data.at[self.general_data.index[-1], 'clkB'] = message.data['clkB']
@@ -537,7 +579,8 @@ class Storage:
             if isinstance(message, UBXMessages.NAV_TIMEGPS):
                 Constants.leapS = message.data['leapS']
             if isinstance(message, UBXMessages.NAV_POSECEF):
-                Constants.ECEF = tuple(message.data[f'ecef{sym}'] for sym in 'XYZ')
+                # Constants.ECEF = tuple(message.data[f'ecef{sym}'] for sym in 'XYZ')
+                a=0
             self.other_data[message.__class__.__name__.lower()] = message.data
             self.update_general_data(message.data, message.receiving_stamp)
         elif isinstance(message, UBXMessages.RXM_SFRBX):
@@ -577,8 +620,8 @@ class Storage:
                 case 100: self.general_data.to_csv('general_data.csv')
                 case 200: self.almanac_solves.to_csv('almanac_solves.csv')
                 case 300: self.ephemeris_solves.to_csv('ephemeris_solves.csv')
-                case 400: self.FK_coordinates_xyz.to_csv('FK_coordinates_xyz.csv')
-                case 500: self.FK_coordinates_lla.to_csv('FK_coordinates_lla.csv')
+                case 400: self.LFK_coordinates_xyz.to_csv('LFK_coordinates_xyz.csv')
+                case 500: self.LFK_coordinates_lla.to_csv('LFK_coordinates_lla.csv')
             # self.navigation_parameters.to_csv('nav_params.csv')
             # self.general_data.to_csv('general_data.csv')
             # self.ephemeris_solves.to_csv('eph_solves.csv')
@@ -608,7 +651,10 @@ class Storage:
     def calc_navigation_task(self):
         self.ephemeris_data, self.almanac_data = \
             make_ae_nav_data(self.navigation_parameters, self.ephemeris_parameters, self.almanac_parameters,
-                             self.time_stamp, self.rcvTow + self.fTOW * 1e-9)
+                             self.time_stamp, self.rcvTow)#self.time_stamp.TOW)#
+                             #self.rcvTow + self.fTOW * 1e-9 + Settings.LastDtDelay)
+        # print(self.rcvTow, Settings.LastDtDelay, self.rcvTow - Settings.LastDtDelay)
+        # print(self.rcvTow + self.fTOW * 1e-9 + Settings.LastDtDelay, self.rcvTow, Settings.LastDtDelay)
         calc_receiver_coordinates(self.ephemeris_data, self.ephemeris_solves, self.time_stamp, 'eph')
         calc_receiver_coordinates(self.almanac_data, self.almanac_solves, self.time_stamp, 'alm')
 
@@ -641,6 +687,7 @@ class Storage:
         self.ephemeris_data1 = self.ephemeris_data.apply(row_table_cleaning, axis=1, result_type='expand')
         # self.ephemeris_solves1 = self.ephemeris_solves.copy()
         # self.general_data1 = self.general_data.copy()
+        # self.FFK_filtered1
 
         self.DynStorage = get_DynStorage(self)
 

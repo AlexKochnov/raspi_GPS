@@ -42,19 +42,23 @@ def constraint(xyzt):
 
 
 def get_func(satellites):
-    return lambda xyzt: np.linalg.norm(residuals_df(xyzt, satellites))
+    # return lambda xyzt: np.linalg.norm(residuals_df(xyzt, satellites))
+    return lambda xyzt: sum([x**2 for x in residuals_df(xyzt, satellites)] )
 
 
 def get_jac(satellites):
-    return lambda xyzt: np.linalg.norm(jac_df(xyzt, satellites), axis=0)
+    # return lambda xyzt: np.linalg.norm(jac_df(xyzt, satellites), axis=0)
+    return lambda xyzt: np.array([sum([y**2 for y in x])  for x in jac_df(xyzt, satellites).T])
 
 
 def solve_navigation_task_SLSQP(satellites, bounds=None, Y0=None):
     L = 50e6
     if bounds is None:
         bounds = [(-L, L), (-L, L), (-L, L), (-L, L)]
-    # cdt = np.linalg.norm(satellites[:3, 0] - np.array(Constants.ECEF)) - satellites[-1, 0]
-    # Y0 = np.array(list(Constants.ECEF) + [-cdt])
+    cdt = np.linalg.norm(satellites[:3, 0] - np.array(Constants.ECEF)) - satellites[-1, 0]
+    Y0 = np.array(list(Constants.ECEF) + [-cdt])
+    Y0 -= 200
+    # Y0 = np.array([Constants.a, 0, 0, 0])
     con = {'type': 'ineq', 'fun': constraint}
     result = minimize(
         get_func(satellites),
@@ -78,6 +82,7 @@ def solve_navigation_task_TC(satellites, Y0=None):
     N = len(satellites.T)
     # cdt = sum([np.linalg.norm(satellites[:3, i] - np.array(Constants.ECEF)) - satellites[-1, i] for i in range(N)])/N
     # Y0 = np.array(list(Constants.ECEF) + [-cdt])
+    # Y0 = np.array([Constants.a, 0, 0, 0])
     # Y0 -= 1e2
     # print(Y0, Y0[-1]/Constants.c)
     result = minimize(
