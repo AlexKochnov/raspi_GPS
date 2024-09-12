@@ -408,18 +408,19 @@ def FFK(storage, xyz_flag):
     return last_line['receiving_stamp'], sources[ind], val[:3].values, np.linalg.norm(val[3])
 
 def FFK_combo(storage):
-    n = storage.FFK_filtered
+    n = len(storage.FFK_filtered)
+    # storage.FFK_filtered.loc[n] = {'receiving_stamp': storage.time_stamp}
     storage.FFK_filtered.loc[n] = {'receiving_stamp': storage.time_stamp}
     xyz_data = FFK(storage, True)
     if xyz_data is not None:
         ts, source, (x, y, z), val = xyz_data
-        storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts, ['X', 'Y', 'Z', 'xyz_source', 'xyz_val']] \
-            = [x, y, z, source, val]
+        storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts,
+                                 ['X', 'Y', 'Z', 'xyz_source', 'xyz_val']] = [x, y, z, source, val]
     lla_data = FFK(storage, False)
     if lla_data is not None:
-        ts, source, (lat, lon, alt), val = xyz_data
-        storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts, ['X', 'Y', 'Z', 'xyz_source', 'xyz_val']] \
-            = [lat, lon, alt, source, val]
+        ts, source, (lat, lon, alt), val = lla_data
+        storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts,
+                                 ['lat', 'lon', 'alt', 'lla_source', 'lla_val']] = [lat, lon, alt, source, val]
     pass
 
 
@@ -622,6 +623,7 @@ class Storage:
                 case 300: self.ephemeris_solves.to_csv('ephemeris_solves.csv')
                 case 400: self.LFK_coordinates_xyz.to_csv('LFK_coordinates_xyz.csv')
                 case 500: self.LFK_coordinates_lla.to_csv('LFK_coordinates_lla.csv')
+                case 600: self.FFK_filtered.to_csv('FFK_filtered.csv')
             # self.navigation_parameters.to_csv('nav_params.csv')
             # self.general_data.to_csv('general_data.csv')
             # self.ephemeris_solves.to_csv('eph_solves.csv')
