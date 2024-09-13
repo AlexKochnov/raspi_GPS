@@ -89,6 +89,8 @@ ALL = set(MSG)
 ON_LIST = {MSG.NAV_SAT, MSG.NAV_ORB, MSG.NAV_SVINFO, MSG.NAV_TIMEGPS, MSG.NAV_POSECEF, MSG.NAV_DGPS, MSG.NAV_CLOCK,
            MSG.RXM_RAWX, MSG.RXM_MEASX, MSG.RXM_SFRBX, #MSG.RXM_SVSI,
            MSG.NMEA_RMC,
-           MSG.MON_RXBUF, MSG.MON_TXBUF}
+           MSG.MON_RXBUF, MSG.MON_TXBUF,
+           MSG.NMEA_RMC
+           }
 
 tune_messages = list(map(ON, ON_LIST)) + list(map(OFF, ALL - ON_LIST))

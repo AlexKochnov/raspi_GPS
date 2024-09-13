@@ -32,6 +32,7 @@ class Reader:
         self.timeout = timeout
 
         self.tune_module(baudRate)
+        a=0
 
     def __iter__(self):
         while True:
@@ -60,13 +61,26 @@ class Reader:
         self.new_stream(baudRate)
         self.stream.write(tune_baudRate_message(baudRate=Settings.BaseBaudRate))
         sleep(0.1)
+        # self.stream.read(100)
+        # print(f'Baudrate switched to: {Settings.BaseBaudRate}, data: {self.stream.read(3000)}')
         self.new_stream(Settings.BaseBaudRate)
+        # self.stream.read(100)
+        # print(f'Baudrate: {Settings.BaseBaudRate}, data: {self.stream.read(3000)}')
         for message in Messages.tune_messages:
             print(f'\tTune: {message}')
             self.stream.write(message)
+        sleep(0.3)
         self.stream.write(tune_baudRate_message(baudRate=Settings.BaudRate))
         sleep(0.1)
+        # self.stream.read(100)
+        # print(f': {Settings.BaudRate}, data: {self.stream.read(3000)}')
         self.new_stream(baudRate)
+        # self.stream.read(100)
+        # print(f'Baudrate: {Settings.BaudRate}, data: {self.stream.read(3000)}')
+        # for message in Messages.tune_messages:
+        #     print(f'\tTune: {message}')
+        #     self.stream.write(message)
+
 
     def pool_next(self):
         if not Messages.pool_messages:

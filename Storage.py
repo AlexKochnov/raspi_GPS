@@ -404,7 +404,8 @@ def FFK(storage, xyz_flag):
             return None
     sources = ['rec', 'alm', 'eph']
     datas = [last_line[[f'{elem}_{source}' for elem in names]] for source in sources]
-    ind, val = min(enumerate(datas), key=lambda row: np.linalg.norm(row[1].iloc[3]))
+    # ind, val = min(enumerate(datas), key=lambda row: np.linalg.norm(row[1].iloc[3]))
+    ind, val = min(enumerate(datas), key=lambda row: np.trace(row[1].iloc[3]) if np.array(row[1].iloc[3]).ndim >= 2 else np.nan)
     return last_line['receiving_stamp'], sources[ind], val[:3].values, np.linalg.norm(val[3])
 
 def FFK_combo(storage):
@@ -533,6 +534,8 @@ class Storage:
             lambda row: custom_min(row['NAV_ORB_stamp'], row['NAV_SAT_stamp'], row['RXM_RAWX_stamp']), axis=1)
 
     def update_UBX(self, message):
+        # self.flush_flag = True
+
         self.time_stamp: TimeStamp = message.receiving_stamp
         # print(message.receiving_stamp.dt)
         if isinstance(message, UBXMessages.AID_ALM | UBXMessages.AID_EPH):
@@ -616,6 +619,7 @@ class Storage:
                 print(e)
                 print(traceback.format_exc())
                 a = 0
+        # print(f'flush_flag: {self.flush_flag}')
         if self.counter % 100 == 0:
             match self.counter % 1000:
                 case 100: self.general_data.to_csv('general_data.csv')
@@ -692,6 +696,7 @@ class Storage:
         # self.FFK_filtered1
 
         self.DynStorage = get_DynStorage(self)
+        a=0
 
     def make_SFRBX_data(self):
         self.SFRBX_GPS_alm = pd.DataFrame([{'svId': j, 'gnssId': GNSS.GPS} for j in range(1, 33)],
