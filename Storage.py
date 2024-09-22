@@ -17,10 +17,12 @@ import Transformations
 # from Messages import *
 # import Messages
 import UBXMessages
+import NMEAMessages
 from NavTaskUtils import make_ae_nav_data
 from TimeStamp import TimeStamp
 from GNSS import GNSS, get_GNSS_len
 from StorageColumnsLord import StorageColumnsLord as SCL
+from Transformations import lla2ecef
 
 # TODO: подлатать
 pd.set_option('future.no_silent_downcasting', True)
@@ -28,6 +30,32 @@ pd.set_option('future.no_silent_downcasting', True)
 
 # import warnings
 # warnings.filterwarnings("error")
+
+# class TrackingDataFrame(pd.DataFrame):
+#     def __getitem__(self, key):
+#         print(traceback.format_exc())
+#         print(f"Accessing column/row: {key}")
+#         return super().__getitem__(key)
+#
+#     def __setitem__(self, key, value):
+#         print(traceback.format_exc())
+#         print(f"Setting value for column/row: {key}")
+#         return super().__setitem__(key, value)
+#
+#     def __getattr__(self, name):
+#         print(traceback.format_exc())
+#         print(f"Accessing attribute: {name}")
+#         return super().__getattr__(name)
+#
+#     def __setattr__(self, name, value):
+#         print(traceback.format_exc())
+#         print(f"Setting attribute: {name}")
+#         super().__setattr__(name, value)
+#
+#     def __call__(self, *args, **kwargs):
+#         print(traceback.format_exc())
+#         print(f"Calling DataFrame method with arguments: {args}, {kwargs}")
+#         return super().__call__(*args, **kwargs)
 
 
 def calc_pseu_RMS_error(index):
@@ -456,6 +484,8 @@ class Storage:
         self.almanac_data = create_table(SCL.data_columns, init0)
         self.ephemeris_solves = create_table(SCL.full_solves_columns)
         self.almanac_solves = create_table(SCL.full_solves_columns)
+
+        # self.general_data = TrackingDataFrame(columns=[
         self.general_data = pd.DataFrame(columns=[
             'receiving_stamp', 'week', 'iTOW',
             'rcvTow', 'clkB', 'clkD',
@@ -515,6 +545,8 @@ class Storage:
             return
         if isinstance(message, UBXMessages.UbxMessage):
             self.update_UBX(message)
+        if isinstance(message, NMEAMessages.NmeaMessage):
+            self.update_NMEA(message)
 
         if Settings.GUI_ON:
             self.ADD_GUI_TABLES()
@@ -534,6 +566,41 @@ class Storage:
     def check_nav_time(self):
         self.navigation_parameters['receiving_stamp'] = self.navigation_parameters.apply(
             lambda row: custom_min(row['NAV_ORB_stamp'], row['NAV_SAT_stamp'], row['RXM_RAWX_stamp']), axis=1)
+
+    def update_NMEA(self, message):
+        # if self.time_stamp is None:
+        #     self.time_stamp: TimeStamp = message.receiving_stamp
+
+        if isinstance(message, NMEAMessages.PSTMTS):
+            self.navigation_parameters.update([message.data])
+
+            # self.calc_navigation_task()
+            # # FK_filter1(self)
+            # LFK(self)
+            # LFK(self, xyz_flag=False)
+            # FFK_combo(self)
+            # self.flush_flag = True
+
+        elif isinstance(message, NMEAMessages.GGA):
+            LLA = (message.data['lat'], message.data['lon'], message.data['alt'])
+            XYZ = lla2ecef(*LLA)
+            # a=0
+            self.update_general_data({'ecefX': XYZ[0], 'ecefY': XYZ[1], 'ecefZ': XYZ[2]}, self.time_stamp)
+        elif isinstance(message, NMEAMessages.RMC):
+            self.time_stamp = message.receiving_stamp
+            a=0
+        elif isinstance(message, NMEAMessages.PSTMALMANAC):
+            # try:
+            if message.data:
+                self.almanac_parameters.update(create_index_table([message.data]))
+                # self.almanac_parameters.update([message.data])
+            # except:
+            #     a=0
+        elif isinstance(message, NMEAMessages.PSTMEPHEM):
+            if message.data:
+                self.ephemeris_parameters.update(create_index_table([message.data]))
+
+
 
     def update_UBX(self, message):
         # self.flush_flag = True
@@ -629,7 +696,7 @@ class Storage:
                 print(traceback.format_exc())
                 a = 0
         # print(f'flush_flag: {self.flush_flag}')
-        if self.counter % 100 == 0:
+        if self.counter % 100 == 0 and False:
             match self.counter % 1000:
                 case 100: self.general_data.to_csv(f'general_data_{Settings.START_ID}.csv')
                 case 200: self.almanac_solves.to_csv(f'almanac_solves{Settings.START_ID}.csv')
@@ -654,9 +721,12 @@ class Storage:
     def update_general_data(self, data: dict, stamp: TimeStamp):
         table = self.general_data
         ind = table.index[table.receiving_stamp == stamp]
+
+        #TODO: вернуть
         if not len(ind):
             data['receiving_stamp'] = stamp
             table.loc[len(table)] = data
+            # ind = table.index[table.receiving_stamp == stamp]
             return
         ind = ind[0]
         for key, value in data.items():
@@ -729,3 +799,5 @@ class Storage:
                                                        'ln', 'P', 'P1', 'P2', 'P3', 'P4', 'Bn', 'M'])
         # 'B1', 'B2', 'KP', 'tau_c', 'tau_GPS', 'N4', 'NA'
         self.SFRBX_GLONASS_data = dict()
+
+

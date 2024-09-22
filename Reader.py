@@ -1,6 +1,8 @@
 import struct
 from time import sleep
 import traceback
+
+from pynmeagps import NMEAMessage
 from serial import Serial
 
 import Constants
@@ -9,7 +11,7 @@ import Messages
 import Settings
 import UBXMessages
 
-from NMEAMessages import tune_baudRate_message
+from NMEAMessages import tune_baudRate_message, NmeaMessage
 from Storage import Storage
 
 # TODO: delete
@@ -154,67 +156,79 @@ class Reader:
         if Settings.PrintRawFlag:
             print(raw_message)
         # nmea_type = NMEAUnpacker.NmeaMessage.get_nmea_type(raw_message.decode('utf-8'))
-        # msg_class = NMEAUnpacker.NmeaMessage.find(nmea_type)
-        # if msg_class != NMEAUnpacker.NmeaMessage:
-        #     parsed = msg_class(raw_message.decode('utf-8'))
-        # else:
+        msg = raw_message.decode()
+        msg_class = NmeaMessage.find(NmeaMessage.get_head(msg))
+        if msg_class != NmeaMessage:
+            # try:
+            parsed = msg_class(msg)
+            # except:
+            #     parsed = ''
+        else:
+            parsed = msg
         # parsed = NMEAReader.parse(b'$' + raw_message)
         # self.__save_parsed__(parsed)
         # TODO: добавить что-то, когда будет нужна распаковка NMEA
-        parsed = raw_message
-        Save.save_parsed(parsed)
+        # parsed = raw_message
+        # try:
+        Save.save_parsed(str(parsed).replace('\n', ''))
+        # except:
+        #     pass
         if Settings.PrintParsedFlag:
-            print(parsed)
+            print(str(parsed).replace('\n', ''))
         return parsed
 
 
 if __name__ == '__main__':
 
     # reader = Reader("COM3")
-    reader = Reader(file='../rawOLD.log')
+    # reader = Reader(file='../rawOLD.log')
+    reader = Reader(file='ira_messages.txt')
     storage = Storage()
     counter = 1
-    STEP = 4000
+    # STEP = 4000
+    STEP = 100
 
     import pymap3d as pm
     Settings.LLA = [55.569861111111116, 38.805027777777774, 140] # Дача
     Settings.ECEF = pm.geodetic2ecef(*Settings.LLA)
     FLAG = False
 
-    Settings.PrintNoiseFlag = False
-    Settings.PrintParsedFlag = False
+    # Settings.PrintNoiseFlag = False
+    # Settings.PrintParsedFlag = False
     Settings.SaveRawFlag = False
     Settings.SaveParsedFlag = False
 
-    while True:
-        reader.stream.readline()
-        counter += 1
-        if counter > 1.7e6:
-            break
-    print(counter)
+    # while True:
+    #     reader.stream.readline()
+    #     counter += 1
+    #     if counter > 1.7e6:
+    #         break
+    # print(counter)
 
     for parsed in reader:
         counter += 1
 
-        if counter % STEP == 0:
-            print(f'STEP: {counter}, time: {storage.time_stamp}')
-            with open('LOGGER_TRASH1.txt', 'a') as logger_trash:
-                print(f'STEP: {counter}, time: {storage.time_stamp}', file=logger_trash)
+        # if counter % STEP == 0:
+        #     print(f'STEP: {counter}, time: {storage.time_stamp}')
+        #     with open('LOGGER_TRASH1.txt', 'a') as logger_trash:
+        #         print(f'STEP: {counter}, time: {storage.time_stamp}', file=logger_trash)
 
 
-        if sum(storage.ephemeris_data.nav_score > 15) > 3:
-            b=0
-        if sum(storage.almanac_data.nav_score > 15) > 3:
-            c= 0
-        if isinstance(parsed, UBXMessages.NAV_TIMEGPS):
-            # print(parsed.data['iTOW'])
-            # if parsed.data['iTOW'] > 162000 * 1000 and parsed.data['week'] == 2324:
-            if parsed.data['week'] == 2325 and parsed.data['iTOW'] > 190000 * 1000:
-                FLAG = True
-                if parsed.data['iTOW'] > 230000 * 1000:
-                    FLAG = False
-        if FLAG:
-            storage.update(parsed)
+        # if sum(storage.ephemeris_data.nav_score > 15) > 3:
+        #     b=0
+        # if sum(storage.almanac_data.nav_score > 15) > 3:
+        #     c=0
+        # if isinstance(parsed, UBXMessages.NAV_TIMEGPS):
+        #     # print(parsed.data['iTOW'])
+        #     # if parsed.data['iTOW'] > 162000 * 1000 and parsed.data['week'] == 2324:
+        #     if parsed.data['week'] == 2325 and parsed.data['iTOW'] > 190000 * 1000:
+        #         FLAG = True
+        #         if parsed.data['iTOW'] > 230000 * 1000:
+        #             FLAG = False
+        # # if FLAG:
+        a=0
+        storage.update(parsed)
+        a=0
         # if storage.time_stamp.TOW > 162000 and storage.time_stamp.week == 2324:
         #     a=0
         #     break

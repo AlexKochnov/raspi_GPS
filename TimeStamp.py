@@ -12,7 +12,7 @@ class TimeStamp:
     TOW: float
     week: int
 
-    def __init__(self, *args: Union[float, int], **kwargs: Union[float, int]):
+    def __init__(self, *args: Union[float, int, datetime], **kwargs: Union[float, int, datetime]):
         """
         Инициализирует объект TimeStamp.
 
@@ -34,6 +34,11 @@ class TimeStamp:
                 pass
         elif len(kwargs) == 2 and all(key in kwargs for key in ['TOW', 'week']):
             self.TOW, self.week = float(kwargs['TOW']), int(kwargs['week'])
+        elif len(args) == 1 and isinstance(args[0], datetime):
+            self.from_datetime(args[0])
+        elif len(kwargs) == 1 and 'datetime' in kwargs:
+            # assert isinstance(kwargs['datetime'], datetime)
+            self.from_datetime(kwargs['datetime'])
 
     def from_datetime(self, dt: datetime):
         self.TOW, self.week = self.dt2gps(dt)
@@ -61,6 +66,7 @@ class TimeStamp:
         t = (delta - timedelta(days=delta.days)).total_seconds()
         t = TimeStamp.round_step(t, STEP)
         return N4, N, t
+
 
     def to_glonass(self):
         return self.dt2glonass(self.dt)
