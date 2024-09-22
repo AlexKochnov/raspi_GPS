@@ -25,13 +25,17 @@ class Reader:
 
     TOW = None
     stream = None
+    file= False
 
-    def __init__(self, port=Settings.SerialPort, baudRate=Settings.BaudRate, timeout=Settings.timeout):
+    def __init__(self, port=Settings.SerialPort, baudRate=Settings.BaudRate, timeout=Settings.timeout, file=None):
         self.port = port
         self.baudRate = baudRate
         self.timeout = timeout
-
-        self.tune_module(baudRate)
+        if file is not None:
+            self.stream = open(file, 'rb')
+            self.file = True
+        else:
+            self.tune_module(baudRate)
         a=0
 
     def __iter__(self):
@@ -42,7 +46,8 @@ class Reader:
         self.TOW = TOW
 
     def send(self, message):
-        self.stream.write(message)
+        if not self.file:
+            self.stream.write(message)
 
     def next(self):
         if self.read_counter % Settings.ReaderPoolStep == Settings.ReaderPoolStart:
@@ -60,7 +65,7 @@ class Reader:
     def tune_module(self, baudRate):
         self.new_stream(baudRate)
         self.stream.write(tune_baudRate_message(baudRate=Settings.BaseBaudRate))
-        sleep(0.1)
+        sleep(0.2)
         # self.stream.read(100)
         # print(f'Baudrate switched to: {Settings.BaseBaudRate}, data: {self.stream.read(3000)}')
         self.new_stream(Settings.BaseBaudRate)
@@ -69,9 +74,9 @@ class Reader:
         for message in Messages.tune_messages:
             print(f'\tTune: {message}')
             self.stream.write(message)
-        sleep(0.3)
+        sleep(0.5)
         self.stream.write(tune_baudRate_message(baudRate=Settings.BaudRate))
-        sleep(0.1)
+        sleep(0.2)
         # self.stream.read(100)
         # print(f': {Settings.BaudRate}, data: {self.stream.read(3000)}')
         self.new_stream(baudRate)
@@ -166,9 +171,53 @@ class Reader:
 if __name__ == '__main__':
 
     # reader = Reader("COM3")
-    reader = Reader()
+    reader = Reader(file='../rawOLD.log')
     storage = Storage()
+    counter = 1
+    STEP = 4000
+
+    import pymap3d as pm
+    Settings.LLA = [55.569861111111116, 38.805027777777774, 140] # Дача
+    Settings.ECEF = pm.geodetic2ecef(*Settings.LLA)
+    FLAG = False
+
+    Settings.PrintNoiseFlag = False
+    Settings.PrintParsedFlag = False
+    Settings.SaveRawFlag = False
+    Settings.SaveParsedFlag = False
+
+    while True:
+        reader.stream.readline()
+        counter += 1
+        if counter > 1.7e6:
+            break
+    print(counter)
 
     for parsed in reader:
-        storage.update(parsed)
+        counter += 1
+
+        if counter % STEP == 0:
+            print(f'STEP: {counter}, time: {storage.time_stamp}')
+            with open('LOGGER_TRASH1.txt', 'a') as logger_trash:
+                print(f'STEP: {counter}, time: {storage.time_stamp}', file=logger_trash)
+
+
+        if sum(storage.ephemeris_data.nav_score > 15) > 3:
+            b=0
+        if sum(storage.almanac_data.nav_score > 15) > 3:
+            c= 0
+        if isinstance(parsed, UBXMessages.NAV_TIMEGPS):
+            # print(parsed.data['iTOW'])
+            # if parsed.data['iTOW'] > 162000 * 1000 and parsed.data['week'] == 2324:
+            if parsed.data['week'] == 2325 and parsed.data['iTOW'] > 190000 * 1000:
+                FLAG = True
+                if parsed.data['iTOW'] > 230000 * 1000:
+                    FLAG = False
+        if FLAG:
+            storage.update(parsed)
+        # if storage.time_stamp.TOW > 162000 and storage.time_stamp.week == 2324:
+        #     a=0
+        #     break
+    a=0
+
 

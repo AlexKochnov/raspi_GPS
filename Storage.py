@@ -89,8 +89,8 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
     # if len(sats):
     #     print(max(stamp - sats.xyz_stamp), max(stamp - sats.pr_stamp))
     #TODO: вернуть проверку на время
-    sats = sats[(sats.nav_score > 15) & (sats.coord_score > 0) &
-                (stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
+    sats = sats[(sats.nav_score > 15) & (sats.coord_score > 0)]# &
+                #(stamp - sats.xyz_stamp < 10) & (stamp - sats.pr_stamp < 10)]
     # head = 4 + np.random.randint(4) #
     sats = sats.sort_values(by='nav_score', ascending=False).head(Settings.MaximumMinimizingSatellitesCount)
     if len(sats) > 5 and type == 'eph':
@@ -415,12 +415,14 @@ def FFK_combo(storage):
     xyz_data = FFK(storage, True)
     if xyz_data is not None:
         ts, source, (x, y, z), val = xyz_data
-        storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts,
+        if len(storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts]):
+            storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts,
                                  ['X', 'Y', 'Z', 'xyz_source', 'xyz_val']] = [x, y, z, source, val]
     lla_data = FFK(storage, False)
     if lla_data is not None:
         ts, source, (lat, lon, alt), val = lla_data
-        storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts,
+        if len(storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts]):
+            storage.FFK_filtered.loc[storage.FFK_filtered.receiving_stamp == ts,
                                  ['lat', 'lon', 'alt', 'lla_source', 'lla_val']] = [lat, lon, alt, source, val]
     pass
 
@@ -536,7 +538,9 @@ class Storage:
     def update_UBX(self, message):
         # self.flush_flag = True
 
-        self.time_stamp: TimeStamp = message.receiving_stamp
+        if self.time_stamp is None:
+            self.time_stamp: TimeStamp = message.receiving_stamp
+
         # print(message.receiving_stamp.dt)
         if isinstance(message, UBXMessages.AID_ALM | UBXMessages.AID_EPH):
             table = self.almanac_parameters if isinstance(message, UBXMessages.AID_ALM) else self.ephemeris_parameters
@@ -553,7 +557,11 @@ class Storage:
                     message.satellites[i]['rcvTOW'] = \
                         TimeStamp(week=self.week, TOW=message.data['rcvTow'] + self.fTOW * 1e-9)
             if message.satellites:
-                self.navigation_parameters.update(create_index_table(message.satellites))
+                #TODO: поправить
+                try:
+                    self.navigation_parameters.update(create_index_table(message.satellites))
+                except:
+                    pass
                 self.check_nav_time()
             if isinstance(message, UBXMessages.RXM_RAWX):
                 self.update_param(message.data, 'rcvTow')
@@ -582,9 +590,10 @@ class Storage:
             self.update_param(message.data, 'iTOW', 'week', 'leapS', 'fTOW')
             if isinstance(message, UBXMessages.NAV_TIMEGPS):
                 Constants.leapS = message.data['leapS']
+                self.time_stamp = TimeStamp(message.data['iTOW']/1000, message.data['week'])
             if isinstance(message, UBXMessages.NAV_POSECEF):
-                # Constants.ECEF = tuple(message.data[f'ecef{sym}'] for sym in 'XYZ')
-                a=0
+                Constants.ECEF = tuple(message.data[f'ecef{sym}'] for sym in 'XYZ')
+                # a=0
             self.other_data[message.__class__.__name__.lower()] = message.data
             self.update_general_data(message.data, message.receiving_stamp)
         elif isinstance(message, UBXMessages.RXM_SFRBX):
@@ -622,12 +631,12 @@ class Storage:
         # print(f'flush_flag: {self.flush_flag}')
         if self.counter % 100 == 0:
             match self.counter % 1000:
-                case 100: self.general_data.to_csv('general_data.csv')
-                case 200: self.almanac_solves.to_csv('almanac_solves.csv')
-                case 300: self.ephemeris_solves.to_csv('ephemeris_solves.csv')
-                case 400: self.LFK_coordinates_xyz.to_csv('LFK_coordinates_xyz.csv')
-                case 500: self.LFK_coordinates_lla.to_csv('LFK_coordinates_lla.csv')
-                case 600: self.FFK_filtered.to_csv('FFK_filtered.csv')
+                case 100: self.general_data.to_csv(f'general_data_{Settings.START_ID}.csv')
+                case 200: self.almanac_solves.to_csv(f'almanac_solves{Settings.START_ID}.csv')
+                case 300: self.ephemeris_solves.to_csv(f'ephemeris_solves{Settings.START_ID}.csv')
+                case 400: self.LFK_coordinates_xyz.to_csv(f'LFK_coordinates_xyz{Settings.START_ID}.csv')
+                case 500: self.LFK_coordinates_lla.to_csv(f'LFK_coordinates_lla{Settings.START_ID}.csv')
+                case 600: self.FFK_filtered.to_csv(f'FFK_filtered{Settings.START_ID}.csv')
             # self.navigation_parameters.to_csv('nav_params.csv')
             # self.general_data.to_csv('general_data.csv')
             # self.ephemeris_solves.to_csv('eph_solves.csv')

@@ -1,3 +1,5 @@
+from random import randint
+
 BaudRate = 115200
 BaseBaudRate = 9600
 SerialPort = "/dev/ttyS0"
@@ -31,5 +33,7 @@ max_calc_time = 0.4
 GUI_ON = False
 
 LastDtDelay = 0
+
+START_ID = randint(0, 100000)
 
 

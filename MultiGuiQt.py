@@ -670,10 +670,11 @@ class App(QMainWindow):
 
         self.storage_update_signal.emit(parsed)
 
-        if self.storage.flush_flag:
-            self.DynStorage = self.storage.DynStorage
-            self.storage.flush_flag = False
-            self.update_current_table()
+        if self.storage:
+            if self.storage.flush_flag:
+                self.DynStorage = self.storage.DynStorage
+                self.storage.flush_flag = False
+                self.update_current_table()
             # if np.random.randint(20) == 5:
             #     a = 0
 

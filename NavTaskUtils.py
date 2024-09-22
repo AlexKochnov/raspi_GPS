@@ -61,7 +61,7 @@ def calc_nav_score(nav_row):
     # return score
     S_quality = get_scores(nav_row.qualityInd, 4, 5)
     S_cno = get_scores(nav_row.cno, 20, 30)
-    S_prRes = get_scores(abs(nav_row.prRes), 10, 40, BiggerBetter=False)
+    S_prRes = get_scores(abs(nav_row.prRes), 10, 40, BiggerBetter=False) #+ 1
     S_prRMSer = get_scores(nav_row.prRMSer, 10, 40, BiggerBetter=False)
     S_prStedv = get_scores(nav_row.prStedv, 10, 40, BiggerBetter=False)
     S_visibility = get_scores(nav_row.visibility, 2, 3)

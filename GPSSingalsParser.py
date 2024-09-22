@@ -23,6 +23,8 @@ def gps_join_sf(msg: bytes, reverse_mod: str = 'FULL') -> int:
                           range(0, len(msg), 4)]
     elif reverse_mod == 'FULL':
         words = [int.from_bytes(msg[i:i + 4][::-1]) & 0x3FFFFFFF for i in range(0, len(msg), 4)]
+    # elif reverse_mod == 'PSTM':
+    #     arr = [int.from_bytes(msg[i:i + 4]) for i in range(0, len(msg), 4)][::-1]
     else:
         # raise TypeError(reverse_mod)
         return 0
