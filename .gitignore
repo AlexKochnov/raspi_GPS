@@ -30,3 +30,6 @@
 /sats_glonass27.csv
 /sats_glonass5.csv
 /ira_data*
+/*.csv
+/data/*
+/*.png

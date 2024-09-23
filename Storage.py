@@ -572,33 +572,42 @@ class Storage:
         #     self.time_stamp: TimeStamp = message.receiving_stamp
 
         if isinstance(message, NMEAMessages.PSTMTS):
-            self.navigation_parameters.update([message.data])
-
-            # self.calc_navigation_task()
-            # # FK_filter1(self)
-            # LFK(self)
-            # LFK(self, xyz_flag=False)
-            # FFK_combo(self)
-            # self.flush_flag = True
-
+            self.navigation_parameters.update(create_index_table([
+                message.data | {'prRMSer': 0, 'prRes': 0, 'prStedv': 0, 'rcvTOW': self.time_stamp.TOW,
+                                'qualityInd': 5, 'visibility': 3, 'prValid': True, 'health': 1,
+                                'almUsability': 1, 'almAvail': True, 'almSource': 1,
+                                'ephUsability': 1, 'ephAvail': True, 'ephSource': 1,
+                                }]))
         elif isinstance(message, NMEAMessages.GGA):
             LLA = (message.data['lat'], message.data['lon'], message.data['alt'])
             XYZ = lla2ecef(*LLA)
             # a=0
             self.update_general_data({'ecefX': XYZ[0], 'ecefY': XYZ[1], 'ecefZ': XYZ[2]}, self.time_stamp)
         elif isinstance(message, NMEAMessages.RMC):
+            if self.time_stamp != message.receiving_stamp and self.time_stamp is not None:
+                self.calc_navigation_task()
+                # FK_filter1(self)
+                LFK(self)
+                LFK(self, xyz_flag=False)
+                FFK_combo(self)
+                self.flush_flag = True
+
+            # новый цикл
             self.time_stamp = message.receiving_stamp
+            self.rcvTow = self.time_stamp.TOW
             a=0
         elif isinstance(message, NMEAMessages.PSTMALMANAC):
             # try:
             if message.data:
-                self.almanac_parameters.update(create_index_table([message.data]))
+                self.almanac_parameters.update(create_index_table([
+                    message.data | {'is_old': False, 'exist': True, 'receiving_stamp': self.time_stamp, 'Data_ID': -1}]))
                 # self.almanac_parameters.update([message.data])
             # except:
             #     a=0
         elif isinstance(message, NMEAMessages.PSTMEPHEM):
             if message.data:
-                self.ephemeris_parameters.update(create_index_table([message.data]))
+                self.ephemeris_parameters.update(create_index_table([
+                    message.data | {'is_old': False, 'exist': True, 'receiving_stamp': self.time_stamp}]))
 
 
 
