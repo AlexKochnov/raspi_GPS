@@ -24,6 +24,8 @@ def calc_gps_alm(ALM: pd.DataFrame or None, time, N):
     if (ALM is None or time is None or N is None):# or
             #ALM[['week', 'Toa', 'Wdot', 'e', 'sqrtA', 'M0', 'W0', 'w']].isna().any()):
         return None
+    if abs(ALM['week'] - N) > 1:
+        return None
     N0a = ALM['week']
     Toa = ALM['Toa']  # опорное время внутри недели N, на которую передаются данные альманах
     e = ALM['e']  # эксцентриситет
@@ -97,6 +99,8 @@ def calc_gps_alm(ALM: pd.DataFrame or None, time, N):
 
 def calc_gps_eph(EPH: pd.DataFrame or None, time, N):
     if (EPH is None or time is None or N is None): # or (EPH[['Toe', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc', 'Cis','Cis', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0','w']].isna().any())):
+        return None
+    if abs(EPH['week'] - N) > 1:
         return None
     # Noe = EPH.week
     Toc = EPH['Toc']

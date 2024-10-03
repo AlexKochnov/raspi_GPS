@@ -76,9 +76,12 @@ class RMC(NmeaMessage):
         head, time, status, lat, NS, lon, EW, spd, cog, date, mv, mvEW, *other = msg.split(',') #posMode, navStatus
 
         if isinstance(self.receiving_stamp, TimeStamp):
-            dt = datetime.strptime(date + time.split('.')[0], '%d%m%y%H%M%S')
-            dt = dt.replace(tzinfo=tz_utc)
-            self.receiving_stamp = TimeStamp(datetime=dt)
+            try:
+                dt = datetime.strptime(date + time.split('.')[0], '%d%m%y%H%M%S')
+                dt = dt.replace(tzinfo=tz_utc)
+                self.receiving_stamp = TimeStamp(datetime=dt)
+            except:
+                pass
         a=0
         # self.data = {
         # }
@@ -134,30 +137,33 @@ class PSTMTS(NmeaMessage):
         if not int(dspDat):
             self.data = None
             return
-        self.data = {
-            'svId': int(SatID),
-            'gnssId': GNSS.GPS,
-            'prMes': float(PsR),
-            'freq': float(Freq),
-            'plf': int(plf),
-            'cno': int(CN0),
-            'ttim': float(ttim),
-            'satdat': int(Satdat),
-            'x': float(Satx),
-            'y': float(Saty),
-            'z': float(Satz),
-            'Vx': float(Velx),
-            'Vy': float(Vely),
-            'Vz': float(Velz),
-            'src': float(src),
-            'ac': float(ac),
-            'difdat': float(difdat),
-            'drc': float(drc),
-            # 'predavl': float(predavl),
-            # 'predage': float(predage),
-            # 'predeph': float(predeph),
-            # 'predtd': float(predtd),
-        }
+        SatID = int(SatID)
+        if int(Satdat) and int(plf):
+            if 1 <= SatID <= 32: # GPS
+                self.data = {
+                    'svId': SatID,
+                    'gnssId': GNSS.GPS,
+                    'prMes': float(PsR),
+                    'freq': float(Freq),
+                    'plf': int(plf),
+                    'cno': int(CN0),
+                    'ttim': float(ttim),
+                    'satdat': int(Satdat),
+                    'x': float(Satx),
+                    'y': float(Saty),
+                    'z': float(Satz),
+                    'Vx': float(Velx),
+                    'Vy': float(Vely),
+                    'Vz': float(Velz),
+                    'src': float(src),
+                    'ac': float(ac),
+                    'difdat': float(difdat),
+                    'drc': float(drc),
+                    # 'predavl': float(predavl),
+                    # 'predage': float(predage),
+                    # 'predeph': float(predeph),
+                    # 'predtd': float(predtd),
+                }
         a=0
 
 def check_sign(data, n):
@@ -214,8 +220,8 @@ class PSTMEPHEM(NmeaMessage):
                 'svId': SatID,
                 'gnssId': GNSS.GPS,
                 'week': int.from_bytes(msg[0:2], 'little'),
-                'Toe': int.from_bytes(msg[2:4], 'little'),
-                'Toc': int.from_bytes(msg[4:6], 'little'),
+                'Toe': int.from_bytes(msg[2:4], 'little') * 16,
+                'Toc': int.from_bytes(msg[4:6], 'little') * 16,
                 'IODE1': msg[6],
                 'IODE2': msg[7],
                 'IODC': ((msg[9] & 0x3) << 8) + msg[8], # check_sign(((msg[30] & 0x3F) << 5) + (msg[29] >> 3), 11) * 2 ** (-38)
@@ -237,7 +243,7 @@ class PSTMEPHEM(NmeaMessage):
                 'Tgd': check_sign(msg[56], 8) * 2 ** (- 31),
                 'af2': check_sign(msg[57], 8) * 2 ** (- 55),
                 'af1': check_sign(int.from_bytes(msg[58:60], 'little'), 16) * 2 ** (- 43),
-                'af0': check_sign(((((msg[62] >> 2) << 8) + msg[61]) << 8) + msg[60], 22) * 2 ** (-31),
+                'af0': check_sign(((((msg[62] & 0x3F) << 8) + msg[61]) << 8) + msg[60], 22) * 2 ** (-31),
                 'health': (msg[63] >> 2) & 0x1,
                 'accuracy': msg[63] >> 4,
             }

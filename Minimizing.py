@@ -120,9 +120,9 @@ def solve_navigation_task_LevMar(satellites):
 def solve_least_squares(satellites, method):
     initial_params = np.array([0.0, 0.0, 0.0, 0.0])
     N = len(satellites.T)
-    cdt = sum([np.linalg.norm(satellites[:3, i] - np.array(Constants.ECEF)) - satellites[-1, i] for i in range(N)]) / N
-    initial_params = np.array(list(Constants.ECEF) + [-cdt])
-    print(initial_params)
+    # cdt = sum([np.linalg.norm(satellites[:3, i] - np.array(Constants.ECEF)) - satellites[-1, i] for i in range(N)]) / N
+    # initial_params = np.array(list(Constants.ECEF) + [-cdt])
+    # print(initial_params)
     result = least_squares(
         residuals_df,
         initial_params,

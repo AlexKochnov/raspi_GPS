@@ -355,6 +355,25 @@ class NAV_CLOCK(UbxMessage):
         }
 
 
+class NAV_DOP(UbxMessage):
+    format = '<LHHHHHHH'
+    header = (0x01, 0x04)
+
+    def __init__(self, msg: bytes, receiving_TOW: int or datetime = BASE_TIME_STAMP()):
+        super().__init__(receiving_TOW)
+        iTOW, gDOP, pDOP, tDOP, vDOP, hDOP, nDOP, eDOP  = struct.unpack(self.format, msg)
+        self.data = {
+            'iTOW': iTOW,
+            'gDOP': gDOP,
+            'pDOP': pDOP,
+            'tDOP': tDOP,
+            'vDOP': vDOP,
+            'hDOP': hDOP,
+            'nDOP': nDOP,
+            'eDOP': eDOP,
+        }
+        a=0
+
 class NAV_POSECEF(UbxMessage):
     format = '<LlllL'
     header = (0x01, 0x01)

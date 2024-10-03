@@ -33,7 +33,7 @@ class StorageColumnsLord:
     # TODO: delete error
     solves_columns = {'success': np.bool_, 'X': np.float64, 'Y': np.float64, 'Z': np.float64,
                       'lat': np.float64, 'lon': np.float64, 'alt': np.float64,
-                      'cdt': np.float64, 'dt': np.float64,
+                      'cdt': np.float64, 'dt': np.float64, 'GDOP': np.float64,
                       'fval': np.float64, 'error': np.float64, 'calc_time': np.float32}
 
     stamp_columns = {'svId': np.int8, 'gnssId': object}

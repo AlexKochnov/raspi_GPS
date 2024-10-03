@@ -109,6 +109,20 @@ optimize_methods = {
 # def timer_handler():
 #     raise TimeoutException()
 
+def calc_GDOP(satellites, position):
+    X, Y, Z, cdt = position
+    def calc_row(sat):
+        dx, dy, dz = sat.X - X, sat.Y - Y, sat.Z - Z
+        # R = np.sqrt(dx**2 + dy**2 + dz**2)
+        R = sat.prDist
+        return np.array([dx/R, dy/R, dz/R, 1])
+    G = np.array([calc_row(sat) for i, sat in satellites.iterrows()])
+    Q = G.T @ G
+    # Gx, Gy, Gz, Gt = (Q[i, i] for i in range(4))
+    # PDOP = np.sqrt(Gx + Gy + Gz)
+    # TDOP = np.sqrt(Gt)
+    return np.sqrt(np.trace(Q))
+
 def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp, type):
     sats = data_table.copy()
     pd.set_option('display.max_colwidth', None)
@@ -159,7 +173,8 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
                 if method == 'TC':
                     a=0
                 # solve = {f'{name}_{key}': value for key, value in solve.items()}
-                return solve | {'method': method}
+                sats['prDist'] = sats['prMesCorrected'] - res.x[-1]
+                return solve | {'method': method} | {'GDOP': calc_GDOP(sats, res.x)}
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(get_solve_line)
                 try:
@@ -419,22 +434,36 @@ def LFK(storage, xyz_flag=True):
 
 def FFK(storage, xyz_flag):
     if xyz_flag:
-        if len(storage.LFK_coordinates_xyz):
-            last_line = storage.LFK_coordinates_xyz.iloc[-1]
-            names = ['X', 'Y', 'Z', 'P']
-        else:
-            return None
+        table = storage.LFK_coordinates_xyz
+        names = ['X', 'Y', 'Z', 'P']
     else:
-        if len(storage.LFK_coordinates_lla):
-            last_line = storage.LFK_coordinates_lla.iloc[-1]
-            names = ['lat', 'lon', 'alt', 'P']
-        else:
-            return None
+        table = storage.LFK_coordinates_lla
+        names = ['lat', 'lon', 'alt', 'P']
+    if not len(table):
+        return None
     sources = ['rec', 'alm', 'eph']
-    datas = [last_line[[f'{elem}_{source}' for elem in names]] for source in sources]
-    # ind, val = min(enumerate(datas), key=lambda row: np.linalg.norm(row[1].iloc[3]))
+
+    def get_data_from_ind(ind):
+        if len(table) >= ind:
+            line = table.iloc[-ind]
+            return line['receiving_stamp'], [line[[f'{elem}_{source}' for elem in names]] for source in sources]
+        return None, None
+
+    # по норме P
+    tmp, datas = get_data_from_ind(1)
     ind, val = min(enumerate(datas), key=lambda row: np.trace(row[1].iloc[3]) if np.array(row[1].iloc[3]).ndim >= 2 else np.nan)
-    return last_line['receiving_stamp'], sources[ind], val[:3].values, np.linalg.norm(val[3])
+    # return tmp, sources[ind], val[:3].values, np.linalg.norm(val[3])
+
+    # по производной
+    _, datas2 = get_data_from_ind(2)
+    if datas2:
+        derivs = [[datas[i][f'{elem}_{source}'] - datas2[i][f'{elem}_{source}'] for elem in names[:-1]] for i, source in enumerate(sources)]
+        ind, _ = min(enumerate(derivs), key=lambda row: np.linalg.norm(row[1]))
+        val = datas[ind]
+
+    return tmp, sources[ind], val[:3].values, np.linalg.norm(val[3])
+
+
 
 def FFK_combo(storage):
     n = len(storage.FFK_filtered)
@@ -495,11 +524,11 @@ class Storage:
         ])
         self.LFK_coordinates_xyz = pd.DataFrame(
             columns=['receiving_stamp'] +
-                    [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['X', 'Y', 'Z', 'P', 'normP']]
+                    [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['X', 'Y', 'Z', 'P', 'normP', 'GDOP']]
         )
         self.LFK_coordinates_lla = pd.DataFrame(
             columns=['receiving_stamp'] +
-                    [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['lat', 'lon', 'alt', 'P', 'normP']]
+                    [f'{coord}_{source}' for source in ['rec', 'eph', 'alm'] for coord in ['lat', 'lon', 'alt', 'P', 'normP', 'GDOP']]
         )
         # self.FK_coordinates_xyz[[f'P_{source}' for source in ['rec', 'eph', 'alm']]].astype(object)
 
@@ -551,6 +580,18 @@ class Storage:
         if Settings.GUI_ON:
             self.ADD_GUI_TABLES()
 
+
+        if self.counter % 100 == 0:
+            match self.counter % 1000:
+                case 100: self.general_data.to_csv(f'general_data_{Settings.START_ID}.csv')
+                case 200: self.almanac_solves.to_csv(f'almanac_solves{Settings.START_ID}.csv')
+                case 300: self.ephemeris_solves.to_csv(f'ephemeris_solves{Settings.START_ID}.csv')
+                case 400: self.LFK_coordinates_xyz.to_csv(f'LFK_coordinates_xyz{Settings.START_ID}.csv')
+                case 500: self.LFK_coordinates_lla.to_csv(f'LFK_coordinates_lla{Settings.START_ID}.csv')
+                case 600: self.FFK_filtered.to_csv(f'FFK_filtered{Settings.START_ID}.csv')
+        # self.counter += 1
+
+
         if self.iTOW:
             self.TOW = self.iTOW // 1000
         if self.iTOW != self.last_iTOW:
@@ -572,16 +613,20 @@ class Storage:
         #     self.time_stamp: TimeStamp = message.receiving_stamp
 
         if isinstance(message, NMEAMessages.PSTMTS):
-            self.navigation_parameters.update(create_index_table([
-                message.data | {'prRMSer': 0, 'prRes': 0, 'prStedv': 0, 'rcvTOW': self.time_stamp.TOW,
-                                'qualityInd': 5, 'visibility': 3, 'prValid': True, 'health': 1,
-                                'almUsability': 1, 'almAvail': True, 'almSource': 1,
-                                'ephUsability': 1, 'ephAvail': True, 'ephSource': 1,
-                                }]))
+            if message.data:
+                self.navigation_parameters.update(create_index_table([
+                    message.data | {'prRMSer': 0, 'prRes': 0, 'prStedv': 0, 'rcvTOW': self.time_stamp.TOW,
+                                    'qualityInd': 5, 'visibility': 3, 'prValid': True, 'health': 1,
+                                    'almUsability': 1, 'almAvail': True, 'almSource': 1,
+                                    'ephUsability': 1, 'ephAvail': True, 'ephSource': 1,
+                                    }]))
         elif isinstance(message, NMEAMessages.GGA):
             LLA = (message.data['lat'], message.data['lon'], message.data['alt'])
             XYZ = lla2ecef(*LLA)
+            # print(LLA)
+            # print(XYZ)
             # a=0
+            Constants.ECEF = XYZ
             self.update_general_data({'ecefX': XYZ[0], 'ecefY': XYZ[1], 'ecefZ': XYZ[2]}, self.time_stamp)
         elif isinstance(message, NMEAMessages.RMC):
             if self.time_stamp != message.receiving_stamp and self.time_stamp is not None:
@@ -595,6 +640,7 @@ class Storage:
             # новый цикл
             self.time_stamp = message.receiving_stamp
             self.rcvTow = self.time_stamp.TOW
+            self.navigation_parameters['prMes'] = np.nan # чтобы учесть скачки задержек
             a=0
         elif isinstance(message, NMEAMessages.PSTMALMANAC):
             # try:
@@ -705,14 +751,14 @@ class Storage:
                 print(traceback.format_exc())
                 a = 0
         # print(f'flush_flag: {self.flush_flag}')
-        if self.counter % 100 == 0 and False:
-            match self.counter % 1000:
-                case 100: self.general_data.to_csv(f'general_data_{Settings.START_ID}.csv')
-                case 200: self.almanac_solves.to_csv(f'almanac_solves{Settings.START_ID}.csv')
-                case 300: self.ephemeris_solves.to_csv(f'ephemeris_solves{Settings.START_ID}.csv')
-                case 400: self.LFK_coordinates_xyz.to_csv(f'LFK_coordinates_xyz{Settings.START_ID}.csv')
-                case 500: self.LFK_coordinates_lla.to_csv(f'LFK_coordinates_lla{Settings.START_ID}.csv')
-                case 600: self.FFK_filtered.to_csv(f'FFK_filtered{Settings.START_ID}.csv')
+        # if self.counter % 100 == 0 and False:
+        #     match self.counter % 1000:
+        #         case 100: self.general_data.to_csv(f'general_data_{Settings.START_ID}.csv')
+        #         case 200: self.almanac_solves.to_csv(f'almanac_solves{Settings.START_ID}.csv')
+        #         case 300: self.ephemeris_solves.to_csv(f'ephemeris_solves{Settings.START_ID}.csv')
+        #         case 400: self.LFK_coordinates_xyz.to_csv(f'LFK_coordinates_xyz{Settings.START_ID}.csv')
+        #         case 500: self.LFK_coordinates_lla.to_csv(f'LFK_coordinates_lla{Settings.START_ID}.csv')
+        #         case 600: self.FFK_filtered.to_csv(f'FFK_filtered{Settings.START_ID}.csv')
             # self.navigation_parameters.to_csv('nav_params.csv')
             # self.general_data.to_csv('general_data.csv')
             # self.ephemeris_solves.to_csv('eph_solves.csv')

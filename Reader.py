@@ -181,20 +181,21 @@ class Reader:
 if __name__ == '__main__':
 
     # reader = Reader("COM3")
-    # reader = Reader(file='../rawOLD.log')
-    reader = Reader(file='ira_messages.txt')
+    reader = Reader(file='../rawOLD.log')
+    # reader = Reader(file='ira_messages3.txt')
     storage = Storage()
     counter = 1
-    # STEP = 4000
-    STEP = 100
+    STEP = 4000
+    # STEP = 100
 
     import pymap3d as pm
-    Settings.LLA = [55.569861111111116, 38.805027777777774, 140] # Дача
-    Settings.ECEF = pm.geodetic2ecef(*Settings.LLA)
+    # Settings.LLA = [55.569861111111116, 38.805027777777774, 140] # Дача
+    Constants.LLA = [55.929684333333334, 37.7886145,160 ]
+    Constants.ECEF = pm.geodetic2ecef(*Constants.LLA)
     FLAG = False
 
-    # Settings.PrintNoiseFlag = False
-    # Settings.PrintParsedFlag = False
+    Settings.PrintNoiseFlag = False
+    Settings.PrintParsedFlag = False
     Settings.SaveRawFlag = False
     Settings.SaveParsedFlag = False
 
@@ -208,10 +209,10 @@ if __name__ == '__main__':
     for parsed in reader:
         counter += 1
 
-        # if counter % STEP == 0:
-        #     print(f'STEP: {counter}, time: {storage.time_stamp}')
-        #     with open('LOGGER_TRASH1.txt', 'a') as logger_trash:
-        #         print(f'STEP: {counter}, time: {storage.time_stamp}', file=logger_trash)
+        if counter % STEP == 0:
+            print(f'STEP: {counter}, time: {storage.time_stamp}')
+            with open('LOGGER_TRASH.txt', 'a') as logger_trash:
+                print(f'STEP: {counter}, time: {storage.time_stamp}', file=logger_trash)
 
 
         # if sum(storage.ephemeris_data.nav_score > 15) > 3:

@@ -37,6 +37,8 @@ def make_ae_nav_data(navigation_parameters, ephemeris_parameters, almanac_parame
     almanac_data.Dt += almanac_data.prMes / Constants.c
     ephemeris_data['used'] = False
     almanac_data['used'] = False
+    # almanac_data['coord_score'] = abs(almanac_data['week'] - time_stamp.week) <= 1
+    # ephemeris_data['coord_score'] = abs(ephemeris_data['week'] - time_stamp.week) <= 1
     return ephemeris_data, almanac_data
 
 
@@ -92,8 +94,12 @@ def calc_coords(param_row, stamp: TimeStamp, rcvTOW, coord_func):
     else:
         Txyz = coord_func(param_row, rcvTOW, stamp.week)
         # af_dt = param_row.af0
-        xyz = Txyz[1:]
-        af_dt = Txyz[0]
+        if Txyz:
+            xyz = Txyz[1:]
+            af_dt = Txyz[0]
+        else:
+            xyz = None
+            af_dt = 0
         # af_dt = af_dt_func(param_row, stamp.TOW, stamp.week)
     if xyz:
         lla = Transformations.ecef2lla(*xyz)
