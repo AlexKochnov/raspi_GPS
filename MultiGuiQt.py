@@ -312,7 +312,9 @@ def get_QTableWidgetItem(data, column, table_title, base_color):
         elif 'normP_' in column:
             data = f'{data:.5e}'
         elif 'P_' in column:
-            data = '[' + ', '.join([f'{elem:.3e}' for elem in np.diag(data)]) + ']'
+            data = '[' + ', '.join([f'{elem:.3e}' for elem in np.diag(data)]) + ']' if np.ndim(data) else data
+        elif 'GDOP_' in column:
+            data = f'{data:.2f}'
 
 
     item = QTableWidgetItem(str(data))

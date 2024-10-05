@@ -117,11 +117,12 @@ def calc_GDOP(satellites, position):
         R = sat.prDist
         return np.array([dx/R, dy/R, dz/R, 1])
     G = np.array([calc_row(sat) for i, sat in satellites.iterrows()])
-    Q = G.T @ G
+    Qinv = G.T @ G
+    Q = np.linalg.inv(Qinv)
     # Gx, Gy, Gz, Gt = (Q[i, i] for i in range(4))
     # PDOP = np.sqrt(Gx + Gy + Gz)
     # TDOP = np.sqrt(Gt)
-    return np.sqrt(np.trace(Q))
+    return float(np.sqrt(np.trace(Q)))
 
 def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp, type):
     sats = data_table.copy()
@@ -195,8 +196,6 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
             # finally:
                 # timer.cancel()
     solve_table.loc[len(solve_table)] = SOLVE
-
-
 
 
 def get_df_indexes(df):
@@ -307,7 +306,7 @@ def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
     if isinstance(P_k0k0, np.matrix):
         P_k0k0 = np.array(P_k0k0)
     if any(np.isnan(xyz_meas)):
-        return False, [np.nan, np.nan, np.nan], np.nan
+        return False, [np.nan, np.nan, np.nan], np.nan # + np.zeros((3,3))
     else:
         Y = np.array(xyz_meas)      # измеренное значение на текущем шаге
     # except Exception as e:
@@ -396,9 +395,9 @@ def LFK(storage, xyz_flag=True):
         # storage.general_data[storage.general_data['receiving_stamp'] == storage.time_stamp][coord_names].iloc[-1],
         # storage.ephemeris_solves[storage.ephemeris_solves['calc_stamp'] == storage.time_stamp][coord_names].iloc[-1],
         # storage.almanac_solves[storage.almanac_solves['calc_stamp'] == storage.time_stamp][coord_names].iloc[-1],
-        storage.general_data.iloc[-1][['receiving_stamp'] + [f'ecef{name}' for name in coords_xyz]],
-        storage.ephemeris_solves.iloc[-1][['calc_stamp'] + coords_xyz],
-        storage.almanac_solves.iloc[-1][['calc_stamp'] + coords_xyz],
+        storage.general_data.iloc[-1][['receiving_stamp', 'GDOP'] + [f'ecef{name}' for name in coords_xyz]],
+        storage.ephemeris_solves.iloc[-1][['calc_stamp', 'GDOP'] + coords_xyz],
+        storage.almanac_solves.iloc[-1][['calc_stamp', 'GDOP'] + coords_xyz],
     ]
     # NoneData = True if len(FK_table) < 1 else False
     n = len(FK_table)
@@ -415,14 +414,14 @@ def LFK(storage, xyz_flag=True):
         #     last_coords, last_P = None, None
         last_coords, last_P = storage.last_filtered_coordinates['xyz' if xyz_flag else 'lla'][i]
 
-        coords = lines[i][1:].to_list() if xyz_flag else Transformations.ecef2lla(*lines[i][1:].to_list())
+        coords = lines[i][2:].to_list() if xyz_flag else Transformations.ecef2lla(*lines[i][2:].to_list())
         flag, res_coords, res_P = linear_kalman(coords, last_coords, last_P)
         # storage.FK_coordinates_xyz.loc[n, cols[0]] = res_xyz[0]
         # storage.FK_coordinates_xyz.loc[n, cols[1]] = res_xyz[1]
         # storage.FK_coordinates_xyz.loc[n, cols[2]] = res_xyz[2]
         # storage.FK_coordinates_xyz.loc[n, f'P_{source}'] = res_P
         data |= {cols[0]: res_coords[0], cols[1]: res_coords[1], cols[2]: res_coords[2],
-                 f'P_{source}': res_P, f'normP_{source}': np.linalg.norm(res_P)}
+                 f'P_{source}': res_P, f'normP_{source}': np.linalg.norm(res_P), f'GDOP_{source}': lines[i][1]}
         if flag:
             storage.last_filtered_coordinates['xyz' if xyz_flag else 'lla'][i] = [res_coords, res_P]
     FK_table.loc[n] = data
@@ -518,7 +517,7 @@ class Storage:
         self.general_data = pd.DataFrame(columns=[
             'receiving_stamp', 'week', 'iTOW',
             'rcvTow', 'clkB', 'clkD',
-            'ecefX', 'ecefY', 'ecefZ', 'pAcc',
+            'ecefX', 'ecefY', 'ecefZ', 'pAcc', 'GDOP',
             'fTOW', 'tAcc', 'leapS', 'towValid', 'weekValid', 'leapSValid',
             'tau_c', 'tau_GPS', 'N4', 'NA', 'B1', 'B2', 'KP',
         ])
@@ -672,8 +671,12 @@ class Storage:
             else:
                 table.update(create_index_table([{'is_old': True} | data]))
         elif isinstance(message, UBXMessages.NAV_SAT | UBXMessages.NAV_ORB | UBXMessages.RXM_RAWX | \
-                                 UBXMessages.RXM_MEASX):
-            self.update_param(message.data, 'iTOW', 'week')
+                                 UBXMessages.RXM_MEASX | UBXMessages.NAV_DOP):
+            self.update_param(message.data, 'iTOW', 'week', 'gDOP')
+            if isinstance(message, UBXMessages.NAV_DOP):
+                pass
+                if len(self.general_data):
+                    self.general_data.at[self.general_data.index[-1], 'GDOP'] = message.data['gDOP']
             if isinstance(message, UBXMessages.RXM_RAWX):
                 for i in range(len(message.satellites)):
                     message.satellites[i]['rcvTOW'] = \

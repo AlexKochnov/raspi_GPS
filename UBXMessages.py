@@ -363,14 +363,14 @@ class NAV_DOP(UbxMessage):
         super().__init__(receiving_TOW)
         iTOW, gDOP, pDOP, tDOP, vDOP, hDOP, nDOP, eDOP  = struct.unpack(self.format, msg)
         self.data = {
-            'iTOW': iTOW,
-            'gDOP': gDOP,
-            'pDOP': pDOP,
-            'tDOP': tDOP,
-            'vDOP': vDOP,
-            'hDOP': hDOP,
-            'nDOP': nDOP,
-            'eDOP': eDOP,
+            'iTOW': iTOW * 0.01,
+            'gDOP': gDOP * 0.01,
+            'pDOP': pDOP * 0.01,
+            'tDOP': tDOP * 0.01,
+            'vDOP': vDOP * 0.01,
+            'hDOP': hDOP * 0.01,
+            'nDOP': nDOP * 0.01,
+            'eDOP': eDOP * 0.01,
         }
         a=0
 

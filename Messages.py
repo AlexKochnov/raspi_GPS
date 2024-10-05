@@ -32,7 +32,11 @@ class POOLMessages:
         return b'\x06\x00' + b'\x01\x00' + struct.pack('B', port)
 
 
-pool_messages = [POOLMessages.EPH, POOLMessages.ALM, ]
+pool_messages = [
+    # POOLMessages.RST,
+    POOLMessages.EPH,
+    POOLMessages.ALM,
+]
 
 
 def set_rate(msgClass: hex, msgID: hex, rateUART1: int) -> bytes:

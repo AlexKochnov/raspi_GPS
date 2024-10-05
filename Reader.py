@@ -196,6 +196,7 @@ if __name__ == '__main__':
 
     Settings.PrintNoiseFlag = False
     Settings.PrintParsedFlag = False
+    # Settings.PrintParsedFlag = True
     Settings.SaveRawFlag = False
     Settings.SaveParsedFlag = False
 
