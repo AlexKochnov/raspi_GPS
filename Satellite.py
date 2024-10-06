@@ -2,8 +2,10 @@ import typing
 
 import numpy as np
 
-from GNSS import GNSS
+from GNSS import GNSS, NavDataType
 from TimeStamp import TimeStamp
+
+from SCC import SatellitesCoordinateCalculator as SCC
 
 def get_scores(data, *args, BiggerBetter=True) -> int:
     score = 0
@@ -17,11 +19,32 @@ def get_scores(data, *args, BiggerBetter=True) -> int:
                 score += 1
     return score
 
+class SCC_Block:
+    scc: SCC
+    gnssId: GNSS
+    mode: NavDataType
+
+    def __init__(self, gnssId: GNSS, mode: NavDataType):
+        self.gnssId = gnssId
+        self.mode = mode
+        self.scc = SCC(gnssId, mode)
+
+    def update_parameters(self, parameters: dict):
+        self.scc.update(parameters)
+
+    def get(self, rcvTow, week):
+        return self.scc.get(rcvTow, week)
+
+    def check_parameters_valid(self):
+        if self.scc:
+            return True
+        return False
+
 class Satellite:
     gnssId: GNSS
     svId: int
-    ephemeris: object = None
-    almanac: object = None
+    ephemeris: SCC_Block = None
+    almanac: SCC_Block = None
     history_prMes: list[(int, float)]
     prMes: float or object
     rcvTow: float
@@ -41,10 +64,15 @@ class Satellite:
     svUsed: bool = False
     prValid: bool = False
 
-    def __init__(self, gnssId: GNSS, svId: int, storage_data: dict):
+    # storage = None
+
+    def __init__(self, gnssId: GNSS, svId: int):#, storage_data: dict):
         self.gnssId = gnssId
         self.svId = svId
         self.history_prMes = []
+        self.almanac = SCC_Block(gnssId, NavDataType.ALM)
+        self.ephemeris = SCC_Block(gnssId, NavDataType.EPH)
+        # self.storage = storage_data
 
     def __save_update__(self, data):
         type_hints = typing.get_type_hints(self.__class__)
@@ -54,15 +82,18 @@ class Satellite:
                 value = expected_type(value)
                 setattr(self, key, value)
 
+    def calc_position(self, rcvTow, week):
+        return self.almanac.get(rcvTow, week)
+
     def update_nav(self, data: dict, time_stamp: TimeStamp):
         self.nav_stamp = time_stamp
         self.__save_update__(data)
 
     def update_alm(self, data: dict):
-        pass
+        self.almanac.update_parameters(data)
 
     def update_eph(self, data: dict):
-        pass
+        self.ephemeris.update_parameters(data)
 
     def update_prmes(self, data: dict):
         # self.prMes = data['prMes']

@@ -48,13 +48,14 @@ class Source:
 
     @staticmethod
     def divide(source):
-        return GNSS(source.source % 1000), NavDataType(source.source // 1000)
+        return GNSS(source.source % 1000), NavDataType(round(source.source / 1000) * 1000)
 
     @staticmethod
     def multi_get(gnss_s: list[GNSS]):
         result = []
+        result.append(Source.get(GNSS.receiver, NavDataType.receiver))
         for gnss in gnss_s:
             result.append(Source.get(gnss, NavDataType.ALM))
             result.append(Source.get(gnss, NavDataType.EPH))
-        result.append(Source.get(GNSS.receiver, NavDataType.receiver))
+        return result
 
