@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 import Constants
-from GNSS import GNSS
+from GNSS import GNSS, NavDataType
 from TimeStamp import TimeStamp
 
 
@@ -440,16 +440,16 @@ class RK45Solver:
 
 
 def get_glo_eph_simple_func(eph):
-    X0 = eph.x
-    Vx0 = eph.dx
-    ddx = eph.ddx
-    Y0 = eph.y
-    Vy0 = eph.dy
-    ddy = eph.ddy
-    Z0 = eph.z
-    Vz0 = eph.dz
-    ddz = eph.ddz
-    tb = eph.tb
+    X0 = eph['x']
+    Vx0 = eph['dx']
+    ddx = eph['ddx']
+    Y0 = eph['y']
+    Vy0 = eph['dy']
+    ddy = eph['ddy']
+    Z0 = eph['z']
+    Vz0 = eph['dz']
+    ddz = eph['ddz']
+    tb = eph['tb']
 
     maxT = lambda ti: ti - round((ti - tb) / 86400) * 86400
 
@@ -474,27 +474,23 @@ def get_glo_eph_simple_func(eph):
     return func, y0, eph.tb
 
 
-class CalcMode(Enum):
-    alm = 0
-    eph = 1
-    pass
 
 
 class SatellitesCoordinateCalculator:
     runer = None
 
-    def __init__(self, data, gnssId: GNSS, mode: CalcMode):
+    def __init__(self, data, gnssId: GNSS, mode: NavDataType):
         self.next_func = self.choose_func(data, gnssId, mode)
 
     def choose_func(self, data, gnssId, mode):
         match (gnssId, mode):
-            case (GNSS.GPS, CalcMode.alm):
+            case (GNSS.GPS, NavDataType.ALM):
                 return lambda stamp: calc_gps_alm(data, stamp.TOW, stamp.week)
-            case (GNSS.GPS, CalcMode.eph):
+            case (GNSS.GPS, NavDataType.EPH):
                 return lambda stamp: calc_gps_eph(data, stamp.TOW, stamp.week)
-            case (GNSS.GLONASS, CalcMode.alm):
+            case (GNSS.GLONASS, NavDataType.ALM):
                 return lambda stamp: calc_glo_alm(data, stamp, hard=True)
-            case (GNSS.GLONASS, CalcMode.eph):
+            case (GNSS.GLONASS, NavDataType.EPH):
                 self.runer = RK45Solver(*get_glo_eph_simple_func(data))
                 return lambda stamp: self.runer.get(stamp.to_glonass()[-1])
 

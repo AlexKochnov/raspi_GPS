@@ -51,22 +51,34 @@ class TimeStamp:
         return gps_epoch + timedelta(seconds=self.total_stamp() - Constants.leapS)
 
     @staticmethod
-    def gps_to_glonass_time(week, tow):
-        pass
+    def gps2glonass(week, tow):
+        # dt_gps = gps_epoch + timedelta(seconds=tow - Constants.leapS, days=week*7)
+        dt_gps = TimeStamp.gps2dt(tow, week)
+        N4, N, t = TimeStamp.dt2glonass(dt_gps)
+        return t, N, N4
 
-    @staticmethod
-    def gps2dt(week, TOW):
-        return Constants.gps_epoch + timedelta(seconds=TOW, weeks=week)
+    # @staticmethod
+    # def gps2dt(week, TOW):
+    #     return Constants.gps_epoch + timedelta(seconds=TOW, weeks=week)
 
     @staticmethod
     def dt2glonass(dt):
-        delta = dt - Constants.glonass_epoch
+        delta = dt - Constants.glonass_epoch + timedelta(hours=3)
         N4 = delta.days // Constants.glonass_4years.days + 1
-        N = (delta.days % Constants.glonass_4years.days) + 1
+        N = (delta.days % Constants.glonass_4years.days)
         t = (delta - timedelta(days=delta.days)).total_seconds()
         t = TimeStamp.round_step(t, STEP)
         return N4, N, t
 
+    @staticmethod
+    def glo2dt(t1, N, N4):
+        dt_gl = Constants.glonass_epoch + timedelta(seconds=t1, days=N, hours=-3) + (N4 - 1) * Constants.glonass_4years
+        return dt_gl
+
+    @staticmethod
+    def gps2dt(tow, week):
+        dt_gps = Constants.gps_epoch + timedelta(seconds=tow - Constants.leapS, days=7 * week)
+        return dt_gps
 
     def to_glonass(self):
         return self.dt2glonass(self.dt)

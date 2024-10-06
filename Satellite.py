@@ -41,11 +41,10 @@ class Satellite:
     svUsed: bool = False
     prValid: bool = False
 
-    def __init__(self, gnssId: GNSS, svId: int):
+    def __init__(self, gnssId: GNSS, svId: int, storage_data: dict):
         self.gnssId = gnssId
         self.svId = svId
         self.history_prMes = []
-
 
     def __save_update__(self, data):
         type_hints = typing.get_type_hints(self.__class__)
