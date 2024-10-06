@@ -165,6 +165,7 @@ def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFram
                 lla = Transformations.ecef2lla(*res.x[:-1])
                 solve = {
                     'X': res.x[0], 'Y': res.x[1], 'Z': res.x[2], 'cdt': res.x[3], 'dt': res.x[3] / Constants.c,
+                    'min_point': res.x,
                     'lat': lla[0], 'lon': lla[1], 'alt': lla[2],
                     'fval': np.linalg.norm(res.fun) if method in ['LM', 'TRF', 'DB'] else res.fun,
                     'success': res.success,

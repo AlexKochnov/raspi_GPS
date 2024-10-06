@@ -10,6 +10,7 @@ class GNSS(Enum):
     GLONASS = 6
     default = -1
     receiver = -1
+    ALL = 9
 
     @classmethod
     def _missing_(cls, value):
@@ -33,6 +34,10 @@ class NavDataType(Enum):
     ALM = 1000
     EPH = 2000
 
+class Format(Enum):
+    XYZ = 10000
+    LLA = 20000
+
 class Source:
     def __init__(self, source_score: int):
         self.source = source_score
@@ -46,10 +51,10 @@ class Source:
         return GNSS(source.source % 1000), NavDataType(source.source // 1000)
 
     @staticmethod
-    def multi_get(gnss_s: list[GNSS], ndt_s: list[NavDataType]):
+    def multi_get(gnss_s: list[GNSS]):
         result = []
         for gnss in gnss_s:
-            for ndt in ndt_s:
-                result.append(Source.get(gnss, ndt))
+            result.append(Source.get(gnss, NavDataType.ALM))
+            result.append(Source.get(gnss, NavDataType.EPH))
         result.append(Source.get(GNSS.receiver, NavDataType.receiver))
 

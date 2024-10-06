@@ -60,12 +60,14 @@ class Entry:
     P: np.array
     GDOP: float
     source: Source
-    def __init__(self, stamp: TimeStamp, state: np.array or list, P: np.array, GDOP: float, source: Source):
+    def __init__(self, stamp: TimeStamp, state: np.array or list, P: np.array, GDOP: float, source: Source,
+                 solve: dict=None):
         self.stamp = stamp
         self.state = np.array(state)
         self.P = np.array(P)
-        self.GDOP = GDOP
+        self.GDOP = float(GDOP)
         self.source = source
+        self.solve = dict(solve) if solve else {}
 
 class LocalKalmanFilter:
     history: list[Entry]
@@ -96,10 +98,13 @@ class LocalKalmanFilter:
         return self.history[-1].state - self.history[-2].state
 
     def update(self, measurements, time_stamp, **kwargs):
+        if not kwargs['success']:
+            return
         last_state, last_P = (self.history[-1].state, self.history[-1].P) if len(self.history) > 0 else (None, None)
         flag, new_state, new_P = linear_kalman(measurements, last_state, last_P)
         if flag:
-            self.history.append(Entry(time_stamp, new_state, new_P, kwargs['GDOP'], kwargs['source']))
+            self.history.append(Entry(time_stamp, new_state, new_P, kwargs['GDOP'], kwargs['source'],
+                                      {'x': kwargs['x'], 'fval': kwargs['fval']}))
 
 
 class FederatedKalmanFilter:
@@ -111,10 +116,11 @@ class FederatedKalmanFilter:
         lambda lkf: np.trace(lkf.last.P),
         lambda lkf: lkf.last.GDOP,
         lambda lkf: norm(lkf.get_derivative()),
+        lambda lkf: lkf.last.solve.get('fval', np.nan),
     ]
-    weights = [0, 1, 0]
+    weights = [0, 1, 0, 0]
 
-    def __init__(self, used_sources):
+    def __init__(self, used_sources: list[Source]):
         self.history = []
         self.filters = {source: LocalKalmanFilter() for source in used_sources}
         self.last_time_stamp = None
