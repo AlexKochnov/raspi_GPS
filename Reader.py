@@ -10,6 +10,8 @@ import Save
 import Messages
 import Settings
 import UBXMessages
+from DataStore import DataStore
+from GNSS import GNSS
 
 from NMEAMessages import tune_baudRate_message, NmeaMessage
 from Storage import Storage
@@ -178,8 +180,7 @@ class Reader:
         return parsed
 
 
-if __name__ == '__main__':
-
+def start_Storage():
     # reader = Reader("COM3")
     reader = Reader(file='../rawOLD.log')
     # reader = Reader(file='ira_messages3.txt')
@@ -235,5 +236,41 @@ if __name__ == '__main__':
         #     a=0
         #     break
     a=0
+
+def start_DataStore():
+    # reader = Reader("COM5")
+    reader = Reader(file='../rawOLD.log')
+    # reader = Reader(file='ira_messages3.txt')
+    storage = DataStore(GNSS.GPS)
+    counter = 1
+    STEP = 4000
+    # STEP = 100
+
+    # import pymap3d as pm
+    # # Settings.LLA = [55.569861111111116, 38.805027777777774, 140] # Дача
+    # Constants.LLA = [55.929684333333334, 37.7886145,160 ]
+    # Constants.ECEF = pm.geodetic2ecef(*Constants.LLA)
+    # FLAG = False
+
+    # Settings.PrintNoiseFlag = False
+    # Settings.PrintParsedFlag = False
+    # Settings.PrintParsedFlag = True
+    # Settings.SaveRawFlag = False
+    # Settings.SaveParsedFlag = False
+
+    for parsed in reader:
+        counter += 1
+        storage.update(parsed)
+        a=0
+        if counter % STEP == 0:
+            b=0
+    a=0
+
+if __name__ == '__main__':
+    # start_Storage()
+    start_DataStore()
+
+    pass
+
 
 

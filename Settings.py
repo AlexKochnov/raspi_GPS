@@ -8,6 +8,8 @@ timeout = 1
 MaximumMinimizingSatellitesCount = 8
 MinimumMinimizingSatellitesCount = 4
 
+MinimumNavigationSatelliteScore = 15
+
 ReaderPoolStep = 200
 ReaderPoolStart = 15
 

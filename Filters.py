@@ -103,8 +103,10 @@ class LocalKalmanFilter:
         last_state, last_P = (self.history[-1].state, self.history[-1].P) if len(self.history) > 0 else (None, None)
         flag, new_state, new_P = linear_kalman(measurements, last_state, last_P)
         if flag:
-            self.history.append(Entry(time_stamp, new_state, new_P, kwargs['GDOP'], kwargs['source'],
-                                      {'x': kwargs['x'], 'fval': kwargs['fval']}))
+            self.history.append(
+                Entry(time_stamp, new_state, new_P, kwargs['GDOP'], kwargs['source'],
+                      {'result': kwargs.get('result', None), 'fval': kwargs.get('fval', np.inf)})
+            )
 
 
 class FederatedKalmanFilter:
@@ -126,8 +128,9 @@ class FederatedKalmanFilter:
         self.last_time_stamp = None
 
     def update(self, source, measurements, solve, time_stamp):
-        self.filters[source].update(measurements, time_stamp, source=source, **solve)
+        self.filters[source].update(np.array(measurements), time_stamp, source=source, **solve)
         self.last_time_stamp = time_stamp
+
 
     def choose_next(self):
         if self.last_time_stamp is None:

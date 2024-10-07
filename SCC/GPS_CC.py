@@ -17,11 +17,11 @@ def check_gps_time(time):
     return time
 
 
-def calc_gps_alm(ALM: dict or None, TOW, N) -> None or (float, np.array):
+def calc_gps_alm(ALM: dict or None, TOW, N) -> (float, np.array or None):
     if ALM is None or TOW is None or N is None:
-        return None
+        return 0, None
     if abs(ALM['week'] - N) > 1:
-        return None
+        return 0, None
     N0a = ALM['week']
     Toa = ALM['Toa']  # опорное время внутри недели N, на которую передаются данные альманах
     e = ALM['e']  # эксцентриситет
@@ -93,11 +93,11 @@ def calc_gps_alm(ALM: dict or None, TOW, N) -> None or (float, np.array):
     # return (X, Y, Z, Vx, Vy, Vz)
 
 
-def calc_gps_eph(EPH: dict or None, TOW, N) -> None or (float, np.array):
+def calc_gps_eph(EPH: dict or None, TOW, N) -> (float, np.array or None):
     if EPH is None or TOW is None or N is None: # or (EPH[['Toe', 'IDOT', 'Wdot', 'Crs', 'Crc', 'Cus', 'Cuc', 'Cis','Cis', 'dn', 'i0', 'e', 'sqrtA', 'M0', 'W0','w']].isna().any())):
-        return None
+        return 0, None
     if abs(EPH['week'] - N) > 1:
-        return None
+        return 0, None
     # Noe = EPH.week
     Toc = EPH['Toc']
     # IODE1 = EPH.IODE1

@@ -39,23 +39,34 @@ class Format(Enum):
     LLA = 20000
 
 class Source:
-    def __init__(self, source_score: int):
-        self.source = source_score
+    gnssId: GNSS
+    dataType: NavDataType
+
+    def __init__(self, gnssId, dataType):
+        self.gnssId = gnssId
+        self.dataType = dataType
+
+    def __str__(self):
+        return f'<Source: {self.gnssId.name}/{self.dataType.name}>'
+
+    def __repr__(self):
+        return str(self)
+
+    def __eq__(self, other):
+        return self.gnssId == other.gnssId and self.dataType == other.dataType
+
+    def __hash__(self):
+        return hash(self.gnssId.value + self.dataType.value)
 
     @staticmethod
-    def get(gnss: GNSS, ndt: NavDataType):
-        return Source(gnss.value + ndt.value)
-
-    @staticmethod
-    def divide(source):
-        return GNSS(source.source % 1000), NavDataType(round(source.source / 1000) * 1000)
-
-    @staticmethod
-    def multi_get(gnss_s: list[GNSS]):
+    def multi_get(gnss_s: list[GNSS], multi_gnss_task=False):
         result = []
-        result.append(Source.get(GNSS.receiver, NavDataType.receiver))
+        result.append(Source(GNSS.receiver, NavDataType.receiver))
+        if multi_gnss_task:
+            gnss_s.append(GNSS.ALL)
         for gnss in gnss_s:
-            result.append(Source.get(gnss, NavDataType.ALM))
-            result.append(Source.get(gnss, NavDataType.EPH))
+            result.append(Source(gnss, NavDataType.ALM))
+            result.append(Source(gnss, NavDataType.EPH))
         return result
 
+ReceiverSource = Source(GNSS.receiver, NavDataType.receiver)

@@ -94,13 +94,6 @@ def custom_min(*args):
     return np.nan
 
 
-optimize_methods = {
-    'LM': Minimizing.solve_navigation_task_LevMar,
-    'SQP': Minimizing.solve_navigation_task_SLSQP,
-    'TC': Minimizing.solve_navigation_task_TC,
-    'DB': Minimizing.solve_navigation_task_DogBox,
-    'TRF': Minimizing.solve_navigation_task_TRF,
-}
 
 
 # class TimeoutException(Exception):
@@ -123,6 +116,15 @@ def calc_GDOP(satellites, position):
     # PDOP = np.sqrt(Gx + Gy + Gz)
     # TDOP = np.sqrt(Gt)
     return float(np.sqrt(np.trace(Q)))
+
+optimize_methods = {
+    'LM': Minimizing.solve_navigation_task_LevMar,
+    'SQP': Minimizing.solve_navigation_task_SLSQP,
+    'TC': Minimizing.solve_navigation_task_TC,
+    'DB': Minimizing.solve_navigation_task_DogBox,
+    'TRF': Minimizing.solve_navigation_task_TRF,
+}
+
 
 def calc_receiver_coordinates(data_table: pd.DataFrame, solve_table: pd.DataFrame, stamp: TimeStamp, type):
     sats = data_table.copy()

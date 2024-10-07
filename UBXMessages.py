@@ -49,7 +49,7 @@ class UbxMessage(metaclass=ABCMeta):
     format: str = None
     header: (int, int) = None
 
-    data: dict
+    data: dict = None
     satellites: dict = None
 
     def __init__(self, receiving_stamp: int or datetime or TimeStamp = BASE_TIME_STAMP()):

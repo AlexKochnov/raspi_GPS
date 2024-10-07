@@ -46,8 +46,8 @@ class Satellite:
     ephemeris: SCC_Block = None
     almanac: SCC_Block = None
     history_prMes: list[(int, float)]
-    prMes: float or object
-    rcvTow: float
+    prMes: float or object = None
+    rcvTow: float = None
     nav_stamp: TimeStamp = None
     prRes: float = np.nan
     prRMSer: float = np.nan
@@ -82,23 +82,44 @@ class Satellite:
                 value = expected_type(value)
                 setattr(self, key, value)
 
-    def calc_position(self, rcvTow, week):
-        return self.almanac.get(rcvTow, week)
+    def calc_position(self, rcvTow, week, dataType: NavDataType):
+        if dataType == NavDataType.ALM:
+            return self.almanac.get(rcvTow, week)
+        else:
+            return self.ephemeris.get(rcvTow, week)
+
+    def get_calculation_dict(self, rcvTow, week, dataType: NavDataType):
+        af_dt, xyz = self.calc_position(rcvTow, week, dataType)
+        if xyz is None or self.prMes is None:
+            return None
+        return {
+            'X': xyz[0],
+            'Y': xyz[1],
+            'Z': xyz[2],
+            'af_dt': af_dt,
+            'prMes': self.prMes,
+            'nav_score': self.calc_nav_score(),
+            'svId': self.svId,
+            'gnssId': self.gnssId,
+        }
+
 
     def update_nav(self, data: dict, time_stamp: TimeStamp):
         self.nav_stamp = time_stamp
         self.__save_update__(data)
 
     def update_alm(self, data: dict):
-        self.almanac.update_parameters(data)
+        if data is not None:
+            self.almanac.update_parameters(data)
 
     def update_eph(self, data: dict):
-        self.ephemeris.update_parameters(data)
+        if data is not None:
+            self.ephemeris.update_parameters(data)
 
-    def update_prmes(self, data: dict):
+    def update_prmes(self, data: dict, rcvTow: float):
         # self.prMes = data['prMes']
-        # self.rcvTow = data['rcvTow']
-        self.history_prMes.append((data['rcvTow'], data['prMes']))
+        self.rcvTow = rcvTow
+        self.history_prMes.append((rcvTow, data['prMes']))
         self.__save_update__(data)
 
     def get_score(self) -> (int, int, int):
@@ -117,8 +138,8 @@ class Satellite:
         return 0
 
     def calc_eph_score(self):
-        return self.ephAvail
+        return self.ephAvail and self.almanac.check_parameters_valid()
 
     def calc_alm_score(self):
-        return self.almAvail
+        return self.almAvail and self.ephemeris.check_parameters_valid()
 
