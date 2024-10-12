@@ -60,19 +60,41 @@ class Entry:
     P: np.array
     GDOP: float
     source: Source
-    def __init__(self, stamp: TimeStamp, state: np.array or list, P: np.array, GDOP: float, source: Source,
-                 solve: dict=None):
+    # solve: dict
+    fval: float
+    derivative: np.array
+    scores: np.array
+    result: np.array or None
+    sat_count: float or int
+
+    def __init__(self, stamp: TimeStamp, state: np.array or list, P: np.array, GDOP: float, source: Source, **kwargs):
         self.stamp = stamp
         self.state = np.array(state)
         self.P = np.array(P)
         self.GDOP = float(GDOP)
         self.source = source
-        self.solve = dict(solve) if solve else {}
+        # self.solve = dict(solve) if solve else {}
+        self.fval = kwargs.get('fval', np.inf)
+        self.derivative = np.array(kwargs.get('derivative', np.inf))
+        self.scores = np.array(kwargs.get('scores', np.nan))
+        self.result = kwargs.get('result', None)
+        self.sat_count = kwargs.get('sat_count', np.nan)
+
+    def calc_scores(self):
+        self.scores = np.array([
+            np.trace(self.P),
+            self.GDOP,
+            norm(self.derivative),
+            self.fval
+        ])
 
 class LocalKalmanFilter:
     history: list[Entry]
+    weights = np.array([0, 1, 0, 0])
+
     def __init__(self):
         self.history = []
+        self.last_score = np.nan
 
     def __bool__(self):
         return bool(self.history)
@@ -95,7 +117,9 @@ class LocalKalmanFilter:
     def get_derivative(self):
         if len(self.history) <= 2:
             return np.nan
-        return self.history[-1].state - self.history[-2].state
+        dX = self.history[-1].state - self.history[-2].state
+        dT = self.history[-1].stamp - self.history[-2].stamp
+        return dX / dT
 
     def update(self, measurements, time_stamp, **kwargs):
         if not kwargs['success']:
@@ -103,24 +127,41 @@ class LocalKalmanFilter:
         last_state, last_P = (self.history[-1].state, self.history[-1].P) if len(self.history) > 0 else (None, None)
         flag, new_state, new_P = linear_kalman(measurements, last_state, last_P)
         if flag:
-            self.history.append(
-                Entry(time_stamp, new_state, new_P, kwargs['GDOP'], kwargs['source'],
-                      {'result': kwargs.get('result', None), 'fval': kwargs.get('fval', np.inf)})
-            )
+            self.history.append(Entry(time_stamp, new_state, new_P, **kwargs))
+            self.history[-1].derivative = self.get_derivative()
+            # когда ячейча собрана, нужно обновить очки
+            self.history[-1].calc_scores()
+            self.set_last_score()
 
+    def set_last_score(self):
+        score_list = []
+        last_scores = self.last.scores
+        for i, score in enumerate(last_scores):
+            if score != np.nan and score != np.inf:
+                score_list.append(LocalKalmanFilter.weights[i] * score)
+        self.last_score = sum(score_list)
+
+    def __eq__(self, other):
+        return self.last_score == other.last_score
+
+    def __lt__(self, other):
+        return self.last_score < other.last_score
+
+    def __gt__(self, other):
+        return self.last_score > other.last_score
 
 class FederatedKalmanFilter:
     history: list[Entry]
     filters: dict[Source, LocalKalmanFilter]
     last_time_stamp: TimeStamp or None
 
-    evaluation_funcs = [
-        lambda lkf: np.trace(lkf.last.P),
-        lambda lkf: lkf.last.GDOP,
-        lambda lkf: norm(lkf.get_derivative()),
-        lambda lkf: lkf.last.solve.get('fval', np.nan),
-    ]
-    weights = [0, 1, 0, 0]
+    # evaluation_funcs = [
+    #     lambda lkf: np.trace(lkf.last.P),
+    #     lambda lkf: lkf.last.GDOP,
+    #     lambda lkf: norm(lkf.get_derivative()),
+    #     lambda lkf: lkf.last.solve.get('fval', np.nan),
+    # ]
+    # weights = [0, 1, 0, 0]
 
     def __init__(self, used_sources: list[Source]):
         self.history = []
@@ -135,12 +176,18 @@ class FederatedKalmanFilter:
     def choose_next(self):
         if self.last_time_stamp is None:
             return
-        filterable = [lkf for lkf in self.filters.values() if lkf and lkf.last.stamp == self.last_time_stamp]
-        eps = [min(filterable, key=func) for func in self.evaluation_funcs]
+        filterable = [lkf for lkf in self.filters.values() if lkf and abs(lkf.last.stamp - self.last_time_stamp) < 0.1]
+        self.history.append(min(filterable).last)
 
-        selected_options = {self.weights[i] * self.evaluation_funcs[i](lkf): lkf for i, lkf in enumerate(eps)}
-        selected_lkf = min(selected_options.items(), key=lambda item: item[0])
-        self.history.append(selected_lkf[1].get_last())
+        a=0
+        # except:
+        #     a=0
+
+        # eps = [min(filterable, key=func) for func in self.evaluation_funcs]
+        #
+        # selected_options = {self.weights[i] * self.evaluation_funcs[i](lkf): lkf for i, lkf in enumerate(eps)}
+        # selected_lkf = min(selected_options.items(), key=lambda item: item[0])
+        # self.history.append(selected_lkf[1].get_last())
 
 
 

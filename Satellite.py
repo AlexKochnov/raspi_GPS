@@ -2,6 +2,7 @@ import typing
 
 import numpy as np
 
+import Constants
 from GNSS import GNSS, NavDataType
 from TimeStamp import TimeStamp
 
@@ -133,6 +134,8 @@ class Satellite:
         S_prRMSer = get_scores(self.prRMSer, 10, 40, BiggerBetter=False)
         S_prStedv = get_scores(self.prStedv, 10, 40, BiggerBetter=False)
         S_visibility = get_scores(self.visibility, 2, 3)
+        # если общая информация устарела не больше, чем на 10 сек
+        # nav_young = abs((self.rcvTow - self.nav_stamp.TOW) % Constants.week_seconds) < 10.5  if self.rcvTow else False
         if self.health and self.prValid == True:
             return S_quality * S_cno * S_prRes * S_prRMSer * S_prStedv * S_visibility
         return 0

@@ -1,4 +1,5 @@
 import struct
+from dataclasses import dataclass
 from datetime import datetime
 from abc import ABCMeta
 
@@ -43,7 +44,7 @@ def get_bytes_from_flag(flags: int, *pattern) -> int:
 def get_stamps(obj, svId: int, gnssId: GNSS) -> dict:
     return {'svId': svId, 'gnssId': gnssId} | {f'{obj.__class__.__name__}_stamp': obj.receiving_stamp}
 
-
+# @dataclass
 class UbxMessage(metaclass=ABCMeta):
     receiving_stamp: int or datetime = None
     format: str = None
@@ -55,6 +56,13 @@ class UbxMessage(metaclass=ABCMeta):
     def __init__(self, receiving_stamp: int or datetime or TimeStamp = BASE_TIME_STAMP()):
         self.receiving_stamp = receiving_stamp
         # self.receiving_stamp = receiving_stamp[1] * Constants.week_seconds + receiving_stamp[0]
+
+    # def __post_init__(self):
+    #     if self.data:
+    #         if 'TOW' in self.data:
+    #             self.receiving_stamp.TOW = self.data['TOW']
+    #         if 'week' in self.data:
+    #             self.receiving_stamp.week = self.data['week']
 
     @staticmethod
     def get_subclasses():
@@ -108,6 +116,8 @@ class RXM_RAWX(UbxMessage):
             'leapSec': get_bytes_from_flag(recStat, 0),
             'clkReset': get_bytes_from_flag(recStat, 1),
         }
+        self.receiving_stamp.week = week
+        self.receiving_stamp.TOW = round(rcvTow)
         for i in range(numMeas):
             prMes, cpMes, doMes, gnssId, svId, _, freqId, locktime, cno, prStedv, cpStedv, doStedv, trkStat, _ = \
                 struct.unpack('<ddfBBBBHBssssB', msg[32 * i: 32 * (i + 1)])
@@ -314,6 +324,7 @@ class RXM_SFRBX(UbxMessage):
         if gnssID == 6:
             id, StringN, superframeN, update_data = GLONASSSignalsParser.parse(msg)
             self.signal = update_data
+            self.signal |= { f'sfN{StringN}': superframeN }
             self.data['id'] = id # 0 -> данные для текущего спутника (или общие), иначе - id = svId полученных данных
             self.data['StringN'] = StringN
             self.data['superframeN'] = superframeN

@@ -2,6 +2,7 @@ import struct
 from time import sleep
 import traceback
 
+from fontTools.feaLib.ast import STATDesignAxisStatement
 from pynmeagps import NMEAMessage
 from serial import Serial
 
@@ -14,6 +15,7 @@ from DataStore import DataStore
 from GNSS import GNSS
 
 from NMEAMessages import tune_baudRate_message, NmeaMessage
+from Settings import START_ID
 from Storage import Storage
 
 # TODO: delete
@@ -239,11 +241,13 @@ def start_Storage():
 
 def start_DataStore():
     # reader = Reader("COM5")
-    reader = Reader(file='../rawOLD.log')
+    # reader = Reader(file='../rawOLD.log')
+    reader = Reader(file='raw_kuzm2.log')
+    # reader = Reader(file='raw1.log')
     # reader = Reader(file='ira_messages3.txt')
     storage = DataStore(GNSS.GPS)
     counter = 1
-    STEP = 4000
+    STEP = 10000
     # STEP = 100
 
     # import pymap3d as pm
@@ -257,13 +261,29 @@ def start_DataStore():
     # Settings.PrintParsedFlag = True
     # Settings.SaveRawFlag = False
     # Settings.SaveParsedFlag = False
-
+    empty_parsed = 0
     for parsed in reader:
         counter += 1
         storage.update(parsed)
         a=0
+        if not parsed:
+            empty_parsed += 1
+            if empty_parsed > 10:
+                storage.serialize()
+                print(counter)
+                print(START_ID)
+                exit()
         if counter % STEP == 0:
+
+            print(counter)
             b=0
+            # storage.serialize()
+            # print(Settings.START_ID)
+
+            # exit()
+    storage.serialize()
+    print(Settings.START_ID)
+    print(counter)
     a=0
 
 if __name__ == '__main__':
