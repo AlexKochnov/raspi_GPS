@@ -28,7 +28,7 @@ def get_glo_dNA(N4, NA, N):
     return N - NA - round((N-NA)/k)*k
 
 
-def calc_glo_eph_simple(eph, t1, NA, N4):
+def calc_glo_eph_simple(eph, t1, N, N4):
     X0 = eph['x']
     Vx0 = eph['dx']
     ddx = eph['ddx']
@@ -67,12 +67,12 @@ def calc_glo_eph_simple(eph, t1, NA, N4):
     #     # print(runer.t, runer.y.round(3))
     # # print(runer.t, runer.y.round(3))
     # return runer.y
-    res = solve_ivp(func, (tb, t1), y0, method='RK45', max_step=10, first_step=1)
+    res = solve_ivp(func, (tb, t1), y0, method='RK45', max_step=10, first_step=max(1, t1-tb))
     af_dt = eph['tau'] - eph['gamma'] * (t1 - tb)
     return af_dt, res.y[:, -1]
 
 
-def calc_glo_alm(alm, t1, NA, N4, hard=True):
+def calc_glo_alm(alm, t1, N, N4, hard=True):
     GM = Constants.mu
     ae = Constants.ae_glonass
     J20 = Constants.J20_glonass

@@ -54,14 +54,19 @@ class DataStore:
         :param message: UBXMessages or NMEAMessages - Новое сообщение
         :return:
         """
-        self.time_coorection(message)
+        if not isinstance(message, UBXMessages.UbxMessage or NMEAMessages.NmeaMessage):
+            return
+
+        self.time_correction(message)
 
         if isinstance(message, UBXMessages.UbxMessage):
             self.update_ubx(message)
+        elif isinstance(message, NMEAMessages.NmeaMessage):
+            pass
 
         self.check_tick(message)
 
-    def time_coorection(self, message: UBXMessages or NMEAMessages):
+    def time_correction(self, message: UBXMessages or NMEAMessages):
         """
         Коррекция времени нового сообщения или хранимой последней метки в хранилище
         :param message: UBXMessages or NMEAMessages - Новое сообщение
@@ -192,7 +197,7 @@ class DataStore:
 
     def serialize(self):
         """
-        Сериализация и сохранение рассчетов
+        Сериализация и сохранение расчетов
         :return:
         """
         folder = 'serialized_data\\'

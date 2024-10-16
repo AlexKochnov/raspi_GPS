@@ -245,9 +245,10 @@ def start_DataStore():
     reader = Reader(file='raw_kuzm2.log')
     # reader = Reader(file='raw1.log')
     # reader = Reader(file='ira_messages3.txt')
-    storage = DataStore(GNSS.GPS)
+    # storage = DataStore(GNSS.GPS)
+    storage = DataStore(GNSS.GPS, GNSS.GLONASS)
     counter = 1
-    STEP = 10000
+    STEP = 3000
     # STEP = 100
 
     # import pymap3d as pm
