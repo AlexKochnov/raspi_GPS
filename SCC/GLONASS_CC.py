@@ -69,7 +69,7 @@ def calc_glo_eph_simple(eph, t1, N, N4):
     # return runer.y
     res = solve_ivp(func, (tb, t1), y0, method='RK45', max_step=10, first_step=max(1, t1-tb))
     af_dt = eph['tau'] - eph['gamma'] * (t1 - tb)
-    return af_dt, res.y[:, -1]
+    return -af_dt, res.y[:, -1]
 
 
 def calc_glo_alm(alm, t1, N, N4, hard=True):
@@ -198,7 +198,7 @@ def calc_glo_alm(alm, t1, N, N4, hard=True):
     # Vz = Vr * (sin(u)*sin(i)) + Vu * (cos(u)*sin(i))
 
     af_dt = alm['tau_n']
-    return af_dt, np.array([X, Y, Z])
+    return -af_dt, np.array([X, Y, Z])
 
 
 def get_glo_eph_simple_func(eph):
