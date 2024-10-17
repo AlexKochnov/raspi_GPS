@@ -35,12 +35,12 @@ def calc_GDOP(satellites, position):
     return float(np.sqrt(np.trace(Q)))
 
 
-def solve_nav_task(satellites: list[Satellite], rcvTow, week, dataType: NavDataType, **kwargs):
+def solve_nav_task(satellites: list[Satellite], rcvTow, week, dataType: NavDataType, gnss_delay):
     sats = []
     for sat in satellites:
         di = sat.get_calculation_dict(rcvTow, week, dataType)
         if di:
-            di['prMesCorrected'] = di['prMes'] + Constants.c * di['af_dt']
+            di['prMesCorrected'] = di['prMes'] + Constants.c * di['af_dt'] + gnss_delay.get(sat.gnssId, 0)
             sats.append(di)
     sats.sort(key=lambda sat: sat['nav_score'], reverse=True)
     sats = sats[:Settings.MaximumMinimizingSatellitesCount]
