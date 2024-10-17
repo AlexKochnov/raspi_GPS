@@ -1,14 +1,12 @@
 import sys
-import pandas as pd
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, \
     QTextEdit, QTableView, QHeaderView, QLineEdit, QSizePolicy
-from PyQt5.QtGui import QIcon, QFont, QTextCursor
-from PyQt5.QtCore import Qt, QSize, QAbstractTableModel, QVariant, pyqtSignal, QObject, QThread
-import time
+from PyQt5.QtGui import QTextCursor
+from PyQt5.QtCore import Qt, QAbstractTableModel, QVariant, pyqtSignal, QObject, QThread
 
-import UBXMessages
-from Reader import Reader
-from Storage import Storage
+from Messages import UBXMessages
+from Messages.Reader import Reader
+from old_code.Storage import Storage
 
 
 # Основное окно приложения

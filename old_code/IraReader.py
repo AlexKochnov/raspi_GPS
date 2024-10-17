@@ -1,11 +1,4 @@
-from datetime import datetime
-
 import numpy as np
-import pandas as pd
-from scipy.optimize import curve_fit
-import Constants
-import Minimizing
-import Transformations
 
 file = open('ira_data2.txt', 'r')
 data = {}
@@ -160,8 +153,6 @@ for line in file.readlines():
 # res.lla = Transformations.ecef2lla(*res.x[:-1])
 # print(res)
 
-
-from scipy.optimize import minimize, curve_fit
 
 # xyzt0 = np.array(list(XYZ + np.array([1000, -1000, 300])) + [-8e-3*Constants.c])
 # print(xyzt0 - np.array(list(XYZ) + [dt]))

@@ -2,7 +2,6 @@ from enum import Enum
 
 import UBXMessages
 from UBXMessages import *
-from NMEAMessages import *
 
 
 class POOLMessages:

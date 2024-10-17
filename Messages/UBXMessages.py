@@ -1,11 +1,10 @@
 import struct
-from dataclasses import dataclass
 from datetime import datetime
 from abc import ABCMeta
 
 import GPSSingalsParser, GLONASSSignalsParser
-from TimeStamp import BASE_TIME_STAMP, TimeStamp
-from GNSS import GNSS
+from Utils.TimeStamp import BASE_TIME_STAMP, TimeStamp
+from Utils.GNSS import GNSS
 
 
 # BASE_TIME_STAMP = lambda : -1

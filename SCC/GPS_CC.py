@@ -1,11 +1,8 @@
-from math import pi, floor, sin, cos, atan, sqrt, tan, atan2
+from math import pi, sin, cos, atan, sqrt, tan
 
 import numpy as np
-import pandas as pd
 
-import Constants
-from GNSS import GNSS, NavDataType
-from TimeStamp import TimeStamp
+from Utils import Constants
 
 
 def check_gps_time(time):
@@ -165,7 +162,7 @@ def calc_gps_eph(EPH: dict or None, TOW, N) -> (float, np.array or None):
     Y = r_k * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik))
     Z = r_k * sin(u_k) * sin(ik)
 
-    af_dt = af0 + af1 * (TOW-Toc) + af2 * (TOW-Toc)**2 + Constants.F * e * sqrtA * sin(Ek)
+    af_dt = af0 + af1 * (TOW-Toc) + af2 * (TOW-Toc) ** 2 + Constants.F * e * sqrtA * sin(Ek)
 
     return af_dt, np.array([X, Y, Z])
 

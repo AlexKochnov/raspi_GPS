@@ -1,28 +1,24 @@
 import os
 import pickle
-import threading
 import traceback
 import numpy as np
-from numpy.linalg import inv, norm
+from numpy.linalg import inv
 import pandas as pd
 from datetime import datetime
 import concurrent.futures
 
 import pyubx2
 
-import Constants
-import Minimizing
-import Settings
-import Transformations
+from Storage import Minimizing
+from Utils import Settings, Constants, Transformations
 # from Messages import *
 # import Messages
-import UBXMessages
-import NMEAMessages
+from Messages import NMEAMessages, UBXMessages
 from NavTaskUtils import make_ae_nav_data
-from TimeStamp import TimeStamp
-from GNSS import GNSS, get_GNSS_len
+from Utils.TimeStamp import TimeStamp
+from Utils.GNSS import GNSS, get_GNSS_len
 from StorageColumnsLord import StorageColumnsLord as SCL
-from Transformations import lla2ecef
+from Utils.Transformations import lla2ecef
 
 # TODO: подлатать
 pd.set_option('future.no_silent_downcasting', True)
@@ -713,7 +709,7 @@ class Storage:
         #     self.general_data.at[self.general_data.index[-1], 'clkB'] = message.data['clkB']
         #     self.general_data.at[self.general_data.index[-1], 'clkD'] = message.data['clkD']
         elif isinstance(message, UBXMessages.NAV_TIMEGPS | UBXMessages.NAV_POSECEF | UBXMessages.NAV_VELECEF | \
-                        UBXMessages.NAV_CLOCK):
+                                 UBXMessages.NAV_CLOCK):
             assert isinstance(message.data, dict)
             self.update_param(message.data, 'iTOW', 'week', 'leapS', 'fTOW')
             if isinstance(message, UBXMessages.NAV_TIMEGPS):

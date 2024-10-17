@@ -1,6 +1,7 @@
-/error.log
-/parsed.log
-/raw.log
+/error*.log
+/parsed*.log
+/raw*.log
+/serialized_data/*
 /sfrbx_glonass_alm.csv
 /sfrbx_glonass_eph.csv
 /sfrbx_gps_alm.csv

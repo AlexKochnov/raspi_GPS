@@ -3,12 +3,11 @@ from datetime import datetime
 
 import numpy as np
 
-import Constants
 import Minimizing
-import Settings
-from GNSS import NavDataType
+from Utils import Settings, Constants
+from Utils.GNSS import NavDataType
 from Satellite import Satellite
-from TimeStamp import TimeStamp
+from Utils.TimeStamp import TimeStamp
 
 optimize_methods = {
     'LM': Minimizing.solve_navigation_task_LevMar,

@@ -2,9 +2,8 @@ import typing
 
 import numpy as np
 
-import Constants
-from GNSS import GNSS, NavDataType
-from TimeStamp import TimeStamp
+from Utils.GNSS import GNSS, NavDataType
+from Utils.TimeStamp import TimeStamp
 
 from SCC import SatellitesCoordinateCalculator as SCC
 

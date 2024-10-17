@@ -1,9 +1,7 @@
 from time import sleep
 
-from serial import Serial
-
-import Constants
-from UBXUtils import POOLMessages, calc_checksum, reset_module, tune_baudRate
+from Utils import Constants
+from UBXUtils import reset_module, tune_baudRate
 
 if __name__ == '__main__':
     port = Constants.SerialPort

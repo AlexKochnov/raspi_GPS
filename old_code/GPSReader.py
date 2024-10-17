@@ -1,11 +1,8 @@
-import math
-from math import sin, cos, tan
-from datetime import datetime, timedelta
+from datetime import datetime
 from time import sleep
 
 from pyubx2 import UBXReader
 # from matplotlib import pyplot as plt
-from serial import Serial
 
 import argparse
 
@@ -14,13 +11,12 @@ import UBXUnpacker
 from GPSStorage import GPSStorage
 from UBXUtils import *
 
-import Constants
+from Utils import Constants
 
-import numpy as np, pandas as pd
 # import matplotlib.pyplot as plt
 
 # TODO: убрать современем
-from pynmeagps import NMEAReader, NMEAMessage
+from pynmeagps import NMEAReader
 
 
 class GPSReader:

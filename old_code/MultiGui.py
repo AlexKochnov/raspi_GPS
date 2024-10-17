@@ -4,8 +4,8 @@ from threading import Thread
 from queue import Queue
 import pandas as pd
 
-from Storage import Storage
-from Reader import Reader
+from old_code.Storage import Storage
+from Messages.Reader import Reader
 
 
 class App:

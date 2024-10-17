@@ -1,7 +1,5 @@
 import numpy as np
 
-import Settings
-
 
 class StorageColumnsLord:
     NAV_ORB_columns = {'health': np.int8, 'visibility': np.int8, 'ephUsability': np.int8, 'ephSource': np.int8,

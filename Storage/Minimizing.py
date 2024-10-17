@@ -1,13 +1,9 @@
-import warnings
-from datetime import datetime
-
 import numpy as np
-from scipy.optimize import minimize, least_squares, differential_evolution, curve_fit
-from numpy.linalg import norm
-import Constants
-# from numba import jit
+from scipy.optimize import minimize, least_squares, differential_evolution
+from Utils import Constants, Transformations
 
-import Transformations
+
+# from numba import jit
 
 
 def residuals_df(params, satellites):
@@ -97,7 +93,7 @@ def solve_navigation_task_TC(satellites, Y0=None):
         options={'disp': True, 'maxiter': 500},
     )
     for i in range(len(satellites.T)):
-        print((np.linalg.norm(satellites[:3, i] - np.array(Constants.ECEF)) - satellites[-1, i])/Constants.c + result.x[-1]/Constants.c)
+        print((np.linalg.norm(satellites[:3, i] - np.array(Constants.ECEF)) - satellites[-1, i]) / Constants.c + result.x[-1] / Constants.c)
 
     print('constraint', constraint(result.x), Transformations.ecef2lla(*result.x[:-1])[2])
     return result

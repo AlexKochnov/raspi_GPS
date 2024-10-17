@@ -2,10 +2,9 @@ from abc import ABCMeta
 from cmath import pi
 from datetime import datetime
 
-import GPSSingalsParser
-from Constants import gps_epoch, tz_utc
-from GNSS import GNSS
-from TimeStamp import TimeStamp, BASE_TIME_STAMP
+from Utils.Constants import tz_utc
+from Utils.GNSS import GNSS
+from Utils.TimeStamp import TimeStamp, BASE_TIME_STAMP
 
 
 def calc_nmea_checksum(cmd):

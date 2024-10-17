@@ -1,8 +1,8 @@
 import numpy as np
 from numpy.linalg import inv, norm
 
-from GNSS import Source
-from TimeStamp import TimeStamp
+from Utils.GNSS import Source
+from Utils.TimeStamp import TimeStamp
 
 
 def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):

@@ -1,11 +1,10 @@
-import NMEAMessages
-import Settings
-import UBXMessages
+from Messages import NMEAMessages, UBXMessages
+from Utils import Settings
 from Filters import FederatedKalmanFilter
-from GNSS import GNSS, GNSSLen, Source, NavDataType, ReceiverSource
+from Utils.GNSS import GNSS, GNSSLen, Source, NavDataType, ReceiverSource
 from Satellite import Satellite
-from TimeStamp import TimeStamp
-from Transformations import ecef2lla
+from Utils.TimeStamp import TimeStamp
+from Utils.Transformations import ecef2lla
 
 from solve_nav_task import solve_nav_task
 import serialize

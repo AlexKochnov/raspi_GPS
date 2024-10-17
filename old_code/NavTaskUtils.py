@@ -1,10 +1,9 @@
 import numpy as np
 import pandas as pd
 
-import Constants
-import SatellitesCoordinateCalculator as SCC
-import Transformations
-from TimeStamp import TimeStamp
+from Utils import Constants, Transformations
+from old_code import SatellitesCoordinateCalculator as SCC
+from Utils.TimeStamp import TimeStamp
 
 
 """ 

@@ -2,25 +2,24 @@ import sys
 import traceback
 
 import numpy as np
-from PyQt5.QtGui import QFont, QTextCharFormat, QBrush, QColor, QCursor
+from PyQt5.QtGui import QFont, QTextCharFormat, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, \
-    QLineEdit, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QToolTip, QDialog
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt, QSize, QObject
+    QLineEdit, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QComboBox, QDialog
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt, QObject
 import pandas as pd
 
-import Settings
-import UBXMessages
-from GNSS import GNSS
+from Utils import Settings
+from Messages import UBXMessages
 # мои собственные готовые модули, которые имортируются и не зменяются
 from Storage import Storage, get_DynStorage
-from Reader import Reader
+from Messages.Reader import Reader
 
 from table_description import TABLE_DESCRIPTIONS, TABLE_DESCRIPTIONS2, TABLE_DESCRIPTIONS3
 
 import logging
 
 # Настройка логирования
-logging.basicConfig(filename='error.log',
+logging.basicConfig(filename='../error.log',
                     level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 

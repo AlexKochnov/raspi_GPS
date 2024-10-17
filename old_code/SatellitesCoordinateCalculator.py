@@ -1,14 +1,12 @@
-from enum import Enum
 from math import pi, floor, sin, cos, atan, sqrt, tan, atan2
-from scipy.integrate import RK45 , solve_ivp, odeint
-from scipy.integrate._ivp.ivp import OdeResult
+from scipy.integrate import solve_ivp
 
 import numpy as np
 import pandas as pd
 
-import Constants
-from GNSS import GNSS, NavDataType
-from TimeStamp import TimeStamp
+from Utils import Constants
+from Utils.GNSS import GNSS, NavDataType
+from Utils.TimeStamp import TimeStamp
 
 
 def check_gps_time(time):
@@ -169,7 +167,7 @@ def calc_gps_eph(EPH: pd.DataFrame or None, time, N):
     Y = r_k * (cos(u_k) * sin(Omega_k) + sin(u_k) * cos(Omega_k) * cos(ik))
     Z = r_k * sin(u_k) * sin(ik)
 
-    af_dt = af0 + af1 * (time-Toc) + af2 * (time-Toc)**2 + Constants.F * e * sqrtA * sin(Ek)
+    af_dt = af0 + af1 * (time-Toc) + af2 * (time-Toc) ** 2 + Constants.F * e * sqrtA * sin(Ek)
 
     return af_dt, X, Y, Z
 

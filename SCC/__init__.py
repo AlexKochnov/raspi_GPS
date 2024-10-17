@@ -1,9 +1,9 @@
 import numpy as np
 
-from GNSS import GNSS, NavDataType
+from Utils.GNSS import GNSS, NavDataType
 from .GPS_CC import calc_gps_alm, calc_gps_eph
 from .GLONASS_CC import calc_glo_alm, calc_glo_eph_simple
-from TimeStamp import TimeStamp
+from Utils.TimeStamp import TimeStamp
 
 
 class SatellitesCoordinateCalculator:

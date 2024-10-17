@@ -3,7 +3,7 @@
 import struct
 from serial import Serial
 
-import Constants
+from Utils import Constants
 
 
 def calc_checksum(cmd: bytes) -> bytes:

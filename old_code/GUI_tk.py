@@ -1,19 +1,14 @@
 import tkinter as tk
-from datetime import datetime
 from tkinter import ttk, scrolledtext
 
 import numpy as np
 import pandas as pd
 import threading
-import time
 
-import UBXMessages
-from Reader import Reader
-from Storage import Storage
+from Messages.Reader import Reader
+from old_code.Storage import Storage
 
 #TODO: delete (only for opening excel app)
-import subprocess
-import os
 
 class MainWindow(tk.Tk):
     def __init__(self):
