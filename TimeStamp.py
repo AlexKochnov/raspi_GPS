@@ -65,14 +65,14 @@ class TimeStamp:
     def dt2glonass(dt):
         delta = dt - Constants.glonass_epoch + timedelta(hours=3)
         N4 = delta.days // Constants.glonass_4years.days + 1
-        N = (delta.days % Constants.glonass_4years.days)
+        N = (delta.days % Constants.glonass_4years.days) + 1
         t = (delta - timedelta(days=delta.days)).total_seconds()
         t = TimeStamp.round_step(t, STEP)
         return N4, N, t
 
     @staticmethod
     def glo2dt(t1, N, N4):
-        dt_gl = Constants.glonass_epoch + timedelta(seconds=t1, days=N, hours=-3) + (N4 - 1) * Constants.glonass_4years
+        dt_gl = Constants.glonass_epoch + timedelta(seconds=t1, days=N - 1, hours=-3) + (N4 - 1) * Constants.glonass_4years
         return dt_gl
 
     @staticmethod

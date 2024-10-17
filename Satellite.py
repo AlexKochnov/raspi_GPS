@@ -41,6 +41,17 @@ class SCC_Block:
             return True
         return False
 
+    def check_glonass(self):
+        if self.scc.parameters.get('ln', 1) == 0:
+            #TODO: добавить проверку частично обновленных данных
+            sfNs = [self.scc.parameters.get(f'sfN{i}', None) for i in range(1, 5)]
+            if not None in sfNs:
+                mx = max(sfNs)
+                mi = min(sfNs)
+                if mx-mi <= 1: # данные постепенно приходят
+                    return True
+        return False
+
 class Satellite:
     gnssId: GNSS
     svId: int
