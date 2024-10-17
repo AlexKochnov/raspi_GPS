@@ -2,9 +2,9 @@ import math
 from datetime import datetime, timedelta
 from typing import Union
 
-import Constants
-from Constants import gps_epoch, leapS, week_seconds, tz_utc, STEP
-from GNSS import GNSS
+from Utils import Constants
+from Utils.Constants import gps_epoch, leapS, week_seconds, tz_utc, STEP
+from Utils.GNSS import GNSS
 
 
 class TimeStamp:

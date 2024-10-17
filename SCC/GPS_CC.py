@@ -1,5 +1,4 @@
 from math import pi, sin, cos, atan, sqrt, tan
-
 import numpy as np
 
 from Utils import Constants

@@ -2,10 +2,15 @@ import numpy as np
 import pandas as pd
 from numpy.linalg import norm
 
-from Filters import FederatedKalmanFilter, LocalKalmanFilter, Entry
+from Storage.Filters import FederatedKalmanFilter, LocalKalmanFilter, Entry
 
 
 def serialize_entry(entry: Entry) -> dict:
+    """
+    Функция сериализации записи об измерении или расчете местоположения
+    :param entry: Entry - преобразуемая запись
+    :return: dict - преобразованный словарь выбранных атрибутов
+    """
     return {
         'TOW': entry.stamp.TOW,
         'week': entry.stamp.week,
@@ -23,14 +28,25 @@ def serialize_entry(entry: Entry) -> dict:
     }
 
 def serialize_any_KF(kf: FederatedKalmanFilter or LocalKalmanFilter) -> pd.DataFrame:
-    df = pd.DataFrame(
-        data=[serialize_entry(entry) for entry in kf.history]
-        # columns=['TOW', 'week', 'state', 'P', 'GDOP', 'fval']
-    )
-    return df
+    """
+    Функция сериализации объекта Федеративного или Локального фильтров Калмана
+    :param kf: FederatedKalmanFilter or LocalKalmanFilter - сериализуемый фильтр
+    :return: pd.DataFrame - таблица с получаемыми данными
+    """
+    return pd.DataFrame([serialize_entry(entry) for entry in kf.history])
 
 def serialize_FKF(fkf: FederatedKalmanFilter):
+    """
+    Функция сериализации объекта федеративного фильтра Калмана
+    :param fkf: FederatedKalmanFilter - сериализуемый фильтр
+    :return: pd.DataFrame - таблица с получаемыми данными
+    """
     return serialize_any_KF(fkf)
 
 def serialize_LKF(lkf: LocalKalmanFilter):
+    """
+    Функция сериализации объекта федеративного фильтра Калмана
+    :param lkf: LocalKalmanFilter - сериализуемый фильтр
+    :return: pd.DataFrame - таблица с получаемыми данными
+    """
     return serialize_any_KF(lkf)

@@ -24,7 +24,7 @@ def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
     R = np.eye(N) * 1e-3
 
     U = np.zeros(1)
-    # try:
+
     if X_k0k0 is None or any(np.isnan(X_k0k0)):          # значение на предыдущем шаге
         X_k0k0 = np.zeros(N)
     if P_k0k0 is None or np.isnan(P_k0k0).any():          # ковариационная матрица
@@ -35,9 +35,6 @@ def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
         return False, [np.nan, np.nan, np.nan], np.nan # + np.zeros((3,3))
     else:
         Y = np.array(xyz_meas)      # измеренное значение на текущем шаге
-    # except Exception as e:
-    #     print(e)
-    #     a=0
 
     # прогноз
     X_k1k0 = A @ X_k0k0 + B @ U
@@ -49,9 +46,7 @@ def linear_kalman(xyz_meas, X_k0k0=None, P_k0k0=None):
     K = P_k1k0 @ C.T @ inv(S)
     X_k1k1 = X_k1k0 + K @ Z
     P_k1k1 = (I - K @ C) @ P_k1k0 @ (I - K @ C).T + K @ R @ K.T
-    # print('MATRIX:', P_k1k1)
-    # if np.random.randint(20) == 17:
-    #     a=0
+
     return True, list(X_k1k1), np.matrix(P_k1k1)
 
 class Entry:
@@ -60,7 +55,6 @@ class Entry:
     P: np.array
     GDOP: float
     source: Source
-    # solve: dict
     fval: float
     derivative: np.array
     scores: np.array
@@ -155,14 +149,6 @@ class FederatedKalmanFilter:
     filters: dict[Source, LocalKalmanFilter]
     last_time_stamp: TimeStamp or None
 
-    # evaluation_funcs = [
-    #     lambda lkf: np.trace(lkf.last.P),
-    #     lambda lkf: lkf.last.GDOP,
-    #     lambda lkf: norm(lkf.get_derivative()),
-    #     lambda lkf: lkf.last.solve.get('fval', np.nan),
-    # ]
-    # weights = [0, 1, 0, 0]
-
     def __init__(self, used_sources: list[Source]):
         self.history = []
         self.filters = {source: LocalKalmanFilter() for source in used_sources}
@@ -172,22 +158,8 @@ class FederatedKalmanFilter:
         self.filters[source].update(np.array(measurements), time_stamp, source=source, **solve)
         self.last_time_stamp = time_stamp
 
-
     def choose_next(self):
         if self.last_time_stamp is None:
             return
         filterable = [lkf for lkf in self.filters.values() if lkf and abs(lkf.last.stamp - self.last_time_stamp) < 0.1]
         self.history.append(min(filterable).last)
-
-        a=0
-        # except:
-        #     a=0
-
-        # eps = [min(filterable, key=func) for func in self.evaluation_funcs]
-        #
-        # selected_options = {self.weights[i] * self.evaluation_funcs[i](lkf): lkf for i, lkf in enumerate(eps)}
-        # selected_lkf = min(selected_options.items(), key=lambda item: item[0])
-        # self.history.append(selected_lkf[1].get_last())
-
-
-

@@ -1,24 +1,14 @@
 import numpy as np
 from scipy.optimize import minimize, least_squares, differential_evolution
+
 from Utils import Constants, Transformations
 
-
-# from numba import jit
-
-
 def residuals_df(params, satellites):
-    # xi, yi, zi, pr = satellites
-    # xi, yi, zi, pr = satellites[['X', 'Y', 'Z', 'prMes']].values.T
-    # x, y, z, cdt = params
-    # print(xi, yi, zi, pr, sep='\n')
-    # res = cdt - pr + np.sqrt((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2)
     res = params[-1] - satellites.T[:, -1] + np.linalg.norm(satellites.T[:, :-1] - params[:-1], axis=1)
     return res
 
-
 def jac_df(params, satellites):
     xi, yi, zi, pr = satellites
-    # xi, yi, zi, pr = satellites[['X', 'Y', 'Z', 'prMes']].values.T
     x, y, z, cdt = params
     rho = np.sqrt((x - xi) ** 2 + (y - yi) ** 2 + (z - zi) ** 2)
     J = np.zeros((len(xi), 4))
@@ -28,24 +18,18 @@ def jac_df(params, satellites):
     J[:, 3] = 1
     return J
 
-
 def constraint(xyzt):
     x, y, z, cdt = xyzt
-    # r = np.linalg.norm(np.array([x, y, z]))
     r = Transformations.ecef2lla(x, y, z)[2]
     H = 5000
     return H - abs(r)
 
-
 def get_func(satellites):
-    # return lambda xyzt: np.linalg.norm(residuals_df(xyzt, satellites))
     return lambda xyzt: sum([x**2 for x in residuals_df(xyzt, satellites)] )
 
 
 def get_jac(satellites):
-    # return lambda xyzt: np.linalg.norm(jac_df(xyzt, satellites), axis=0)
     return lambda xyzt: np.array([sum([y**2 for y in x])  for x in jac_df(xyzt, satellites).T])
-
 
 def solve_navigation_task_SLSQP(satellites, bounds=None, Y0=None):
     L = 50e6
@@ -68,7 +52,6 @@ def solve_navigation_task_SLSQP(satellites, bounds=None, Y0=None):
     )
     print('constraint', constraint(result.x),)
     return result
-
 
 def solve_navigation_task_TC(satellites, Y0=None):
     L = 50e6
@@ -98,20 +81,16 @@ def solve_navigation_task_TC(satellites, Y0=None):
     print('constraint', constraint(result.x), Transformations.ecef2lla(*result.x[:-1])[2])
     return result
 
-
 ## List Squares
 
 def solve_navigation_task_TRF(satellites):
     return solve_least_squares(satellites, 'trf')
 
-
 def solve_navigation_task_DogBox(satellites):
     return solve_least_squares(satellites, 'dogbox')
 
-
 def solve_navigation_task_LevMar(satellites):
     return solve_least_squares(satellites, 'lm')
-
 
 def solve_least_squares(satellites, method):
     initial_params = np.array([0.0, 0.0, 0.0, 0.0])
@@ -130,7 +109,6 @@ def solve_least_squares(satellites, method):
     )
     return result
 
-
 def solve_navigation_task_GO(satellites, bounds=None):
     L = 50e6
     if bounds is None:
@@ -140,4 +118,3 @@ def solve_navigation_task_GO(satellites, bounds=None):
         bounds,
         tol=1e-10,
     )
-

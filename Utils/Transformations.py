@@ -3,8 +3,7 @@ from math import sin, cos, radians, sqrt
 import numpy as np
 import pymap3d as pm
 
-import Constants
-
+from Utils import Constants
 
 def eci2lla(time, x, y, z):
     ecef = eci2ecef(time, x, y, z)

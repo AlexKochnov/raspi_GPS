@@ -1,5 +1,4 @@
 from math import pi, floor, sin, cos, atan, sqrt, tan, atan2
-
 import numpy as np
 from scipy.integrate import solve_ivp
 
@@ -25,7 +24,7 @@ def get_glo_dNA(N4, NA, N):
     return N - NA - round((N-NA)/k)*k
 
 
-def calc_glo_eph_simple(eph, t1, N, N4):
+def calc_glo_eph_simple(eph, t1, N, N4) -> (float, np.array or None):
     X0 = eph['x']
     Vx0 = eph['dx']
     ddx = eph['ddx']
@@ -69,7 +68,7 @@ def calc_glo_eph_simple(eph, t1, N, N4):
     return -af_dt, res.y[:, -1]
 
 
-def calc_glo_alm(alm, t1, N, N4, hard=True):
+def calc_glo_alm(alm, t1, N, N4, hard=True) -> (float, np.array or None):
     GM = Constants.mu
     ae = Constants.ae_glonass
     J20 = Constants.J20_glonass

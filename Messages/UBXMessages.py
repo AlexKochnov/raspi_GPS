@@ -2,7 +2,7 @@ import struct
 from datetime import datetime
 from abc import ABCMeta
 
-import GPSSingalsParser, GLONASSSignalsParser
+from Messages import GPSSingalsParser, GLONASSSignalsParser
 from Utils.TimeStamp import BASE_TIME_STAMP, TimeStamp
 from Utils.GNSS import GNSS
 

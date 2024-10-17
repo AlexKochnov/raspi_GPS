@@ -1,12 +1,11 @@
 import concurrent.futures
 from datetime import datetime
-
 import numpy as np
 
-import Minimizing
+from Storage import Minimizing
+from Storage.Satellite import Satellite
 from Utils import Settings, Constants
 from Utils.GNSS import NavDataType
-from Satellite import Satellite
 from Utils.TimeStamp import TimeStamp
 
 optimize_methods = {
@@ -17,8 +16,13 @@ optimize_methods = {
     'TRF': Minimizing.solve_navigation_task_TRF,
 }
 
-
-def calc_GDOP(satellites, position):
+def calc_GDOP(satellites: list[dict], position: np.array):
+    """
+    Расчет параметра геометрической точности GDOP
+    :param satellites: list[dict] - список спутников
+    :param position: np.array - рассчитанная точка оптимизации - положение и задержка
+    :return:
+    """
     X, Y, Z, cdt = position
     def calc_row(sat):
         dx, dy, dz = sat['X'] - X, sat['Y'] - Y, sat['Z'] - Z
@@ -34,7 +38,17 @@ def calc_GDOP(satellites, position):
     return float(np.sqrt(np.trace(Q)))
 
 
-def solve_nav_task(satellites: list[Satellite], rcvTow, week, dataType: NavDataType, gnss_delay):
+def solve_nav_task(satellites: list[Satellite], rcvTow: float, week: int, dataType: NavDataType, gnss_delay: dict):
+    """
+    Функция, решающая навигационную задачу в заданное время для заданного набора спутников по заданному типу данных
+    с использованием, при наличии, задержек каждой системы ГНСС отдельно
+    :param satellites: list[Satellite] - список спутников
+    :param rcvTow: float - время расчета
+    :param week: int - неделя расчета
+    :param dataType: NavDataType - тип данных и функции для расчета
+    :param gnss_delay: dict - словарь с задержками для разных систем ГНСС, пуст при использовании только одной
+    :return:
+    """
     sats = []
     for sat in satellites:
         di = sat.get_calculation_dict(rcvTow, week, dataType)
@@ -62,6 +76,10 @@ def solve_nav_task(satellites: list[Satellite], rcvTow, week, dataType: NavDataT
         return SOLVE
 
     def get_solve_line():
+        """
+        Функция решения задачи по подготовленным выше данным и с расчетом времени выполнения
+        :return:
+        """
         t = datetime.now(tz=Constants.tz_utc)
         res = method_func(data)
         solve = {

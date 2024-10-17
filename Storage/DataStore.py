@@ -1,15 +1,23 @@
 from Messages import NMEAMessages, UBXMessages
+from Storage.Filters import FederatedKalmanFilter
+from Storage.Satellite import Satellite
+from Storage.solve_nav_task import solve_nav_task
+from Storage import serialize
 from Utils import Settings
-from Filters import FederatedKalmanFilter
 from Utils.GNSS import GNSS, GNSSLen, Source, NavDataType, ReceiverSource
-from Satellite import Satellite
 from Utils.TimeStamp import TimeStamp
 from Utils.Transformations import ecef2lla
 
-from solve_nav_task import solve_nav_task
-import serialize
 
 class DataStore:
+    """
+    Класс для хранения всех собираемых и вычисляемых данных:
+    - satellites: dict[(GNSS, int), Satellite] - список данных каждого спутника
+    - parameters: dict - общие параметры
+    - filter_xyz, filter_lla: FederatedKalmanFilter - объекты фильтров для двух форматов координат - xyz и lla
+    - stamp: TimeStamp - последняя метка времени из сообщения, при ее явной передаче в нем
+    - queue: dict - словарь текущих сообщений, полученных в данном такте (целом периоде времени TOW в секундах)
+    """
     satellites: dict[(GNSS, int), Satellite]
     parameters: dict
     filter_xyz: FederatedKalmanFilter
@@ -20,7 +28,7 @@ class DataStore:
     multi_gnss_task: bool = False
     queue: dict = None
 
-    def __init__(self, *gnssId_s, multi_gnss_task=False):
+    def __init__(self, *gnssId_s: GNSS, multi_gnss_task=False):
         if not gnssId_s:
             gnssId_s = [GNSS.GPS]
         self.used_gnss = gnssId_s
@@ -201,7 +209,7 @@ class DataStore:
             for sat in message.satellites:
                 sat_stamp = (sat['gnssId'], sat['svId'])
                 if self.check_satellite(*sat_stamp):
-                    self.satellites[sat_stamp].update_prmes(sat, message.data['rcvTow'])
+                    self.satellites[sat_stamp].update_rawx(sat, message.data['rcvTow'])
             self.parameters['rcvTow'] = message.data['rcvTow']
 
     def serialize(self):
