@@ -1,4 +1,6 @@
 import struct
+from datetime import datetime
+from operator import truediv
 from time import sleep
 import traceback
 
@@ -242,11 +244,12 @@ def start_Storage():
 def start_DataStore():
     # reader = Reader("COM5")
     # reader = Reader(file='../rawOLD.log')
+    t1 = datetime.now()
     reader = Reader(file='raw_kuzm2.log')
     # reader = Reader(file='raw1.log')
     # reader = Reader(file='ira_messages3.txt')
     # storage = DataStore(GNSS.GPS)
-    storage = DataStore(GNSS.GPS, GNSS.GLONASS)
+    storage = DataStore(GNSS.GPS, GNSS.GLONASS, multi_gnss_task=True)
     counter = 1
     STEP = 3000
     # STEP = 100
@@ -257,8 +260,8 @@ def start_DataStore():
     # Constants.ECEF = pm.geodetic2ecef(*Constants.LLA)
     # FLAG = False
 
-    # Settings.PrintNoiseFlag = False
-    # Settings.PrintParsedFlag = False
+    Settings.PrintNoiseFlag = False
+    Settings.PrintParsedFlag = False
     # Settings.PrintParsedFlag = True
     # Settings.SaveRawFlag = False
     # Settings.SaveParsedFlag = False
@@ -282,9 +285,12 @@ def start_DataStore():
             # print(Settings.START_ID)
 
             # exit()
+    t2 = datetime.now()
     storage.serialize()
-    print(Settings.START_ID)
-    print(counter)
+    print(f'start_id: {Settings.START_ID}')
+    print(f'{counter} messages')
+    print((t2 - t1).total_seconds(), 'seconds for processing')
+    print((datetime.now()-t2).total_seconds(), 'seconds for saving')
     a=0
 
 if __name__ == '__main__':

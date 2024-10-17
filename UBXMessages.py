@@ -269,6 +269,7 @@ class RXM_MEASX(UbxMessage):
             = struct.unpack(self.format, msg[:struct.calcsize(self.format)])
         msg = msg[struct.calcsize(self.format):]
         flags = flag_to_int(flags)
+        self.receiving_stamp.TOW = round(gpsTOW / 1000)
         self.data = {
             'gpsTOW': gpsTOW,
             'gloTOW': gloTOW,

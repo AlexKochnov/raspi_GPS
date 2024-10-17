@@ -21,10 +21,12 @@ class DataStore:
     multi_gnss_task: bool = False
     queue: dict = None
 
-    def __init__(self, *gnssId_s):
+    def __init__(self, *gnssId_s, multi_gnss_task=False):
         if not gnssId_s:
             gnssId_s = [GNSS.GPS]
         self.used_gnss = gnssId_s
+
+        self.multi_gnss_task = multi_gnss_task
 
         self.satellites = {}
         for gnssId in gnssId_s:
@@ -74,13 +76,15 @@ class DataStore:
         """
         if message.data is not None:
             if 'iTOW' in message.data:
-                message.receiving_stamp.TOW = message.data['iTOW'] / 1000
+                message.receiving_stamp.TOW = round(message.data['iTOW'] / 1000)
             if 'week' in message.data:
                 self.parameters['week'] = message.data['week']
                 message.receiving_stamp.week = message.data['week']
         if 'week' in self.parameters:
             message.receiving_stamp.week = self.parameters['week']
-        self.stamp = message.receiving_stamp
+        if self.stamp != message.receiving_stamp:
+            self.stamp = message.receiving_stamp
+            self.queue.clear()
 
     def check_tick(self, message: UBXMessages or NMEAMessages):
         """
@@ -102,8 +106,10 @@ class DataStore:
             self.solve_nav_task_for_satellite_group(gnssId)
         if self.multi_gnss_task:
             self.solve_nav_task_for_satellite_group(GNSS.ALL)
+
         self.filter_xyz.choose_next()
         self.filter_lla.choose_next()
+
 
     def solve_nav_task_for_satellite_group(self, chosen_gnssId: GNSS):
         """
@@ -113,9 +119,13 @@ class DataStore:
         """
         ## Первая чистка: по GNSS ID
         if chosen_gnssId == GNSS.ALL:
-            chosen = self.satellites.items()
+            chosen = self.satellites.values()
+            gnss_delay = {gnss: 0 for gnss in self.used_gnss}
+            if GNSS.GLONASS in gnss_delay:
+                gnss_delay[GNSS.GLONASS] = - self.parameters.get('tau_gps', 0)
         else:
             chosen = [satellite for (gnssId, svId), satellite in self.satellites.items() if gnssId == chosen_gnssId]
+            gnss_delay = {}
 
         ## Вторая чистка:
         alm_sats = []
@@ -135,7 +145,7 @@ class DataStore:
         assert isinstance(rcvTow,float) and isinstance(week, int)
 
         for sats, type in zip([alm_sats, eph_sats], [NavDataType.ALM, NavDataType.EPH]):
-            solve = solve_nav_task(sats, rcvTow, week, type)
+            solve = solve_nav_task(sats, rcvTow, week, type, gnss_delay)
             if solve['success']:
                 xyz = solve['result'][:3]
                 lla = ecef2lla(*list(xyz))

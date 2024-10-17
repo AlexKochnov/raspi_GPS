@@ -63,7 +63,8 @@ class Source:
         result = []
         result.append(Source(GNSS.receiver, NavDataType.receiver))
         if multi_gnss_task:
-            gnss_s.append(GNSS.ALL)
+            result.append(Source(GNSS.ALL, NavDataType.ALM))
+            result.append(Source(GNSS.ALL, NavDataType.EPH))
         for gnss in gnss_s:
             result.append(Source(gnss, NavDataType.ALM))
             result.append(Source(gnss, NavDataType.EPH))
