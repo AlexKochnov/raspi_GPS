@@ -14,7 +14,7 @@ from Messages import UBXMessages
 from Storage import Storage, get_DynStorage
 from Messages.Reader import Reader
 
-from table_description import TABLE_DESCRIPTIONS, TABLE_DESCRIPTIONS2, TABLE_DESCRIPTIONS3
+from old_code.table_description import TABLE_DESCRIPTIONS, TABLE_DESCRIPTIONS2, TABLE_DESCRIPTIONS3
 
 import logging
 
