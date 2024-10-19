@@ -5,7 +5,7 @@ import traceback
 
 from serial import Serial
 
-import Messages
+from Messages import BaseMessages
 from Utils import Settings, Save
 from Messages import UBXMessages
 from Storage.DataStore import DataStore
@@ -64,6 +64,16 @@ class Reader:
         sleep(0.3)
         self.stream = Serial(port=self.port, baudrate=baudrate, timeout=self.timeout)
 
+    @staticmethod
+    def parse_full_line(line: bytes):
+        hdr, clsid, msgid, lenb, plb = line[:2], line[2:3], line[3:4], line[4:6], line[6:]
+        msg_class = UBXMessages.UbxMessage.byte_find(clsid, msgid)
+        if msg_class != UBXMessages.UbxMessage:
+            parsed = msg_class(plb, TimeStamp())  # , self.TOW or -1)
+        else:
+            parsed = ""
+        return parsed
+
     def tune_module(self, baudRate):
         self.new_stream(baudRate)
         self.stream.write(tune_baudRate_message(baudRate=Settings.BaseBaudRate))
@@ -73,7 +83,7 @@ class Reader:
         self.new_stream(Settings.BaseBaudRate)
         # self.stream.read(100)
         # print(f'Baudrate: {Settings.BaseBaudRate}, data: {self.stream.read(3000)}')
-        for message in Messages.tune_messages:
+        for message in BaseMessages.tune_messages:
             print(f'\tTune: {message}')
             self.stream.write(message)
         sleep(0.5)
@@ -90,9 +100,9 @@ class Reader:
 
 
     def pool_next(self):
-        if not Messages.pool_messages:
+        if not BaseMessages.pool_messages:
             return
-        cmd = Messages.pool_messages[self.pool_counter % len(Messages.pool_messages)]
+        cmd = BaseMessages.pool_messages[self.pool_counter % len(BaseMessages.pool_messages)]
         self.pool_counter += 1
         self.send(b'\xb5b' + cmd + UBXMessages.calc_ubx_checksum(cmd))
         print(f'\t#Pool: {cmd}')
@@ -127,6 +137,7 @@ class Reader:
         msg_class = UBXMessages.UbxMessage.byte_find(clsid, msgid)
         if msg_class != UBXMessages.UbxMessage:
             parsed = msg_class(plb, TimeStamp())#, self.TOW or -1)
+            parsed.raw = hdr + clsid + msgid + lenb + plb + cks
         else:
             parsed = UBXReader.parse(raw_message)
         Save.save_parsed(parsed)

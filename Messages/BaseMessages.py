@@ -1,7 +1,7 @@
 from enum import Enum
 
-import UBXMessages
-from UBXMessages import *
+from Messages import UBXMessages
+from Messages.UBXMessages import *
 
 
 class POOLMessages:

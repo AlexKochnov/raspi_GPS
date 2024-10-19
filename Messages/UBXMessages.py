@@ -137,7 +137,6 @@ class RXM_RAWX(UbxMessage):
                 'subHalfCyc': get_bytes_from_flag(trkStat, 3),
             } | get_stamps(self, svId, GNSS(gnssId)))
 
-
 class NAV_SAT(UbxMessage):
     format = '<LBBBB'
     header = (0x01, 0x35)
@@ -216,7 +215,6 @@ class NAV_ORB(UbxMessage):
                 'type': otherOrb // 32,
             } | get_stamps(self, svId, GNSS(gnssId)))
 
-
 class RXM_SVSI(UbxMessage):
     format = '<LhBB'
     header = (0x02, 0x20)
@@ -252,7 +250,6 @@ class RXM_SVSI(UbxMessage):
                 'ephAge': ((age_flag & 0xf0) >> 4) - 4,
             } | get_stamps(self, svId, GNSS.GPS))
 
-
 class RXM_MEASX(UbxMessage):
     format = '<B3sLLL4sLHHH2sHBs8s'
     header = (0x02, 0x14)
@@ -282,7 +279,7 @@ class RXM_MEASX(UbxMessage):
         }
         for i in range(numSV):
             gnssId, svId, cno, mpathIndic, dopplerMS, dopplerHz, wholeChips, fracChips, codePhase, intCodePhase, \
-                pseuRangeRMSErr, _ = struct.unpack('<BBBBllHHLBB2s', msg[+ i * 24: 24 * (i + 1)])
+                pseuRangeRMSErr, _ = struct.unpack('<BBBBllHHLBB2s', msg[i * 24: 24 * (i + 1)])
             self.satellites.append({
                 # 'cNo': cno, # carrier noise ratio (0..63) - коэффициент -> не то
                 'mpathIndic': mpathIndic,
@@ -295,7 +292,6 @@ class RXM_MEASX(UbxMessage):
                 'pseuRangeRMSErr': pseuRangeRMSErr, # индекс
                 'prRMSer': calc_prRMSer(pseuRangeRMSErr), # метры
             } | get_stamps(self, svId, GNSS(gnssId)))
-
 
 class RXM_SFRBX(UbxMessage):
     format = '<BBBBBBBB'
@@ -329,7 +325,6 @@ class RXM_SFRBX(UbxMessage):
             self.data['StringN'] = StringN
             self.data['superframeN'] = superframeN
 
-
 class NAV_TIMEGPS(UbxMessage):
     format = '<LlhbsL'
     header = (0x01, 0x20)
@@ -349,7 +344,6 @@ class NAV_TIMEGPS(UbxMessage):
             'leapSValid': get_bytes_from_flag(flags, 2),
         }
 
-
 class NAV_CLOCK(UbxMessage):
     format = '<LllLL'
     header = (0x01, 0x22)
@@ -364,7 +358,6 @@ class NAV_CLOCK(UbxMessage):
             'tAcc': tAcc,
             'fAcc': fAcc,
         }
-
 
 class NAV_DOP(UbxMessage):
     format = '<LHHHHHHH'
@@ -400,7 +393,6 @@ class NAV_POSECEF(UbxMessage):
             'pAcc': pAcc * 1e-2,
         }
 
-
 class NAV_VELECEF(UbxMessage):
     format = '<LlllL'
     header = (0x01, 0x11)
@@ -415,7 +407,6 @@ class NAV_VELECEF(UbxMessage):
             'ecefZ': ecefVZ,
             'pAcc': sAcc,
         }
-
 
 class AID_EPH(UbxMessage):
     format = '<LL'
@@ -433,7 +424,6 @@ class AID_EPH(UbxMessage):
         data2 = GPSSingalsParser.parse_aid(GPSSingalsParser.gps_join_sf(msg[32:64], 'AID'), 2)
         data3 = GPSSingalsParser.parse_aid(GPSSingalsParser.gps_join_sf(msg[64:], 'AID'), 3)
         self.data = data1 | data2 | data3
-
 
 class AID_ALM(UbxMessage):
     format = '<LL'

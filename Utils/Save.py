@@ -1,4 +1,4 @@
-from Settings import *
+from Utils.Settings import *
 
 
 def save_raw(message):
