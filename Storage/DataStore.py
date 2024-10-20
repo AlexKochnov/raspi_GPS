@@ -8,7 +8,6 @@ from Utils.GNSS import GNSS, GNSSLen, Source, NavDataType, ReceiverSource
 from Utils.TimeStamp import TimeStamp
 from Utils.Transformations import ecef2lla
 
-
 class DataStore:
     """
     Класс для хранения всех собираемых и вычисляемых данных:
@@ -29,6 +28,11 @@ class DataStore:
     queue: dict = None
 
     def __init__(self, *gnssId_s: GNSS, multi_gnss_task=False):
+        """
+        Инициализация объекта хранения и обработки всех данных
+        :param gnssId_s: list[GNSS] - список используемых ГНСС систем
+        :param multi_gnss_task: bool - флаг использования комбинации нескольких ГНСС одновременно для расчета положения
+        """
         if not gnssId_s:
             gnssId_s = [GNSS.GPS]
         self.used_gnss = gnssId_s
@@ -225,5 +229,3 @@ class DataStore:
             for source, lkf in fkf_filter.filters.items():
                 serialize.serialize_LKF(lkf).\
                     to_csv(f'{folder}lkf_{format}_{source.gnssId.name}_{source.dataType.name}_{Settings.START_ID}.csv')
-                a=0
-

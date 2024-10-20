@@ -6,7 +6,6 @@ from Utils.Constants import tz_utc
 from Utils.GNSS import GNSS
 from Utils.TimeStamp import TimeStamp, BASE_TIME_STAMP
 
-
 def calc_nmea_checksum(cmd):
     if cmd[0] == '$':
         cmd = cmd[1:]
@@ -16,7 +15,6 @@ def calc_nmea_checksum(cmd):
     for sym in cmd:
         checksum ^= ord(sym)
     return format(checksum, '02X')
-
 
 def tune_baudRate_message(baudRate):
     cmd = f'$PUBX,41,1,0007,0003,{baudRate},0'
@@ -103,9 +101,6 @@ class GGA(NmeaMessage):
             'lon': (LON//100 + (LON % 100) / 60) * (1 if EW == 'E' else -1),
             'alt': float(alt)
         }
-
-
-
 
 class PSTMSAT(NmeaMessage):
     header = 'PSTMSAT'

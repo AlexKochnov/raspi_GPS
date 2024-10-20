@@ -2,34 +2,41 @@ import struct
 from datetime import datetime
 from time import sleep
 import traceback
-
 from serial import Serial
 
 from Messages import BaseMessages
-from Utils import Settings, Save
 from Messages import UBXMessages
-from Storage.DataStore import DataStore
+from Messages.NMEAMessages import tune_baudRate_message, NmeaMessage
+from Utils import Settings, Save
+from Utils.TimeStamp import TimeStamp
+from Utils.Settings import START_ID
 from Utils.GNSS import GNSS
 
-from Messages.NMEAMessages import tune_baudRate_message, NmeaMessage
-from Utils.Settings import START_ID
-
-# TODO: delete
+# TODO: delete in long future
 from pyubx2 import UBXReader
 
-from Utils.TimeStamp import TimeStamp
-
-
 class Reader:
-    # storage: Storage = Storage()
-    read_counter = 0
-    pool_counter = 0
+    """
+    Класс для организации чтения данных с порта, его настройки и распаковки полученных сообщений
+    read_counter: int - счетчик прочитанных сообщений
+    pool_counter: int - счетчик отправленных сообщений
+    stream - поток чтения данных
+    file: bool - флаг чтения из файла, а не из потока
+    """
+    read_counter: int = 0
+    pool_counter: int = 0
 
-    TOW = None
     stream = None
-    file= False
+    file = False
 
     def __init__(self, port=Settings.SerialPort, baudRate=Settings.BaudRate, timeout=Settings.timeout, file=None):
+        """
+        Инициализация объекта управления портом и чтением сообщений
+        :param port: str - порт для чтения
+        :param baudRate: int - частота чтения
+        :param timeout: int - задержка timeout
+        :param file: str - путь к файлу логов для чтения при необходимости
+        """
         self.port = port
         self.baudRate = baudRate
         self.timeout = timeout
@@ -38,25 +45,39 @@ class Reader:
             self.file = True
         else:
             self.tune_module(baudRate)
-        a=0
 
-    def __iter__(self):
+    def __iter__(self) -> UBXMessages or UBXReader or NmeaMessage or str:
+        """
+        Запуск итератора для получения сообщений ц цикле
+        :return: UBXMessages or UBXReader or NmeaMessage or str - распакованное сообщение
+        """
         while True:
             yield self.next()
 
-    def update_TOW(self, TOW):
-        self.TOW = TOW
-
-    def send(self, message):
+    def send(self, message: bytes):
+        """
+        Функция отправки команды
+        :param message: bytes - команда
+        :return:
+        """
         if not self.file:
             self.stream.write(message)
 
-    def next(self):
+    def next(self) -> UBXMessages or UBXReader or NmeaMessage or str:
+        """
+        Функция для действий нового такта - отправка команды при необходимости и чление следующего сообщения
+        :return: UBXMessages or UBXReader or NmeaMessage or str - распакованное сообщение
+        """
         if self.read_counter % Settings.ReaderPoolStep == Settings.ReaderPoolStart:
             self.pool_next()
         return self.read_next_message()
 
-    def new_stream(self, baudrate=None):
+    def new_stream(self, baudrate: int=None):
+        """
+        Открытие порта заново
+        :param baudrate: int - частота порта
+        :return:
+        """
         if not baudrate:
             baudrate = self.baudRate
         if self.stream:
@@ -65,41 +86,42 @@ class Reader:
         self.stream = Serial(port=self.port, baudrate=baudrate, timeout=self.timeout)
 
     @staticmethod
-    def parse_full_line(line: bytes):
+    def parse_full_line(line: bytes) -> UBXMessages or str:
+        """
+        Функция распаковки сообщения не из порта
+        :param line: bytes - распаковываемое сообщение
+        :return: UBXMessages or str - распакованное сообщение или пустая строка
+        """
         hdr, clsid, msgid, lenb, plb = line[:2], line[2:3], line[3:4], line[4:6], line[6:]
         msg_class = UBXMessages.UbxMessage.byte_find(clsid, msgid)
         if msg_class != UBXMessages.UbxMessage:
-            parsed = msg_class(plb, TimeStamp())  # , self.TOW or -1)
+            parsed = msg_class(plb, TimeStamp())
         else:
             parsed = ""
         return parsed
 
-    def tune_module(self, baudRate):
+    def tune_module(self, baudRate: int):
+        """
+        Функция для настройки модуля
+        :param baudRate: int - частота связи по serial порты
+        :return:
+        """
         self.new_stream(baudRate)
         self.stream.write(tune_baudRate_message(baudRate=Settings.BaseBaudRate))
-        sleep(0.2)
-        # self.stream.read(100)
-        # print(f'Baudrate switched to: {Settings.BaseBaudRate}, data: {self.stream.read(3000)}')
         self.new_stream(Settings.BaseBaudRate)
-        # self.stream.read(100)
-        # print(f'Baudrate: {Settings.BaseBaudRate}, data: {self.stream.read(3000)}')
         for message in BaseMessages.tune_messages:
             print(f'\tTune: {message}')
             self.stream.write(message)
         sleep(0.5)
         self.stream.write(tune_baudRate_message(baudRate=Settings.BaudRate))
         sleep(0.2)
-        # self.stream.read(100)
-        # print(f': {Settings.BaudRate}, data: {self.stream.read(3000)}')
         self.new_stream(baudRate)
-        # self.stream.read(100)
-        # print(f'Baudrate: {Settings.BaudRate}, data: {self.stream.read(3000)}')
-        # for message in Messages.tune_messages:
-        #     print(f'\tTune: {message}')
-        #     self.stream.write(message)
-
 
     def pool_next(self):
+        """
+        Функция отправки команды на приемник
+        :return:
+        """
         if not BaseMessages.pool_messages:
             return
         cmd = BaseMessages.pool_messages[self.pool_counter % len(BaseMessages.pool_messages)]
@@ -107,7 +129,11 @@ class Reader:
         self.send(b'\xb5b' + cmd + UBXMessages.calc_ubx_checksum(cmd))
         print(f'\t#Pool: {cmd}')
 
-    def read_next_message(self):
+    def read_next_message(self) -> UBXMessages or UBXReader or NmeaMessage or str:
+        """
+        Функция чтения нового сообщения:
+        :return: UBXMessages or UBXReader or NmeaMessage or str - распакованное сообщение
+        """
         try:
             hdr1 = self.stream.read(1)
             if hdr1 == b'\xb5':
@@ -122,9 +148,12 @@ class Reader:
         except Exception as e:
             print(e)
             print(traceback.format_exc())
-            a=0
 
-    def parse_ubx(self):
+    def parse_ubx(self) -> UBXMessages or UBXReader:
+        """
+        Чтение и распаковка сообщения типа UBX
+        :return: распакованное сообщение
+        """
         hdr, clsid, msgid, lenb, plb, cks = self.read_ubx()
         if plb is None or clsid is None:
             return
@@ -136,7 +165,7 @@ class Reader:
             return
         msg_class = UBXMessages.UbxMessage.byte_find(clsid, msgid)
         if msg_class != UBXMessages.UbxMessage:
-            parsed = msg_class(plb, TimeStamp())#, self.TOW or -1)
+            parsed = msg_class(plb, TimeStamp())
             parsed.raw = hdr + clsid + msgid + lenb + plb + cks
         else:
             parsed = UBXReader.parse(raw_message)
@@ -145,7 +174,17 @@ class Reader:
             print(parsed)
         return parsed
 
-    def read_ubx(self):
+    def read_ubx(self ) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes]:
+        """
+        Чтение сообщения типа UBX
+        :return: tuple[bytes * 6]
+            - hdr: bytes - заголовок
+            - clsid: bytes - id класса сообщения
+            - msgid: bytes - id сообщения внутри класса
+            - lenb: bytes - длинна plb части сообщения в виде байт
+            - plb: bytes - часть с данными
+            - cks: bytes - чек-сумма
+        """
         hdr = b'\xb5' + self.stream.read(1)
         if hdr != b'\xb5b':
             return [None] * 6
@@ -161,33 +200,22 @@ class Reader:
         cks = self.stream.read(2)
         return hdr, clsid, msgid, lenb, plb, cks
 
-    def parse_nmea(self):
+    def parse_nmea(self) -> NmeaMessage or str:
+        """
+        Чтение и распаковка сообщения типа NMEA
+        :return: распакованное сообщение
+        """
         raw_message = b'$' + self.stream.readline()
         Save.save_raw(raw_message)
         if Settings.PrintRawFlag:
             print(raw_message)
-        # nmea_type = NMEAUnpacker.NmeaMessage.get_nmea_type(raw_message.decode('utf-8'))
         msg = raw_message.decode()
         msg_class = NmeaMessage.find(NmeaMessage.get_head(msg))
         if msg_class != NmeaMessage:
-            # try:
             parsed = msg_class(msg)
-            # except:
-            #     parsed = ''
         else:
             parsed = msg
-        # parsed = NMEAReader.parse(b'$' + raw_message)
-        # self.__save_parsed__(parsed)
-        # TODO: добавить что-то, когда будет нужна распаковка NMEA
-        # parsed = raw_message
-        # try:
         Save.save_parsed(str(parsed).replace('\n', ''))
-        # except:
-        #     pass
         if Settings.PrintParsedFlag:
             print(str(parsed).replace('\n', ''))
         return parsed
-
-
-
-
