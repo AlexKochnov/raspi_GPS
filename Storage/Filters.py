@@ -113,7 +113,10 @@ class LocalKalmanFilter:
             return np.nan
         dX = self.history[-1].state - self.history[-2].state
         dT = self.history[-1].stamp - self.history[-2].stamp
-        return dX / dT
+        try:
+            return dX / dT
+        except ZeroDivisionError | RuntimeWarning:
+            return dX / 1
 
     def update(self, measurements, time_stamp, **kwargs):
         if not kwargs['success']:

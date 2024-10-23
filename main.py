@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from pynmeagps import NMEAMessage
+
 from Messages.Reader import Reader
 from Utils import Settings
 from Storage.DataStore import DataStore
@@ -20,8 +22,11 @@ def start_DataStore():
     # Settings.SaveRawFlag = False
     # Settings.SaveParsedFlag = False
 
+    msgs = []
+
     empty_parsed = 0
     for parsed in reader:
+        msgs.append(parsed)
         counter += 1
         storage.update(parsed)
         if not parsed:
@@ -30,7 +35,6 @@ def start_DataStore():
                 break
         if counter % STEP == 0:
             print(counter)
-
     t2 = datetime.now()
     storage.serialize()
     print(f'start_id: {Settings.START_ID}')

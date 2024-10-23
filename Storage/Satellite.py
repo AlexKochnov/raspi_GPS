@@ -147,6 +147,10 @@ class Satellite:
         :return: dict or None - словарь данных для расчета
         """
         af_dt, xyz = self.calc_position(rcvTow, week, dataType)
+        if xyz is not None and not all(np.isnan(xyz)):
+            with open('satellite_table.csv', 'a') as file:
+                file.write(f'{week};{int(rcvTow)};{self.svId};{self.gnssId.value};{xyz[0]};{xyz[1]};{xyz[2]};{'a' if dataType == NavDataType.ALM else 'e'}\n')
+
         if xyz is None or self.prMes is None:
             return None
         return {
