@@ -154,7 +154,10 @@ class Reader:
         Чтение и распаковка сообщения типа UBX
         :return: распакованное сообщение
         """
-        hdr, clsid, msgid, lenb, plb, cks = self.read_ubx()
+        ubx_msg = self.read_ubx()
+        if ubx_msg is None:
+            return
+        hdr, clsid, msgid, lenb, plb, cks = ubx_msg
         if plb is None or clsid is None:
             return
         raw_message = hdr + clsid + msgid + lenb + plb + cks
@@ -174,7 +177,7 @@ class Reader:
             print(parsed)
         return parsed
 
-    def read_ubx(self ) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes]:
+    def read_ubx(self ) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes] or None :
         """
         Чтение сообщения типа UBX
         :return: tuple[bytes * 6]
@@ -187,7 +190,7 @@ class Reader:
         """
         hdr = b'\xb5' + self.stream.read(1)
         if hdr != b'\xb5b':
-            return [None] * 6
+            return None
         clsid = self.stream.read(1)
         msgid = self.stream.read(1)
         lenb = self.stream.read(2)

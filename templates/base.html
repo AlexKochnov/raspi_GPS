@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}{% endblock %}</title>
+    <!-- Подключение Bootstrap (если нужно для других частей) -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <style>
+    /* Стили для групп меню */
+    .menu-group {
+        display: flex;
+        align-items: center;
+        white-space: nowrap; /* Предотвращает перенос строк */
+        overflow-x: auto; /* Добавляет горизонтальную прокрутку при переполнении */
+    }
+    /* Стили для заголовка меню */
+    .menu-header {
+        font-weight: bold;
+        margin-right: 15px;
+        flex-shrink: 0; /* Предотвращает сжатие заголовка */
+    }
+    /* Стили для контейнера пунктов меню */
+    .menu-items {
+        display: flex;
+        flex-shrink: 0; /* Предотвращает сжатие списка */
+    }
+    /* Стили для ссылок меню */
+    .menu-link {
+        margin-right: 10px;
+        text-decoration: none;
+        color: #007bff;
+        padding: 0;
+        white-space: nowrap; /* Предотвращает перенос в ссылках */
+    }
+    .menu-link.active {
+        font-weight: bold;
+        color: #0056b3;
+    }
+    .menu-link:hover {
+        text-decoration: underline;
+    }
+
+    </style>
+</head>
+<body>
+    <!-- Отладочный вывод (можно удалить) -->
+    <!-- <pre>{{ menu_items | safe }}</pre> -->
+
+    <nav>
+        <div class="container">
+            {% for header, items in menu_items %}
+                <div class="menu-group">
+                    <!-- Заголовок меню -->
+                    <div class="menu-header">{{ header }}</div>
+                    <!-- Пункты меню -->
+                    <div class="menu-items">
+                        {% for name, url in items.items() %}
+                            <a class="menu-link {% if request.path == url %}active{% endif %}" href="{{ url }}">{{ name }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </nav>
+    <div class="container mt-4 table-container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Подключение jQuery и Bootstrap JS (если требуется для других частей) -->
+    <!-- <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script> -->
+    <!-- <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script> -->
+</body>
+</html>

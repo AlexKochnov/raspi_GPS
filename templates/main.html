@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+<h1>Сообщения</h1>
+<div id="msgs-container"></div>
+
+<style>
+    #msgs-container {
+        overflow-x: auto; /* Добавляет горизонтальную прокрутку при необходимости */
+    }
+    #msgs-container .message {
+        white-space: nowrap; /* Предотвращает перенос текста */
+        margin-bottom: 5px;  /* Отступ между сообщениями */
+    }
+</style>
+
+<script>
+function loadMsgs() {
+    fetch('/data_msgs')
+        .then(response => response.json())
+        .then(data => {
+            const msgsContainer = document.getElementById('msgs-container');
+            msgsContainer.innerHTML = '';
+            data.forEach(msg => {
+                const msgDiv = document.createElement('div');
+                msgDiv.classList.add('message');
+                msgDiv.innerHTML = msg; // Вставляем сообщение как HTML
+                msgsContainer.appendChild(msgDiv);
+            });
+        });
+}
+
+setInterval(loadMsgs, 1000);
+loadMsgs();
+</script>
+{% endblock %}
+
+<style>
+    #msgs-container {
+        overflow-x: auto;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+    }
+    #msgs-container .message {
+        white-space: nowrap;
+        margin-bottom: 5px;
+        padding: 5px;
+        background-color: #ffffff;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+</style>

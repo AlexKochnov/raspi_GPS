@@ -87,7 +87,7 @@ class TimeStamp:
         return self.week, self.TOW
 
     def __str__(self):
-        return f'<TS: {self.week}.{self.TOW}>'
+        return f'_|TS: {self.week}.{self.TOW}|_'
 
     def __repr__(self):
         return str(self)

@@ -130,13 +130,16 @@ class LocalKalmanFilter:
             self.history[-1].calc_scores()
             self.set_last_score()
 
-    def set_last_score(self):
+    @staticmethod
+    def calc_last_score(scores: list or np.array):
         score_list = []
-        last_scores = self.last.scores
-        for i, score in enumerate(last_scores):
+        for i, score in enumerate(scores):
             if score != np.nan and score != np.inf:
                 score_list.append(LocalKalmanFilter.weights[i] * score)
-        self.last_score = sum(score_list)
+        return sum(score_list)
+
+    def set_last_score(self):
+        self.last_score = self.calc_last_score(self.last.scores)
 
     def __eq__(self, other):
         return self.last_score == other.last_score

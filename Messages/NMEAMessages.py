@@ -54,9 +54,8 @@ class NmeaMessage(metaclass=ABCMeta):
                 res['satellites'] = self.satellites
         return res
 
-    def format_message(self, max_len) -> (str, str):
-        S = str(self.to_dict())
-        return f'{self.__class__.__name__}:', S[:min(len(S), max_len)]
+    def format_message(self):
+        return f'<strong>{self.__class__.__name__}:</strong>' + str(self.to_dict())
 
     @staticmethod
     def get_head(msg: str):
